@@ -9,6 +9,8 @@ import requests
 import base64
 from fpdf import FPDF
 import tempfile
+from PIL import Image
+from io import BytesIO
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestión de Servicios Adicionales", page_icon="🛡️", layout="wide")
@@ -114,7 +116,40 @@ def login():
             except Exception as db_err:
                 st.error(f"Error al consultar la base de datos: {db_err}")
 
-# --- GENERADOR DE PDF PARA EL ADMINISTRADOR ---
+# --- CONVERTIDOR DE LINK DE DRIVE A DESCARGA DIRECTA DE IMAGEN ---
+def obtener_imagen_desde_drive(url_drive):
+    try:
+        if not url_drive or not str(url_drive).startswith("http"):
+            return None
+        
+        # Extraer el ID del archivo de Google Drive
+        file_id = None
+        if "id=" in url_drive:
+            file_id = url_drive.split("id=")[1].split("&")[0]
+        elif "/d/" in url_drive:
+            file_id = url_drive.split("/d/")[1].split("/")[0]
+            
+        if not file_id:
+            return None
+            
+        # URL de descarga directa de Google Drive
+        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        response = requests.get(download_url, timeout=10)
+        
+        if response.status_code == 200 and len(response.content) > 1000:
+            image = Image.open(BytesIO(response.content))
+            # Convertir a RGB si es PNG con transparencia o CMYK
+            if image.mode in ("RGBA", "P"):
+                image = image.convert("RGB")
+            
+            tmp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+            image.save(tmp_img.name, "JPEG")
+            return tmp_img.name
+    except Exception:
+        pass
+    return None
+
+# --- GENERADOR DE PDF COMPLETO CON CONSTANCIAS ---
 def generar_pdf_servicio(row):
     pdf = FPDF()
     pdf.add_page()
@@ -159,21 +194,42 @@ def generar_pdf_servicio(row):
     pdf.cell(0, 6, f"CUIL / CUIT Facturación: {row.get('CUIL Pagador', '')}", ln=1)
     pdf.ln(3)
     
-    # Enlaces de Drive
+    # Enlaces de Drive como referencia textual
     pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 8, " 4. DOCUMENTACIÓN EN GOOGLE DRIVE", ln=True, fill=True)
+    pdf.cell(0, 8, " 4. ENLACES DIRECTOS A GOOGLE DRIVE", ln=True, fill=True)
     pdf.set_font("helvetica", "", 10)
     
     def agregar_enlace(titulo, url):
         if url and str(url).startswith("http"):
             pdf.cell(0, 6, f"- {titulo}: {url}", ln=True)
         else:
-            pdf.cell(0, 6, f"- {titulo}: No adjuntado / No disponible", ln=True)
+            pdf.cell(0, 6, f"- {titulo}: No disponible", ln=True)
 
-    agregar_enlace("Habilitación Municipal", row.get('Enlace Habilitación', ''))
-    agregar_enlace("Comprobante de Pago", row.get('Enlace Comprobante', ''))
-    agregar_enlace("Contrato de Adicional", row.get('Enlace Contrato', ''))
-    agregar_enlace("Planilla de Asistencia", row.get('Enlace Asistencia', ''))
+    agregar_enlace("Habilitación", row.get('Enlace Habilitación', ''))
+    agregar_enlace("Comprobante", row.get('Enlace Comprobante', ''))
+    agregar_enlace("Contrato", row.get('Enlace Contrato', ''))
+    agregar_enlace("Asistencia", row.get('Enlace Asistencia', ''))
+    
+    # --- ANEXAR CONSTANCIAS COMO IMÁGENES ---
+    archivos_a_anexar = [
+        ("CONSTANCIA: HABILITACIÓN MUNICIPAL", row.get('Enlace Habilitación', '')),
+        ("CONSTANCIA: COMPROBANTE DE PAGO", row.get('Enlace Comprobante', '')),
+        ("CONSTANCIA: CONTRATO DE ADICIONAL", row.get('Enlace Contrato', '')),
+        ("CONSTANCIA: PLANILLA DE ASISTENCIA", row.get('Enlace Asistencia', ''))
+    ]
+    
+    for titulo_anexo, url_archivo in archivos_a_anexar:
+        ruta_img = obtener_imagen_desde_drive(url_archivo)
+        if ruta_img:
+            pdf.add_page()
+            pdf.set_font("helvetica", "B", 12)
+            pdf.cell(0, 8, titulo_anexo, ln=True, align="center")
+            pdf.ln(5)
+            try:
+                # Insertar imagen centrada ajustada al ancho de página
+                pdf.image(ruta_img, x=15, y=30, w=180)
+            except Exception:
+                pdf.cell(0, 6, "(No se pudo renderizar la imagen del archivo)", ln=True, align="center")
     
     # Guardar temporalmente
     tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
@@ -413,7 +469,7 @@ def vista_admin():
             with col_m2: st.metric("Recaudación Total Consolidada", f"${monto_recaudado:,.2f}")
             
             st.markdown("---")
-            st.subheader("Gestión y Generación de Informes en PDF")
+            st.subheader("Gestión y Generación de Informes en PDF con Constancias")
             
             dependencias_disponibles = ["Todas"] + list(data['Dependencia'].unique()) if 'Dependencia' in data.columns else ["Todas"]
             dep_seleccionada = st.selectbox("Filtrar por Dependencia", options=dependencias_disponibles)
@@ -423,31 +479,32 @@ def vista_admin():
             else:
                 data_filtrada = data
                 
-            st.dataframe(data_filtrada, use_container_width=True)
+            st.dataframe(data_filtrada, use_container_width+True)
             
             st.markdown("---")
-            st.subheader("📥 Descargar o Compartir Informe PDF por Servicio")
+            st.subheader("📥 Descargar o Compartir Informe PDF (Con imágenes de Drive)")
             
-            # Selector para generar PDF individual
             if not data_filtrada.empty:
                 opciones_servicios = [f"{row['ID Servicio']} - {row['Dependencia']} ({row['Fecha Evento']} - {row['Tipo de Evento']})" for idx, row in data_filtrada.iterrows()]
-                servicio_elegido = st.selectbox("Seleccioná un servicio para generar su PDF", options=opciones_servicios)
+                servicio_elegido = st.selectbox("Seleccioná un servicio para generar el PDF completo", options=opciones_servicios)
                 
                 if servicio_elegido:
                     id_seleccionado = servicio_elegido.split(" - ")[0]
                     row_data = data_filtrada[data_filtrada['ID Servicio'].astype(str) == id_seleccionado].iloc[0]
                     
-                    pdf_path = generar_pdf_servicio(row_data)
-                    with open(pdf_path, "rb") as pdf_file:
-                        pdf_bytes = pdf_file.read()
-                        
-                    st.download_button(
-                        label="📄 Descargar PDF del Servicio (Listo para WhatsApp)",
-                        data=pdf_bytes,
-                        file_name=f"{id_seleccionado}_informe.pdf",
-                        mime="application/pdf",
-                        type="primary"
-                    )
+                    if st.button("🚀 Generar PDF con Constancias Adjuntas", type="primary"):
+                        with st.spinner("Descargando archivos desde Google Drive y armando PDF..."):
+                            pdf_path = generar_pdf_servicio(row_data)
+                            with open(pdf_path, "rb") as pdf_file:
+                                pdf_bytes = pdf_file.read()
+                                
+                        st.download_button(
+                            label="📥 Descargar PDF Final (Listo para enviar por WhatsApp)",
+                            data=pdf_bytes,
+                            file_name=f"{id_seleccionado}_informe_completo.pdf",
+                            mime="application/pdf",
+                            type="primary"
+                        )
         else:
             st.info("No hay servicios cargados en el sistema actualmente.")
             
