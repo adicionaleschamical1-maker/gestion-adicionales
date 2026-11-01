@@ -7,6 +7,8 @@ import math
 import os
 import requests
 import base64
+from fpdf import FPDF
+import tempfile
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestión de Servicios Adicionales", page_icon="🛡️", layout="wide")
@@ -111,6 +113,72 @@ def login():
                     st.error("DNI no registrado.")
             except Exception as db_err:
                 st.error(f"Error al consultar la base de datos: {db_err}")
+
+# --- GENERADOR DE PDF PARA EL ADMINISTRADOR ---
+def generar_pdf_servicio(row):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Encabezado
+    pdf.set_font("helvetica", "B", 16)
+    pdf.cell(0, 10, "INFORME DE SERVICIO ADICIONAL", ln=True, align="center")
+    pdf.set_font("helvetica", "I", 10)
+    pdf.cell(0, 6, f"ID de Solicitud: {row.get('ID Servicio', '')}", ln=True, align="center")
+    pdf.ln(5)
+    
+    # Datos Principales
+    pdf.set_font("helvetica", "B", 12)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(0, 8, " 1. DATOS GENERALES DEL EVENTO", ln=True, fill=True)
+    pdf.set_font("helvetica", "", 10)
+    
+    pdf.cell(95, 6, f"Dependencia: {row.get('Dependencia', '')}", ln=0)
+    pdf.cell(95, 6, f"Fecha: {row.get('Fecha Evento', '')}", ln=1)
+    pdf.cell(95, 6, f"Tipo de Evento: {row.get('Tipo de Evento', '')}", ln=0)
+    pdf.cell(95, 6, f"Horario: {row.get('Horario', '')}", ln=1)
+    pdf.cell(0, 6, f"Ubicación / Predio: {row.get('Ubicación Predio', '')}", ln=1)
+    pdf.cell(0, 6, f"Organizador: {row.get('Organizador', '')}", ln=1)
+    pdf.ln(3)
+    
+    # Personal y Módulos
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 8, " 2. RECURSOS Y MÓDULOS ASIGNADOS", ln=True, fill=True)
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(95, 6, f"Cantidad de Jefes: {row.get('Cant. Jefes', '')}", ln=0)
+    pdf.cell(95, 6, f"Cantidad de Subalternos: {row.get('Cant. Subalternos', '')}", ln=1)
+    pdf.cell(95, 6, f"Módulos (Turnos): {row.get('Módulos', '')}", ln=0)
+    pdf.cell(95, 6, f"Monto Total: ${row.get('Monto Total', 0):,.2f}", ln=1)
+    pdf.ln(3)
+    
+    # Facturación
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 8, " 3. DATOS DE FACTURACIÓN Y PAGO", ln=True, fill=True)
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(0, 6, f"Pagado por: {row.get('Pagador', '')}", ln=1)
+    pdf.cell(0, 6, f"CUIL / CUIT Facturación: {row.get('CUIL Pagador', '')}", ln=1)
+    pdf.ln(3)
+    
+    # Enlaces de Drive
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 8, " 4. DOCUMENTACIÓN EN GOOGLE DRIVE", ln=True, fill=True)
+    pdf.set_font("helvetica", "", 10)
+    
+    def agregar_enlace(titulo, url):
+        if url and str(url).startswith("http"):
+            pdf.cell(0, 6, f"- {titulo}: {url}", ln=True)
+        else:
+            pdf.cell(0, 6, f"- {titulo}: No adjuntado / No disponible", ln=True)
+
+    agregar_enlace("Habilitación Municipal", row.get('Enlace Habilitación', ''))
+    agregar_enlace("Comprobante de Pago", row.get('Enlace Comprobante', ''))
+    agregar_enlace("Contrato de Adicional", row.get('Enlace Contrato', ''))
+    agregar_enlace("Planilla de Asistencia", row.get('Enlace Asistencia', ''))
+    
+    # Guardar temporalmente
+    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    pdf.output(tmp_file.name)
+    return tmp_file.name
 
 def vista_dependencia():
     st.sidebar.write(f"🏢 **Dependencia:** {st.session_state.dependencia}")
@@ -337,7 +405,6 @@ def vista_admin():
         data = pd.DataFrame(sheet.get_all_records())
         
         if not data.empty:
-            # Métricas principales
             total_servicios = len(data)
             monto_recaudado = data['Monto Total'].sum() if 'Monto Total' in data.columns else 0
             
@@ -346,7 +413,7 @@ def vista_admin():
             with col_m2: st.metric("Recaudación Total Consolidada", f"${monto_recaudado:,.2f}")
             
             st.markdown("---")
-            st.subheader("Filtros y Visualización Global")
+            st.subheader("Gestión y Generación de Informes en PDF")
             
             dependencias_disponibles = ["Todas"] + list(data['Dependencia'].unique()) if 'Dependencia' in data.columns else ["Todas"]
             dep_seleccionada = st.selectbox("Filtrar por Dependencia", options=dependencias_disponibles)
@@ -357,6 +424,30 @@ def vista_admin():
                 data_filtrada = data
                 
             st.dataframe(data_filtrada, use_container_width=True)
+            
+            st.markdown("---")
+            st.subheader("📥 Descargar o Compartir Informe PDF por Servicio")
+            
+            # Selector para generar PDF individual
+            if not data_filtrada.empty:
+                opciones_servicios = [f"{row['ID Servicio']} - {row['Dependencia']} ({row['Fecha Evento']} - {row['Tipo de Evento']})" for idx, row in data_filtrada.iterrows()]
+                servicio_elegido = st.selectbox("Seleccioná un servicio para generar su PDF", options=opciones_servicios)
+                
+                if servicio_elegido:
+                    id_seleccionado = servicio_elegido.split(" - ")[0]
+                    row_data = data_filtrada[data_filtrada['ID Servicio'].astype(str) == id_seleccionado].iloc[0]
+                    
+                    pdf_path = generar_pdf_servicio(row_data)
+                    with open(pdf_path, "rb") as pdf_file:
+                        pdf_bytes = pdf_file.read()
+                        
+                    st.download_button(
+                        label="📄 Descargar PDF del Servicio (Listo para WhatsApp)",
+                        data=pdf_bytes,
+                        file_name=f"{id_seleccionado}_informe.pdf",
+                        mime="application/pdf",
+                        type="primary"
+                    )
         else:
             st.info("No hay servicios cargados en el sistema actualmente.")
             
