@@ -122,7 +122,6 @@ def obtener_imagen_desde_drive(url_drive):
         if not url_drive or not str(url_drive).startswith("http"):
             return None
         
-        # Extraer el ID del archivo de Google Drive
         file_id = None
         if "id=" in url_drive:
             file_id = url_drive.split("id=")[1].split("&")[0]
@@ -132,13 +131,11 @@ def obtener_imagen_desde_drive(url_drive):
         if not file_id:
             return None
             
-        # URL de descarga directa de Google Drive
         download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
         response = requests.get(download_url, timeout=10)
         
         if response.status_code == 200 and len(response.content) > 1000:
             image = Image.open(BytesIO(response.content))
-            # Convertir a RGB si es PNG con transparencia o CMYK
             if image.mode in ("RGBA", "P"):
                 image = image.convert("RGB")
             
@@ -226,12 +223,10 @@ def generar_pdf_servicio(row):
             pdf.cell(0, 8, titulo_anexo, ln=True, align="center")
             pdf.ln(5)
             try:
-                # Insertar imagen centrada ajustada al ancho de página
                 pdf.image(ruta_img, x=15, y=30, w=180)
             except Exception:
                 pdf.cell(0, 6, "(No se pudo renderizar la imagen del archivo)", ln=True, align="center")
     
-    # Guardar temporalmente
     tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(tmp_file.name)
     return tmp_file.name
@@ -406,117 +401,3 @@ def vista_dependencia():
                                             with st.spinner("Subiendo planilla..."):
                                                 payload_asist = {
                                                     "action": "subir_asistencia",
-                                                    "id_servicio": str(row['ID Servicio']),
-                                                    "file_asist_base64": base64.b64encode(file_asist.getvalue()).decode('utf-8'),
-                                                    "name_asist": f"{row['ID Servicio']}_asistencia.{file_asist.name.split('.')[-1]}",
-                                                    "type_asist": file_asist.type
-                                                }
-                                                resp = requests.post(URL_APPS_SCRIPT, json=payload_asist)
-                                                res_j = resp.json()
-                                                if res_j.get("status") == "success":
-                                                    st.success("¡Planilla subida y registrada con éxito!")
-                                                    st.rerun()
-                                                else:
-                                                    st.error(f"Error: {res_j.get('message')}")
-                                        else:
-                                            st.error("Seleccioná un archivo antes de enviar.")
-                else:
-                    st.info("No se encontró la columna de asistencia en la hoja.")
-            else:
-                st.info("Aún no hay servicios registrados en la base de datos.")
-        except Exception as e:
-            st.error(f"Error al cargar los pendientes: {e}")
-
-    with tab3:
-        st.header("Historial General de Servicios")
-        st.info(f"Listado completo de servicios registrados por **{st.session_state.dependencia}**.")
-        try:
-            client = conectar_google()
-            sheet = client.open("Gestion_Adicionales").worksheet("Servicios") if "Servicios" in [w.title for w in client.open("Gestion_Adicionales").worksheets()] else client.open("Gestion_Adicionales").sheet1
-            data = pd.DataFrame(sheet.get_all_records())
-            if not data.empty and 'Dependencia' in data.columns:
-                df_dep = data[data['Dependencia'].astype(str) == str(st.session_state.dependencia)]
-                if not df_dep.empty:
-                    st.dataframe(df_dep, use_container_width=True)
-                else:
-                    st.info("No hay registros en el historial.")
-            else:
-                st.info("Aún no hay datos cargados.")
-        except Exception as e:
-            st.error(f"Error al cargar historial: {e}")
-
-def vista_admin():
-    st.sidebar.write("👑 **Administrador General**")
-    st.sidebar.write(f"🏢 **Dependencia:** {st.session_state.dependencia}")
-    st.sidebar.write("👤 **Rol:** Administrador")
-    if st.sidebar.button("Cerrar Sesión"):
-        st.session_state.autenticado = False
-        st.rerun()
-        
-    st.title("📋 Panel de Control General - Administrador")
-    
-    try:
-        client = conectar_google()
-        sheet = client.open("Gestion_Adicionales").worksheet("Servicios") if "Servicios" in [w.title for w in client.open("Gestion_Adicionales").worksheets()] else client.open("Gestion_Adicionales").sheet1
-        data = pd.DataFrame(sheet.get_all_records())
-        
-        if not data.empty:
-            total_servicios = len(data)
-            monto_recaudado = data['Monto Total'].sum() if 'Monto Total' in data.columns else 0
-            
-            col_m1, col_m2 = st.columns(2)
-            with col_m1: st.metric("Total de Servicios Registrados", total_servicios)
-            with col_m2: st.metric("Recaudación Total Consolidada", f"${monto_recaudado:,.2f}")
-            
-            st.markdown("---")
-            st.subheader("Gestión y Generación de Informes en PDF con Constancias")
-            
-            dependencias_disponibles = ["Todas"] + list(data['Dependencia'].unique()) if 'Dependencia' in data.columns else ["Todas"]
-            dep_seleccionada = st.selectbox("Filtrar por Dependencia", options=dependencias_disponibles)
-            
-            if dep_seleccionada != "Todas":
-                data_filtrada = data[data['Dependencia'].astype(str) == str(dep_seleccionada)]
-            else:
-                data_filtrada = data
-                
-            st.dataframe(data_filtrada, use_container_width+True)
-            
-            st.markdown("---")
-            st.subheader("📥 Descargar o Compartir Informe PDF (Con imágenes de Drive)")
-            
-            if not data_filtrada.empty:
-                opciones_servicios = [f"{row['ID Servicio']} - {row['Dependencia']} ({row['Fecha Evento']} - {row['Tipo de Evento']})" for idx, row in data_filtrada.iterrows()]
-                servicio_elegido = st.selectbox("Seleccioná un servicio para generar el PDF completo", options=opciones_servicios)
-                
-                if servicio_elegido:
-                    id_seleccionado = servicio_elegido.split(" - ")[0]
-                    row_data = data_filtrada[data_filtrada['ID Servicio'].astype(str) == id_seleccionado].iloc[0]
-                    
-                    if st.button("🚀 Generar PDF con Constancias Adjuntas", type="primary"):
-                        with st.spinner("Descargando archivos desde Google Drive y armando PDF..."):
-                            pdf_path = generar_pdf_servicio(row_data)
-                            with open(pdf_path, "rb") as pdf_file:
-                                pdf_bytes = pdf_file.read()
-                                
-                        st.download_button(
-                            label="📥 Descargar PDF Final (Listo para enviar por WhatsApp)",
-                            data=pdf_bytes,
-                            file_name=f"{id_seleccionado}_informe_completo.pdf",
-                            mime="application/pdf",
-                            type="primary"
-                        )
-        else:
-            st.info("No hay servicios cargados en el sistema actualmente.")
-            
-    except Exception as e:
-        st.error(f"Error al cargar el panel de administración: {e}")
-
-if st.session_state.get("cambio_clave_requerido", False):
-    pantalla_cambio_clave()
-elif not st.session_state.autenticado:
-    login()
-else:
-    if st.session_state.rol == "Administrador":
-        vista_admin()
-    else:
-        vista_dependencia()
