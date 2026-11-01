@@ -4,13 +4,12 @@ import gspread
 from google.oauth2.service_account import Credentials
 import datetime
 import math
-import traceback
 import os
 import requests
 import base64
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Gestión de Servicios Adicionales", page_icon="🛡️", layout="centered")
+st.set_page_config(page_title="Gestión de Servicios Adicionales", page_icon="🛡️", layout="wide")
 
 # URL DE TU APLICACIÓN WEB DE APPS SCRIPT CONFIGURADA
 URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxqVp5T0fVGtPncuwkocbXbU5TSHLgPqgmD0A5pQ6CmuEU3C-UrGx2eZHxg2HTLUjU1/exec"
@@ -120,7 +119,7 @@ def vista_dependencia():
         st.session_state.autenticado = False
         st.rerun()
         
-    tab1, tab2 = st.tabs(["🟢 Cargar Nuevo Servicio", "🔵 Pendientes de Asistencia"])
+    tab1, tab2, tab3 = st.tabs(["🟢 Cargar Nuevo Servicio", "🔵 Pendientes de Asistencia", "📜 Historial de Servicios"])
     
     with tab1:
         st.header(f"Solicitud de Servicio Adicional - {st.session_state.dependencia}")
@@ -203,7 +202,9 @@ def vista_dependencia():
             
             submitted = st.form_submit_button("Enviar Solicitud")
             if submitted:
-                if file_hab and file_comp and organizador and tipo_evento and pagado_por and cuil_pagado_por and ubicacion_predio:
+                if total_jefes == 0 and total_subalternos == 0:
+                    st.error("⚠️ Debes asignar al menos un efectivo (Jefe o Subalterno) al servicio.")
+                elif file_hab and file_comp and organizador and tipo_evento and pagado_por and cuil_pagado_por and ubicacion_predio:
                     try:
                         with st.spinner("Subiendo archivos a la nube y registrando solicitud..."):
                             id_servicio = f"SERV-{int(datetime.datetime.now().timestamp())}"
@@ -247,7 +248,78 @@ def vista_dependencia():
 
     with tab2:
         st.header("Servicios Pendientes de Planilla de Asistencia")
-        st.info("Aquí aparecerán los servicios para adjuntar la asistencia.")
+        st.info(f"Mostrando servicios de: **{st.session_state.dependencia}**")
+        
+        try:
+            client = conectar_google()
+            sheet = client.open("Gestion_Adicionales").worksheet("Servicios") if "Servicios" in [w.title for w in client.open("Gestion_Adicionales").worksheets()] else client.open("Gestion_Adicionales").sheet1
+            data = pd.DataFrame(sheet.get_all_records())
+            
+            if not data.empty and 'Dependencia' in data.columns:
+                df_dep = data[data['Dependencia'].astype(str) == str(st.session_state.dependencia)]
+                col_asist = 'Enlace Asistencia' if 'Enlace Asistencia' in df_dep.columns else df_dep.columns[16] if len(df_dep.columns) > 16 else None
+                
+                if col_asist:
+                    df_pendientes = df_dep[df_dep[col_asist].astype(str).str.strip() == ""]
+                    
+                    if df_pendientes.empty:
+                        st.success("🎉 ¡No tenés servicios pendientes de asistencia!")
+                    else:
+                        st.warning(f"Tenés **{len(df_pendientes)}** servicio(s) pendiente(s) de adjuntar planilla.")
+                        
+                        for idx, row in df_pendientes.iterrows():
+                            with st.expander(f"📅 {row['Fecha Evento']} - {row['Tipo de Evento']} ({row['Ubicación Predio']}) [ID: {row['ID Servicio']}]"):
+                                st.write(f"**Organizador:** {row['Organizador']}")
+                                st.write(f"**Horario:** {row['Horario']} | **Módulos:** {row['Módulos']}")
+                                st.write(f"**Personal:** {row['Cant. Jefes']} Jefes / {row['Cant. Subalternos']} Subalternos")
+                                
+                                with st.form(f"form_asist_{row['ID Servicio']}"):
+                                    file_asist = st.file_uploader("Adjuntar Planilla de Asistencia Firmada", type=["png", "jpg", "jpeg", "pdf"], key=f"file_{row['ID Servicio']}")
+                                    sub_asist = st.form_submit_button("Subir Planilla de Asistencia")
+                                    
+                                    if sub_asist:
+                                        if file_asist:
+                                            with st.spinner("Subiendo planilla..."):
+                                                payload_asist = {
+                                                    "action": "subir_asistencia",
+                                                    "id_servicio": str(row['ID Servicio']),
+                                                    "file_asist_base64": base64.b64encode(file_asist.getvalue()).decode('utf-8'),
+                                                    "name_asist": f"{row['ID Servicio']}_asistencia.{file_asist.name.split('.')[-1]}",
+                                                    "type_asist": file_asist.type
+                                                }
+                                                resp = requests.post(URL_APPS_SCRIPT, json=payload_asist)
+                                                res_j = resp.json()
+                                                if res_j.get("status") == "success":
+                                                    st.success("¡Planilla subida y registrada con éxito!")
+                                                    st.rerun()
+                                                else:
+                                                    st.error(f"Error: {res_j.get('message')}")
+                                        else:
+                                            st.error("Seleccioná un archivo antes de enviar.")
+                else:
+                    st.info("No se encontró la columna de asistencia en la hoja.")
+            else:
+                st.info("Aún no hay servicios registrados en la base de datos.")
+        except Exception as e:
+            st.error(f"Error al cargar los pendientes: {e}")
+
+    with tab3:
+        st.header("Historial General de Servicios")
+        st.info(f"Listado completo de servicios registrados por **{st.session_state.dependencia}**.")
+        try:
+            client = conectar_google()
+            sheet = client.open("Gestion_Adicionales").worksheet("Servicios") if "Servicios" in [w.title for w in client.open("Gestion_Adicionales").worksheets()] else client.open("Gestion_Adicionales").sheet1
+            data = pd.DataFrame(sheet.get_all_records())
+            if not data.empty and 'Dependencia' in data.columns:
+                df_dep = data[data['Dependencia'].astype(str) == str(st.session_state.dependencia)]
+                if not df_dep.empty:
+                    st.dataframe(df_dep, use_container_width=True)
+                else:
+                    st.info("No hay registros en el historial.")
+            else:
+                st.info("Aún no hay datos cargados.")
+        except Exception as e:
+            st.error(f"Error al cargar historial: {e}")
 
 def vista_admin():
     st.sidebar.write("👑 **Administrador General**")
@@ -256,8 +328,40 @@ def vista_admin():
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.autenticado = False
         st.rerun()
-    st.title("📋 Panel de Control General")
-    st.info("Vista global y consolidada.")
+        
+    st.title("📋 Panel de Control General - Administrador")
+    
+    try:
+        client = conectar_google()
+        sheet = client.open("Gestion_Adicionales").worksheet("Servicios") if "Servicios" in [w.title for w in client.open("Gestion_Adicionales").worksheets()] else client.open("Gestion_Adicionales").sheet1
+        data = pd.DataFrame(sheet.get_all_records())
+        
+        if not data.empty:
+            # Métricas principales
+            total_servicios = len(data)
+            monto_recaudado = data['Monto Total'].sum() if 'Monto Total' in data.columns else 0
+            
+            col_m1, col_m2 = st.columns(2)
+            with col_m1: st.metric("Total de Servicios Registrados", total_servicios)
+            with col_m2: st.metric("Recaudación Total Consolidada", f"${monto_recaudado:,.2f}")
+            
+            st.markdown("---")
+            st.subheader("Filtros y Visualización Global")
+            
+            dependencias_disponibles = ["Todas"] + list(data['Dependencia'].unique()) if 'Dependencia' in data.columns else ["Todas"]
+            dep_seleccionada = st.selectbox("Filtrar por Dependencia", options=dependencias_disponibles)
+            
+            if dep_seleccionada != "Todas":
+                data_filtrada = data[data['Dependencia'].astype(str) == str(dep_seleccionada)]
+            else:
+                data_filtrada = data
+                
+            st.dataframe(data_filtrada, use_container_width=True)
+        else:
+            st.info("No hay servicios cargados en el sistema actualmente.")
+            
+    except Exception as e:
+        st.error(f"Error al cargar el panel de administración: {e}")
 
 if st.session_state.get("cambio_clave_requerido", False):
     pantalla_cambio_clave()
