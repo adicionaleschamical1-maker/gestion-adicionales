@@ -22,12 +22,10 @@ def conectar_google():
         "https://www.googleapis.com/auth/drive"
     ]
     try:
-        # Si estamos en Streamlit Cloud y configuramos los secrets
         if "gcp_service_account" in st.secrets:
             service_account_info = dict(st.secrets["gcp_service_account"])
             credentials = Credentials.from_service_account_info(service_account_info, scopes=scopes)
         else:
-            # Si estamos en local, busca el archivo credenciales.json
             ruta_json = os.path.join(os.path.dirname(__file__), "credenciales.json")
             if not os.path.exists(ruta_json):
                 ruta_json = "credenciales.json"
@@ -128,9 +126,9 @@ def vista_dependencia():
         st.header(f"Solicitud de Servicio Adicional - {st.session_state.dependencia}")
         fecha = st.date_input("Fecha del Evento", min_value=datetime.date.today())
         
-        eventos_habituales = ["Partido de Fútbol", "Baile / Recital", "Torneo Deportivo", "Evento Privado / Salón", "Acto Público", "Reunión Comercial"]
-        tipo_evento = st.selectbox("Tipo de Evento", options=eventos_habituales, index=0)
-        organizador = st.text_input("Nombre / Razón Social del Organizador")
+        st.subheader("📋 Datos del Evento")
+        tipo_evento = st.text_input("Tipo de Evento (Ej: Partido de fútbol, Baile, Recital, etc.)")
+        organizador = st.text_input("Nombre Completo y DNI del Organizador")
         ubicacion_predio = st.text_input("Ubicación / Predio del Evento")
         
         col_h1, col_h2 = st.columns(2)
@@ -186,7 +184,17 @@ def vista_dependencia():
         st.success(f"💰 **Monto Total a Pagar: ${monto_total:,.2f}**")
         
         with st.form("form_envio"):
-            pagado_por = st.text_input("Nombre y DNI de quien hizo el Pago")
+            st.subheader("💳 Datos de Facturación y Pago")
+            mismo_organizador = st.checkbox("¿El que paga es el mismo organizador?", value=True)
+            
+            if mismo_organizador:
+                pagado_por = organizador
+                cuil_pagado_por = st.text_input("CUIL / CUIT de Facturación (del Organizador)")
+            else:
+                col_p1, col_p2 = st.columns(2)
+                with col_p1: pagado_por = st.text_input("Nombre y DNI de quien paga")
+                with col_p2: cuil_pagado_por = st.text_input("CUIL / CUIT de Facturación")
+                
             st.markdown("---")
             st.subheader("📎 Documentación (Archivos)")
             file_hab = st.file_uploader("Habilitación Municipal (Obligatorio)", type=["png", "jpg", "jpeg", "pdf"])
@@ -195,7 +203,7 @@ def vista_dependencia():
             
             submitted = st.form_submit_button("Enviar Solicitud")
             if submitted:
-                if file_hab and file_comp and organizador and pagado_por and ubicacion_predio:
+                if file_hab and file_comp and organizador and tipo_evento and pagado_por and cuil_pagado_por and ubicacion_predio:
                     try:
                         with st.spinner("Subiendo archivos a la nube y registrando solicitud..."):
                             id_servicio = f"SERV-{int(datetime.datetime.now().timestamp())}"
@@ -204,13 +212,16 @@ def vista_dependencia():
                                 "id_servicio": id_servicio,
                                 "dependencia": str(st.session_state.dependencia),
                                 "fecha_evento": str(fecha),
-                                "organizador": f"{tipo_evento} - {ubicacion_predio}",
+                                "tipo_evento": str(tipo_evento),
+                                "organizador": str(organizador),
+                                "ubicacion": str(ubicacion_predio),
                                 "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
                                 "cant_jefes": int(total_jefes),
                                 "cant_subalternos": int(total_subalternos),
                                 "modulos": int(max_modulos),
                                 "monto_total": float(monto_total),
                                 "pagado_por": str(pagado_por),
+                                "cuil_pagado_por": str(cuil_pagado_por),
                                 "file_hab_base64": base64.b64encode(file_hab.getvalue()).decode('utf-8'),
                                 "name_hab": f"{id_servicio}_habilitacion.{file_hab.name.split('.')[-1]}",
                                 "type_hab": file_hab.type,
@@ -232,7 +243,7 @@ def vista_dependencia():
                     except Exception as e:
                         st.error(f"Error al enviar: {e}")
                 else:
-                    st.error("Completá todos los campos obligatorios y adjuntá los archivos.")
+                    st.error("Completá todos los campos obligatorios (incluyendo CUIL y tipo de evento) y adjuntá los archivos.")
 
     with tab2:
         st.header("Servicios Pendientes de Planilla de Asistencia")
