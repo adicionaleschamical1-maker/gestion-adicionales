@@ -57,6 +57,8 @@ if "rol" not in st.session_state:
     st.session_state.rol = None
 if "cambio_clave_requerido" not in st.session_state:
     st.session_state.cambio_clave_requerido = False
+if "form_counter" not in st.session_state:
+    st.session_state.form_counter = 0
 
 def pantalla_cambio_clave():
     st.title("🔑 Definir Nueva Contraseña Personal")
@@ -242,16 +244,20 @@ def vista_dependencia():
     
     with tab1:
         st.header(f"Solicitud de Servicio Adicional - {st.session_state.dependencia}")
-        fecha = st.date_input("Fecha del Evento", min_value=datetime.date.today())
+        
+        # Usamos un contador en la session_state para reiniciar el formulario al re-ejecutar
+        f_key = f"form_envio_{st.session_state.form_counter}"
+        
+        fecha = st.date_input("Fecha del Evento", min_value=datetime.date.today(), key=f"fecha_{st.session_state.form_counter}")
         
         st.subheader("📋 Datos del Evento")
-        tipo_evento = st.text_input("Tipo de Evento (Ej: Partido de fútbol, Baile, Recital, etc.)")
-        organizador = st.text_input("Nombre Completo y DNI del Organizador")
-        ubicacion_predio = st.text_input("Ubicación / Predio del Evento")
+        tipo_evento = st.text_input("Tipo de Evento (Ej: Partido de fútbol, Baile, Recital, etc.)", key=f"tipo_{st.session_state.form_counter}")
+        organizador = st.text_input("Nombre Completo y DNI del Organizador", key=f"org_{st.session_state.form_counter}")
+        ubicacion_predio = st.text_input("Ubicación / Predio del Evento", key=f"ubi_{st.session_state.form_counter}")
         
         col_h1, col_h2 = st.columns(2)
-        with col_h1: hora_inicio = st.time_input("Hora de Inicio", value=datetime.time(20, 0))
-        with col_h2: hora_fin = st.time_input("Hora de Fin", value=datetime.time(4, 0))
+        with col_h1: hora_inicio = st.time_input("Hora de Inicio", value=datetime.time(20, 0), key=f"h_ini_{st.session_state.form_counter}")
+        with col_h2: hora_fin = st.time_input("Hora de Fin", value=datetime.time(4, 0), key=f"h_fin_{st.session_state.form_counter}")
             
         dt_inicio = datetime.datetime.combine(datetime.date.today(), hora_inicio)
         dt_fin = datetime.datetime.combine(datetime.date.today(), hora_fin)
@@ -269,26 +275,26 @@ def vista_dependencia():
         if max_modulos >= 1:
             st.markdown("**Turno Simple (1 Módulo - 4 horas)**")
             c1, c2 = st.columns(2)
-            with c1: jefes_mod1 = st.number_input("Jefes (Simple)", 0, step=1, key="j1")
-            with c2: subs_mod1 = st.number_input("Subalternos (Simple)", 0, step=1, key="s1")
+            with c1: jefes_mod1 = st.number_input("Jefes (Simple)", 0, step=1, key=f"j1_{st.session_state.form_counter}")
+            with c2: subs_mod1 = st.number_input("Subalternos (Simple)", 0, step=1, key=f"s1_{st.session_state.form_counter}")
                 
         if max_modulos >= 2:
             st.markdown("**Turno Doble (2 Módulos - 8 horas)**")
             c3, c4 = st.columns(2)
-            with c3: jefes_mod2 = st.number_input("Jefes (Doble)", 0, step=1, key="j2")
-            with c4: subs_mod2 = st.number_input("Subalternos (Doble)", 0, step=1, key="s2")
+            with c3: jefes_mod2 = st.number_input("Jefes (Doble)", 0, step=1, key=f"j2_{st.session_state.form_counter}")
+            with c4: subs_mod2 = st.number_input("Subalternos (Doble)", 0, step=1, key=f"s2_{st.session_state.form_counter}")
 
         if max_modulos >= 3:
             st.markdown("**Turno Triple (3 Módulos - 12 horas)**")
             c5, c6 = st.columns(2)
-            with c5: jefes_mod3 = st.number_input("Jefes (Triple)", 0, step=1, key="j3")
-            with c6: subs_mod3 = st.number_input("Subalternos (Triple)", 0, step=1, key="s3")
+            with c5: jefes_mod3 = st.number_input("Jefes (Triple)", 0, step=1, key=f"j3_{st.session_state.form_counter}")
+            with c6: subs_mod3 = st.number_input("Subalternos (Triple)", 0, step=1, key=f"s3_{st.session_state.form_counter}")
 
         if max_modulos >= 4:
             st.markdown("**Turno Cuádruple (4 Módulos - 16 horas)**")
             c7, c8 = st.columns(2)
-            with c7: jefes_mod4 = st.number_input("Jefes (Cuádruple)", 0, step=1, key="j4")
-            with c8: subs_mod4 = st.number_input("Subalternos (Cuádruple)", 0, step=1, key="s4")
+            with c7: jefes_mod4 = st.number_input("Jefes (Cuádruple)", 0, step=1, key=f"j4_{st.session_state.form_counter}")
+            with c8: subs_mod4 = st.number_input("Subalternos (Cuádruple)", 0, step=1, key=f"s4_{st.session_state.form_counter}")
 
         total_jefes = jefes_mod1 + jefes_mod2 + jefes_mod3 + jefes_mod4
         total_subalternos = subs_mod1 + subs_mod2 + subs_mod3 + subs_mod4
@@ -301,7 +307,7 @@ def vista_dependencia():
         st.markdown("---")
         st.success(f"💰 **Monto Total a Pagar: ${monto_total:,.2f}**")
         
-        with st.form("form_envio"):
+        with st.form(f_key):
             st.subheader("💳 Datos de Facturación y Pago")
             mismo_organizador = st.checkbox("¿El que paga es el mismo organizador?", value=True)
             
@@ -315,9 +321,9 @@ def vista_dependencia():
                 
             st.markdown("---")
             st.subheader("📎 Documentación (Archivos)")
-            file_hab = st.file_uploader("Habilitación Municipal (Obligatorio)", type=["png", "jpg", "jpeg", "pdf"])
-            file_comp = st.file_uploader("Comprobante de Pago (Obligatorio)", type=["png", "jpg", "jpeg", "pdf"])
-            file_cont = st.file_uploader("Contrato de Adicional (Opcional)", type=["png", "jpg", "jpeg", "pdf"])
+            file_hab = st.file_uploader("Habilitación Municipal (Obligatorio)", type=["png", "jpg", "jpeg", "pdf"], key=f"hab_{st.session_state.form_counter}")
+            file_comp = st.file_uploader("Comprobante de Pago (Obligatorio)", type=["png", "jpg", "jpeg", "pdf"], key=f"comp_{st.session_state.form_counter}")
+            file_cont = st.file_uploader("Contrato de Adicional (Opcional)", type=["png", "jpg", "jpeg", "pdf"], key=f"cont_{st.session_state.form_counter}")
             
             submitted = st.form_submit_button("Enviar Solicitud")
             if submitted:
@@ -357,7 +363,10 @@ def vista_dependencia():
                             res_json = response.json()
                             
                             if res_json.get("status") == "success":
-                                st.success("¡Solicitud y archivos enviados con éxito a tu Google Drive y Sheet!")
+                                st.success("¡Solicitud y archivos enviados con éxito! Limpiando formulario...")
+                                # Incrementamos el contador para forzar la recreación limpia del formulario
+                                st.session_state.form_counter += 1
+                                st.rerun()
                             else:
                                 st.error(f"Error en Apps Script: {res_json.get('message')}")
                     except Exception as e:
