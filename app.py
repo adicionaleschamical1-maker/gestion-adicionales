@@ -22,16 +22,23 @@ def conectar_google():
         "https://www.googleapis.com/auth/drive"
     ]
     try:
-        ruta_json = os.path.join(os.path.dirname(__file__), "credenciales.json")
-        if not os.path.exists(ruta_json):
-            ruta_json = "credenciales.json"
+        # Si estamos en Streamlit Cloud y configuramos los secrets
+        if "gcp_service_account" in st.secrets:
+            service_account_info = dict(st.secrets["gcp_service_account"])
+            credentials = Credentials.from_service_account_info(service_account_info, scopes=scopes)
+        else:
+            # Si estamos en local, busca el archivo credenciales.json
+            ruta_json = os.path.join(os.path.dirname(__file__), "credenciales.json")
+            if not os.path.exists(ruta_json):
+                ruta_json = "credenciales.json"
+                
+            if not os.path.exists(ruta_json):
+                st.error("🚨 **ARCHIVO DE CREDENCIALES NO ENCONTRADO**")
+                st.warning("No se encontró `credenciales.json` ni los secretos configurados.")
+                st.stop()
+                
+            credentials = Credentials.from_service_account_file(ruta_json, scopes=scopes)
             
-        if not os.path.exists(ruta_json):
-            st.error("🚨 **ARCHIVO DE CREDENCIALES NO ENCONTRADO**")
-            st.warning(f"No se encontró `credenciales.json` en la carpeta del proyecto.")
-            st.stop()
-            
-        credentials = Credentials.from_service_account_file(ruta_json, scopes=scopes)
         client = gspread.authorize(credentials)
         return client
     except Exception as e:
