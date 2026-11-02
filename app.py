@@ -16,95 +16,137 @@ from PIL import Image
 from io import BytesIO
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Gestión de Servicios Adicionales", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="URV V - Adicionales", layout="centered", page_icon="👮")
 
-# --- ESTILOS VISUALES INSTITUCIONALES Y PERSONALIZADOS (CSS) ---
+# --- ESTILOS VISUALES EXACTOS DE LA CAPTURA ---
 st.markdown("""
     <style>
-    /* Fondo general de la app */
-    .stApp {
-        background-color: #f0f2f5;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .stApp { background: #F5F5F5; }
     
-    /* Encabezado Institucional */
+    /* Encabezado Institucional Azul con Borde Rojo */
     .header-container {
-        background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%);
-        color: white; 
-        padding: 1.5rem; 
+        background: linear-gradient(135deg, #002060, #002a80);
+        color: white;
+        padding: 2rem 1rem;
         border-radius: 20px;
-        text-align: center; 
-        border-bottom: 6px solid #d32f2f; 
+        text-align: center;
         margin-bottom: 2rem;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        box-shadow: 0 10px 25px rgba(0,32,96,0.3);
+        border-bottom: 6px solid #8B1E1E;
     }
     
-    /* Tarjetas y contenedores con estilo institucional */
+    /* Botón rojo ovalado "CHAMICAL" */
+    .badge-chamical {
+        background: #8B1E1E;
+        display: inline-block;
+        padding: 8px 30px;
+        border-radius: 50px;
+        font-size: 1rem;
+        font-weight: 800;
+        color: white;
+        box-shadow: 0 4px 15px rgba(139,30,30,0.5);
+        margin-top: 10px;
+        letter-spacing: 1px;
+    }
+    
+    /* Tarjetas de contenedores y formularios */
     div.stExpander, div.stForm {
-        background: #ffffff;
-        border-radius: 18px;
+        background: #FFFFFF;
+        border-radius: 20px;
         padding: 20px;
-        border-left: 8px solid #d32f2f;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        border-top: 1px solid #e9ecef;
-        border-right: 1px solid #e9ecef;
-        border-bottom: 1px solid #e9ecef;
+        margin-bottom: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border-left: 6px solid #002060;
+        border-top: 1px solid #E0E0E0;
+        border-right: 1px solid #E0E0E0;
+        border-bottom: 1px solid #E0E0E0;
     }
 
-    /* Alta legibilidad para etiquetas y títulos dentro de formularios */
+    /* Etiquetas legibles */
     label, .stTextInput label, .stDateInput label, .stTimeInput label, .stSelectbox label, .stFileUploader label {
         color: #1a1a1a !important;
         font-weight: 700 !important;
         font-size: 0.95rem !important;
     }
-
-    /* Estilo para las métricas del panel admin */
-    div[data-testid="stMetric"] {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 14px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        border-left: 6px solid #d32f2f;
-    }
-
-    /* Botones principales institucionales */
-    .stButton>button, div.stFormSubmitButton>button {
-        width: 100%;
-        border-radius: 12px;
-        height: 3.2em;
-        background-color: #d32f2f !important;
-        color: white !important;
-        font-weight: bold;
-        border: none;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 8px rgba(211, 47, 47, 0.3);
+    
+    /* Pestañas (Tabs) */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 6px;
+        background: white;
+        padding: 5px;
+        border-radius: 30px;
+        border: 1px solid #E0E0E0;
+        margin-bottom: 20px;
     }
     
-    .stButton>button:hover, div.stFormSubmitButton>button:hover {
-        background-color: #b71c1c !important;
-        box-shadow: 0 6px 12px rgba(211, 47, 47, 0.4);
-    }
-
-    /* Pestañas (Tabs) estilizadas */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
     .stTabs [data-baseweb="tab"] {
-        background-color: #e9ecef;
-        border-radius: 8px 8px 0px 0px;
-        padding: 10px 20px;
-        font-weight: 600;
-        color: #333333;
+        border-radius: 30px;
+        padding: 8px 20px;
+        font-weight: 500;
+        color: #666666;
     }
+    
     .stTabs [aria-selected="true"] {
-        background-color: #ffffff !important;
-        border-top: 4px solid #d32f2f;
-        color: #d32f2f !important;
+        background: linear-gradient(135deg, #002060, #002a80) !important;
+        color: white !important;
+        box-shadow: 0 2px 8px rgba(0,32,96,0.3);
+    }
+    
+    /* Botones de acción azul oscuro institucionales */
+    .stButton > button, div.stFormSubmitButton > button {
+        border-radius: 30px !important;
+        font-weight: 700 !important;
+        background: linear-gradient(135deg, #002060, #002a80) !important;
+        color: white !important;
+        border: none !important;
+        transition: all 0.2s !important;
+        height: 3.2em !important;
+        width: 100% !important;
+        box-shadow: 0 4px 12px rgba(0,32,96,0.3);
+    }
+    
+    .stButton > button:hover, div.stFormSubmitButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 16px rgba(0,32,96,0.4) !important;
+    }
+    
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #F8F9FA, #EFEFEF);
+    }
+    
+    .user-card {
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border: 1px solid #E0E0E0;
+    }
+    
+    .user-avatar {
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #002060, #002a80);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 12px;
+        font-size: 1.8rem;
+        color: white;
+        box-shadow: 0 4px 12px rgba(0,32,96,0.3);
     }
     </style>
 
     <div class="header-container">
-        <h2 style="margin:0; font-weight: 800; letter-spacing: 1px;">POLICÍA DE LA PROVINCIA DE LA RIOJA</h2>
-        <h3 style="margin:5px 0; font-weight: 600; opacity: 0.9;">UNIDAD REGIONAL QUINTA CHAMICAL</h3>
+        <div style="font-size: 3.5rem; margin-bottom: 5px;">👮‍♂️</div>
+        <div style="font-size: 1.3rem; font-weight: 800; letter-spacing: 1px;">POLICÍA DE LA PROVINCIA DE LA RIOJA</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: #ffd700; margin: 5px 0;">UNIDAD REGIONAL QUINTA - CHAMICAL</div>
+        <div style="font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; opacity: 0.95;">OFICINA DE ADICIONALES</div>
+        <div class="badge-chamical">CHAMICAL</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -120,7 +162,7 @@ PRECIO_SUB = 28000
 HORAS_POR_MODULO = 4
 TIMEOUT_HTTP = 30
 
-# URL de Apps Script: primero secrets, fallback a constante
+# URL de Apps Script
 try:
     URL_APPS_SCRIPT = st.secrets["URL_APPS_SCRIPT"]
 except (KeyError, FileNotFoundError):
@@ -130,7 +172,6 @@ except (KeyError, FileNotFoundError):
 # --- CONEXIÓN GOOGLE ---
 @st.cache_resource
 def conectar_google():
-    """Autoriza y devuelve (cliente gspread, servicio Drive)."""
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
@@ -143,9 +184,7 @@ def conectar_google():
         if not os.path.exists(ruta):
             ruta = "credenciales.json"
         if not os.path.exists(ruta):
-            raise FileNotFoundError(
-                "No se encontró credenciales.json ni st.secrets['gcp_service_account']"
-            )
+            raise FileNotFoundError("No se encontró credenciales.json ni st.secrets['gcp_service_account']")
         credentials = Credentials.from_service_account_file(ruta, scopes=scopes)
 
     client = gspread.authorize(credentials)
@@ -154,7 +193,6 @@ def conectar_google():
 
 
 def abrir_hoja(nombre: str):
-    """Abre una hoja del spreadsheet principal."""
     client, _ = conectar_google()
     ss = client.open(SHEET_NAME)
     try:
@@ -165,7 +203,6 @@ def abrir_hoja(nombre: str):
 
 @st.cache_data(ttl=60, show_spinner=False)
 def cargar_servicios_df() -> pd.DataFrame:
-    """Carga hoja Servicios como DataFrame (cache 60 s)."""
     hoja = abrir_hoja(HOJA_SERVICIOS)
     return pd.DataFrame(hoja.get_all_records())
 
@@ -197,12 +234,10 @@ for k, v in _defaults.items():
 
 # --- HELPERS ---
 def validar_cuil(valor: str) -> bool:
-    """Valida CUIL/CUIT argentino (11 dígitos)."""
     return bool(re.fullmatch(r"\d{11}", str(valor).strip()))
 
 
 def calcular_monto_y_modulos(hora_inicio: datetime.time, hora_fin: datetime.time):
-    """Retorna (diferencia_horas, max_modulos)."""
     dt_ini = datetime.datetime.combine(datetime.date.today(), hora_inicio)
     dt_fin = datetime.datetime.combine(datetime.date.today(), hora_fin)
     if dt_fin <= dt_ini:
@@ -213,7 +248,6 @@ def calcular_monto_y_modulos(hora_inicio: datetime.time, hora_fin: datetime.time
 
 
 def calcular_monto_total(jefes_por_mod: list, subs_por_mod: list) -> float:
-    """Suma ponderada por módulo."""
     total = 0
     for i, (j, s) in enumerate(zip(jefes_por_mod, subs_por_mod), start=1):
         total += ((j * PRECIO_JEFE) + (s * PRECIO_SUB)) * i
@@ -245,10 +279,10 @@ def pantalla_cambio_clave():
 
 
 def login():
-    st.title("🛡️ Acceso a Servicios Adicionales")
+    st.subheader("🔐 Acceso al Sistema")
     dni = st.text_input("DNI / Usuario")
     clave = st.text_input("Contraseña", type="password")
-    if not st.button("Ingresar"):
+    if not st.button("INGRESAR"):
         return
     try:
         data = cargar_usuarios_df()
@@ -291,7 +325,6 @@ def login():
 
 # --- DRIVE: DESCARGA DE IMAGEN VÍA API ---
 def obtener_imagen_desde_drive(url_drive: str):
-    """Descarga imagen de Drive vía API oficial. Retorna ruta temporal JPG o None."""
     file_id = None
     if url_drive:
         s = str(url_drive)
@@ -327,7 +360,6 @@ def obtener_imagen_desde_drive(url_drive: str):
 
 # --- GENERADOR DE PDF ---
 def generar_pdf_servicio(row: pd.Series) -> str:
-    """Genera PDF con datos + constancias. Retorna ruta."""
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -437,10 +469,18 @@ def _post_apps_script(payload: dict) -> dict:
 
 
 def vista_dependencia():
-    st.sidebar.write(f"🏢 **Dependencia:** {st.session_state.dependencia}")
-    st.sidebar.write("👤 **Rol:** Colaborador")
+    st.sidebar.markdown(f"""
+        <div class="user-card">
+            <div class="user-avatar">👮</div>
+            <div style="font-weight:700; font-size: 1rem;">{st.session_state.dependencia}</div>
+            <div style="font-size:0.75rem; margin-top:8px; background: #E8F0FE; padding:4px 12px; border-radius:30px; display:inline-block;">
+                👤 COLABORADOR
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
     boton_refrescar()
-    if st.sidebar.button("Cerrar Sesión"):
+    if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state.autenticado = False
         st.rerun()
 
@@ -452,7 +492,7 @@ def vista_dependencia():
 
     # ---------- TAB 1 ----------
     with tab1:
-        st.header(f"Solicitud de Servicio Adicional - {st.session_state.dependencia}")
+        st.header(f"Solicitud de Servicio Adicional")
 
         fecha = st.date_input("Fecha del Evento", min_value=datetime.date.today(), key=f"fecha_{counter}")
         st.subheader("📋 Datos del Evento")
@@ -460,7 +500,6 @@ def vista_dependencia():
             "Tipo de Evento (Ej: Partido de fútbol, Baile, Recital, etc.)", key=f"tipo_{counter}"
         )
         
-        # Campos separados para el nombre y el DNI del organizador
         col_org1, col_org2 = st.columns(2)
         with col_org1:
             nombre_organizador = st.text_input("Nombre y Apellido del Organizador", key=f"nom_org_{counter}")
@@ -625,128 +664,4 @@ def vista_dependencia():
                                     
                                 if sub_asist:
                                     if not file_asist:
-                                        st.error("Seleccioná un archivo antes de enviar.")
-                                    else:
-                                        with st.spinner("Subiendo planilla..."):
-                                            payload = {
-                                                "action": "subir_asistencia",
-                                                "id_servicio": str(id_serv),
-                                                "file_asist_base64": base64.b64encode(
-                                                    file_asist.getvalue()
-                                                ).decode("utf-8"),
-                                                "name_asist": (
-                                                    f"{id_serv}_asistencia."
-                                                    f"{file_asist.name.split('.')[-1]}"
-                                                ),
-                                                "type_asist": file_asist.type,
-                                            }
-                                            res = _post_apps_script(payload)
-                                        if res.get("status") == "success":
-                                            st.success("¡Planilla subida con éxito!")
-                                            st.cache_data.clear()
-                                            st.rerun()
-                                        else:
-                                            st.error(f"Error: {res.get('message')}")
-        except Exception as e:
-            logger.exception("Error tab pendientes")
-            st.error(f"Error al cargar los pendientes: {e}")
-
-    # ---------- TAB 3 ----------
-    with tab3:
-        st.header("Historial General de Servicios")
-        st.info(f"Listado completo de servicios de **{st.session_state.dependencia}**.")
-        try:
-            data = cargar_servicios_df()
-            if data.empty or "Dependencia" not in data.columns:
-                st.info("Aún no hay datos cargados.")
-            else:
-                df_dep = data[data["Dependencia"].astype(str) == str(st.session_state.dependencia)]
-                if df_dep.empty:
-                    st.info("No hay registros en el historial.")
-                else:
-                    st.dataframe(df_dep, use_container_width=True)
-        except Exception as e:
-            logger.exception("Error historial")
-            st.error(f"Error al cargar historial: {e}")
-
-
-# --- VISTA ADMIN ---
-def vista_admin():
-    st.sidebar.write("👑 **Administrador General**")
-    st.sidebar.write(f"🏢 **Dependencia:** {st.session_state.dependencia}")
-    st.sidebar.write("👤 **Rol:** Administrador")
-    boton_refrescar()
-    if st.sidebar.button("Cerrar Sesión"):
-        st.session_state.autenticado = False
-        st.rerun()
-
-    st.title("📋 Panel de Control General - Administrador")
-    try:
-        data = cargar_servicios_df()
-        if data.empty:
-            st.info("No hay servicios cargados.")
-            return
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.metric("Total de Servicios", len(data))
-        with c2:
-            monto = data["Monto Total"].sum() if "Monto Total" in data.columns else 0
-            st.metric("Recaudación Total", f"${monto:,.2f}")
-
-        st.markdown("---")
-        st.subheader("Gestión y Generación de Informes PDF")
-        deps = (
-            ["Todas"] + sorted(data["Dependencia"].dropna().unique().tolist())
-            if "Dependencia" in data.columns
-            else ["Todas"]
-        )
-        dep_sel = st.selectbox("Filtrar por Dependencia", options=deps)
-        data_f = data if dep_sel == "Todas" else data[data["Dependencia"].astype(str) == str(dep_sel)]
-        st.dataframe(data_f, use_container_width=True)
-
-        st.markdown("---")
-        st.subheader("📥 Descargar Informe PDF con Constancias")
-        if data_f.empty:
-            return
-
-        opciones = [
-            f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']} - {r['Tipo de Evento']})"
-            for _, r in data_f.iterrows()
-        ]
-        elegido = st.selectbox("Seleccioná un servicio", options=opciones)
-        if not elegido:
-            return
-
-        id_sel = elegido.split(" - ")[0]
-        row_data = data_f[data_f["ID Servicio"].astype(str) == id_sel].iloc[0]
-
-        if st.button("🚀 Generar PDF con Constancias"):
-            with st.spinner("Descargando archivos y armando PDF..."):
-                pdf_path = generar_pdf_servicio(row_data)
-                try:
-                    with open(pdf_path, "rb") as f:
-                        pdf_bytes = f.read()
-                finally:
-                    if os.path.exists(pdf_path):
-                        os.unlink(pdf_path)
-            st.download_button(
-                label="📥 Descargar PDF Final",
-                data=pdf_bytes,
-                file_name=f"{id_sel}_informe_completo.pdf",
-                mime="application/pdf",
-            )
-    except Exception as e:
-        logger.exception("Error panel admin")
-        st.error(f"Error al cargar el panel: {e}")
-
-
-# --- ROUTER PRINCIPAL ---
-if st.session_state.get("cambio_clave_requerido", False):
-    pantalla_cambio_clave()
-elif not st.session_state.autenticado:
-    login()
-elif st.session_state.rol == "Administrador":
-    vista_admin()
-else:
-    vista_dependencia()
+                                        st.error("Seleccioná un archivo antes
