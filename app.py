@@ -15,8 +15,58 @@ from fpdf import FPDF
 from PIL import Image
 from io import BytesIO
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestión de Servicios Adicionales", page_icon="🛡️", layout="wide")
+
+# --- ESTILOS VISUALES PERSONALIZADOS (CSS) ---
+st.markdown("""
+    <style>
+    /* Fondo general sutil */
+    .stApp {
+        background-color: #f8f9fa;
+    }
+    
+    /* Tarjetas y contenedores con bordes redondeados y sombra suave */
+    div.stExpander, div.stForm {
+        background-color: #ffffff;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e9ecef;
+    }
+
+    /* Estilo para las métricas del panel admin */
+    div[data-testid="stMetric"] {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        border-left: 5px solid #0066cc;
+    }
+
+    /* Botones principales con mejor presencia */
+    .stButton>button, div.stFormSubmitButton>button {
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    /* Pestañas (Tabs) más estéticas */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #e9ecef;
+        border-radius: 6px 6px 0px 0px;
+        padding: 10px 16px;
+        font-weight: 500;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #ffffff !important;
+        border-top: 3px solid #0066cc;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
