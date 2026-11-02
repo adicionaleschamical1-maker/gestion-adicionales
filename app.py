@@ -104,7 +104,7 @@ st.markdown("""
 
     <div class="header-container">
         <h2 style="margin:0; font-weight: 800; letter-spacing: 1px;">POLICÍA DE LA PROVINCIA DE LA RIOJA</h2>
-        <h3 style="margin:5px 0; font-weight: 600; opacity: 0.9;">UNIDAD REGIONAL QUINTA - GESTIÓN DE ADICIONALES</h3>
+        <h3 style="margin:5px 0; font-weight: 600; opacity: 0.9;">UNIDAD REGIONAL QUINTA CHAMICAL</h3>
     </div>
 """, unsafe_allow_html=True)
 
@@ -721,7 +721,7 @@ def vista_admin():
         id_sel = elegido.split(" - ")[0]
         row_data = data_f[data_f["ID Servicio"].astype(str) == id_sel].iloc[0]
 
-        if st.button("🚀 Generar PDF con Constancias", type="primary"):
+        if st.button("🚀 Generar PDF con Constancias"):
             with st.spinner("Descargando archivos y armando PDF..."):
                 pdf_path = generar_pdf_servicio(row_data)
                 try:
@@ -735,7 +735,6 @@ def vista_admin():
                 data=pdf_bytes,
                 file_name=f"{id_sel}_informe_completo.pdf",
                 mime="application/pdf",
-                type="primary",
             )
     except Exception as e:
         logger.exception("Error panel admin")
