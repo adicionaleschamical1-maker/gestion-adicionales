@@ -21,7 +21,7 @@ st.set_page_config(page_title="Gesti贸n de Servicios Adicionales", page_icon="馃
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Constantes de negocio (ajust谩 ac谩 si cambian precios/nombres)
+# Constantes de negocio
 SHEET_NAME = "Gestion_Adicionales"
 HOJA_SERVICIOS = "Servicios"
 HOJA_USUARIOS = "Usuarios"
@@ -30,7 +30,7 @@ PRECIO_SUB = 28000
 HORAS_POR_MODULO = 4
 TIMEOUT_HTTP = 30
 
-# URL de Apps Script: primero secrets, fallback a constante (compatibilidad)
+# URL de Apps Script: primero secrets, fallback a constante
 try:
     URL_APPS_SCRIPT = st.secrets["URL_APPS_SCRIPT"]
 except (KeyError, FileNotFoundError):
@@ -64,7 +64,7 @@ def conectar_google():
 
 
 def abrir_hoja(nombre: str):
-    """Abre una hoja del spreadsheet principal (reemplaza patr贸n triplicado)."""
+    """Abre una hoja del spreadsheet principal."""
     client, _ = conectar_google()
     ss = client.open(SHEET_NAME)
     try:
@@ -123,7 +123,7 @@ def calcular_monto_y_modulos(hora_inicio: datetime.time, hora_fin: datetime.time
 
 
 def calcular_monto_total(jefes_por_mod: list, subs_por_mod: list) -> float:
-    """jefes_por_mod = [m1, m2, m3, m4]. Suma ponderada por m贸dulo."""
+    """Suma ponderada por m贸dulo."""
     total = 0
     for i, (j, s) in enumerate(zip(jefes_por_mod, subs_por_mod), start=1):
         total += ((j * PRECIO_JEFE) + (s * PRECIO_SUB)) * i
@@ -237,7 +237,7 @@ def obtener_imagen_desde_drive(url_drive: str):
 
 # --- GENERADOR DE PDF ---
 def generar_pdf_servicio(row: pd.Series) -> str:
-    """Genera PDF con datos + constancias. Retorna ruta (caller debe borrarla)."""
+    """Genera PDF con datos + constancias. Retorna ruta."""
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -319,7 +319,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
 
 # --- VISTA DEPENDENCIA ---
 def _render_modulos(max_modulos: int, counter: int):
-    """Renderiza inputs de jefes/subalternos por m贸dulo. Retorna (jefes, subs) listas de 4."""
     labels = ["Simple (4h)", "Doble (8h)", "Triple (12h)", "Cu谩druple (16h)"]
     jefes, subs = [], []
     for i in range(max_modulos):
