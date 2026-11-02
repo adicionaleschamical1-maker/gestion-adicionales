@@ -18,27 +18,42 @@ from io import BytesIO
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestión de Servicios Adicionales", page_icon="🛡️", layout="wide")
 
-# --- ESTILOS VISUALES PERSONALIZADOS (CSS) ---
+# --- ESTILOS VISUALES INSTITUCIONALES Y PERSONALIZADOS (CSS) ---
 st.markdown("""
     <style>
-    /* Fondo general sutil */
+    /* Fondo general de la app */
     .stApp {
-        background-color: #f8f9fa;
+        background-color: #f0f2f5;
     }
     
-    /* Tarjetas y contenedores con bordes redondeados y sombra suave */
+    /* Encabezado Institucional */
+    .header-container {
+        background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%);
+        color: white; 
+        padding: 1.5rem; 
+        border-radius: 20px;
+        text-align: center; 
+        border-bottom: 6px solid #d32f2f; 
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    
+    /* Tarjetas y contenedores con estilo institucional */
     div.stExpander, div.stForm {
-        background-color: #ffffff;
-        border-radius: 12px;
-        padding: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        border: 1px solid #e9ecef;
+        background: #ffffff;
+        border-radius: 18px;
+        padding: 20px;
+        border-left: 8px solid #d32f2f;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-top: 1px solid #e9ecef;
+        border-right: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
     }
 
-    /* REFUERZO DE TÍTULOS Y ETIQUETAS (Labels más oscuros y destacados) */
+    /* Alta legibilidad para etiquetas y títulos dentro de formularios */
     label, .stTextInput label, .stDateInput label, .stTimeInput label, .stSelectbox label, .stFileUploader label {
         color: #1a1a1a !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
         font-size: 0.95rem !important;
     }
 
@@ -46,33 +61,51 @@ st.markdown("""
     div[data-testid="stMetric"] {
         background-color: #ffffff;
         padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        border-left: 5px solid #0066cc;
+        border-radius: 14px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        border-left: 6px solid #d32f2f;
     }
 
-    /* Botones principales con mejor presencia */
+    /* Botones principales institucionales */
     .stButton>button, div.stFormSubmitButton>button {
-        border-radius: 8px;
-        font-weight: 600;
+        width: 100%;
+        border-radius: 12px;
+        height: 3.2em;
+        background-color: #d32f2f !important;
+        color: white !important;
+        font-weight: bold;
+        border: none;
         transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(211, 47, 47, 0.3);
+    }
+    
+    .stButton>button:hover, div.stFormSubmitButton>button:hover {
+        background-color: #b71c1c !important;
+        box-shadow: 0 6px 12px rgba(211, 47, 47, 0.4);
     }
 
-    /* Pestañas (Tabs) más estéticas */
+    /* Pestañas (Tabs) estilizadas */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
     }
     .stTabs [data-baseweb="tab"] {
         background-color: #e9ecef;
-        border-radius: 6px 6px 0px 0px;
-        padding: 10px 16px;
-        font-weight: 500;
+        border-radius: 8px 8px 0px 0px;
+        padding: 10px 20px;
+        font-weight: 600;
+        color: #333333;
     }
     .stTabs [aria-selected="true"] {
         background-color: #ffffff !important;
-        border-top: 3px solid #0066cc;
+        border-top: 4px solid #d32f2f;
+        color: #d32f2f !important;
     }
     </style>
+
+    <div class="header-container">
+        <h2 style="margin:0; font-weight: 800; letter-spacing: 1px;">POLICÍA DE LA PROVINCIA DE LA RIOJA</h2>
+        <h3 style="margin:5px 0; font-weight: 600; opacity: 0.9;">UNIDAD REGIONAL QUINTA - GESTIÓN DE ADICIONALES</h3>
+    </div>
 """, unsafe_allow_html=True)
 
 logging.basicConfig(level=logging.INFO)
@@ -193,7 +226,7 @@ def pantalla_cambio_clave():
     st.warning("⚠️ Primer ingreso detectado. Debés cambiar tu contraseña temporal.")
     nueva = st.text_input("Nueva Contraseña", type="password")
     confirm = st.text_input("Confirmar Nueva Contraseña", type="password")
-    if st.button("Guardar Nueva Contraseña", type="primary"):
+    if st.button("Guardar Nueva Contraseña"):
         if not nueva or nueva != confirm:
             st.error("Las contraseñas no coinciden o están vacías.")
             return
@@ -215,7 +248,7 @@ def login():
     st.title("🛡️ Acceso a Servicios Adicionales")
     dni = st.text_input("DNI / Usuario")
     clave = st.text_input("Contraseña", type="password")
-    if not st.button("Ingresar", type="primary"):
+    if not st.button("Ingresar"):
         return
     try:
         data = cargar_usuarios_df()
