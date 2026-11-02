@@ -369,7 +369,15 @@ def vista_dependencia():
         tipo_evento = st.text_input(
             "Tipo de Evento (Ej: Partido de fútbol, Baile, Recital, etc.)", key=f"tipo_{counter}"
         )
-        organizador = st.text_input("Nombre Completo y DNI del Organizador", key=f"org_{counter}")
+        
+        # Campos separados para el nombre y el DNI del organizador
+        col_org1, col_org2 = st.columns(2)
+        with col_org1:
+            nombre_organizador = st.text_input("Nombre y Apellido del Organizador", key=f"nom_org_{counter}")
+        with col_org2:
+            dni_organizador = st.text_input("DNI del Organizador", key=f"dni_org_{counter}")
+            
+        cuil_organizador = st.text_input("CUIL / CUIT del Organizador", key=f"cuil_org_{counter}")
         ubicacion_predio = st.text_input("Ubicación / Predio del Evento", key=f"ubi_{counter}")
 
         col_h1, col_h2 = st.columns(2)
@@ -393,14 +401,14 @@ def vista_dependencia():
             st.subheader("💳 Datos de Facturación y Pago")
             mismo_organizador = st.checkbox("¿El que paga es el mismo organizador?", value=True)
             if mismo_organizador:
-                pagado_por = organizador
-                cuil_pagado_por = st.text_input("CUIL / CUIT de Facturación (del Organizador)")
+                pagado_por = f"{nombre_organizador} (DNI: {dni_organizador})" if nombre_organizador else ""
+                cuil_pagado_por = cuil_organizador
             else:
                 cp1, cp2 = st.columns(2)
                 with cp1:
-                    pagado_por = st.text_input("Nombre y DNI de quien paga")
+                    pagado_por = st.text_input("Nombre y DNI de quien paga", key=f"pag_por_{counter}")
                 with cp2:
-                    cuil_pagado_por = st.text_input("CUIL / CUIT de Facturación")
+                    cuil_pagado_por = st.text_input("CUIL / CUIT de Facturación", key=f"cuil_pag_{counter}")
 
             st.markdown("---")
             st.subheader("📎 Documentación (Archivos)")
@@ -423,12 +431,14 @@ def vista_dependencia():
             submitted = st.form_submit_button("Enviar Solicitud")
 
         if submitted:
+            organizador_completo = f"{nombre_organizador} (DNI: {dni_organizador})"
             if total_jefes == 0 and total_subalternos == 0:
                 st.error("⚠️ Debés asignar al menos un efectivo (Jefe o Subalterno).")
             elif not (
                 file_hab
                 and file_comp
-                and organizador
+                and nombre_organizador
+                and dni_organizador
                 and tipo_evento
                 and pagado_por
                 and cuil_pagado_por
@@ -446,7 +456,7 @@ def vista_dependencia():
                             "dependencia": str(st.session_state.dependencia),
                             "fecha_evento": str(fecha),
                             "tipo_evento": str(tipo_evento),
-                            "organizador": str(organizador),
+                            "organizador": str(organizador_completo),
                             "ubicacion": str(ubicacion_predio),
                             "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
                             "cant_jefes": int(total_jefes),
@@ -477,7 +487,7 @@ def vista_dependencia():
                     logger.exception("Error enviando solicitud")
                     st.error(f"Error al enviar: {e}")
 
-    # ---------- TAB 2: PENDIENTES DE ASISTENCIA (MEJORADO) ----------
+    # ---------- TAB 2: PENDIENTES DE ASISTENCIA ----------
     with tab2:
         st.header("Servicios Pendientes de Planilla de Asistencia")
         st.info(f"Mostrando servicios de: **{st.session_state.dependencia}**")
@@ -488,7 +498,6 @@ def vista_dependencia():
             else:
                 df_dep = data[data["Dependencia"].astype(str) == str(st.session_state.dependencia)]
                 
-                # Detectar columna de asistencia de forma flexible (por nombre exacto, parcial o por índice 16 si existe)
                 col_asist = None
                 for c in df_dep.columns:
                     if "asistencia" in str(c).lower():
@@ -498,7 +507,7 @@ def vista_dependencia():
                     col_asist = df_dep.columns[16]
 
                 if not col_asist:
-                    st.warning("⚠️ No se encontró la columna de asistencia en la hoja. Asegurate de que la celda Q1 tenga el texto 'Enlace Asistencia'.")
+                    st.warning("⚠️ No se encontró la columna de asistencia en la hoja.")
                 else:
                     df_pend = df_dep[df_dep[col_asist].astype(str).str.strip() == ""]
                     if df_pend.empty:
@@ -506,7 +515,6 @@ def vista_dependencia():
                     else:
                         st.warning(f"Tenés **{len(df_pend)}** servicio(s) pendiente(s) de asistencia.")
                         for _, row in df_pend.iterrows():
-                            # Identificar el ID de servicio de manera segura sin importar el nombre exacto de la columna ID
                             id_serv = row.get('ID Servicio') or row.get('id_servicio') or row.iloc[0]
                             tipo_ev = row.get('Tipo de Evento') or row.get('tipo_evento') or 'Evento'
                             fec_ev = row.get('Fecha Evento') or row.get('fecha_evento') or ''
