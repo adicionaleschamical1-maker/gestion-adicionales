@@ -18,7 +18,7 @@ from io import BytesIO
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="URV V - Adicionales", layout="centered", page_icon="👮")
 
-# --- ESTILOS VISUALES EXACTOS DE LA CAPTURA ---
+# --- ESTILOS VISUALES MEJORADOS (ALTA VISIBILIDAD DE INPUTS) ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -64,9 +64,22 @@ st.markdown("""
         border-bottom: 1px solid #E0E0E0;
     }
 
-    /* Etiquetas legibles */
-    label, .stTextInput label, .stDateInput label, .stTimeInput label, .stSelectbox label, .stFileUploader label {
+    /* MEJORA CLAVE: Cuadros de texto con fondo blanco puro y borde bien visible */
+    input, textarea, select, div[data-baseweb="input"] > div, div[data-baseweb="base-input"] {
+        background-color: #FFFFFF !important;
+        border: 1.5px solid #B0BEC5 !important;
+        border-radius: 8px !important;
         color: #1a1a1a !important;
+    }
+    
+    div[data-baseweb="input"]:focus-within, div[data-baseweb="base-input"]:focus-within {
+        border-color: #002060 !important;
+        box-shadow: 0 0 0 2px rgba(0,32,96,0.2) !important;
+    }
+
+    /* Etiquetas altamente legibles y oscuras */
+    label, .stTextInput label, .stDateInput label, .stTimeInput label, .stSelectbox label, .stFileUploader label {
+        color: #0f172a !important;
         font-weight: 700 !important;
         font-size: 0.95rem !important;
     }
