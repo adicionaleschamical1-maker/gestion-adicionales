@@ -645,4 +645,154 @@ def vista_dependencia():
                         st.warning(f"Tenés **{len(df_pend)}** servicio(s) pendiente(s) de asistencia.")
                         for _, row in df_pend.iterrows():
                             id_serv = row.get('ID Servicio') or row.get('id_servicio') or row.iloc[0]
-                            tipo_ev = row.get('Tipo de
+                            tipo_ev = row.get('Tipo de Evento') or row.get('tipo_evento') or 'Evento'
+                            fec_ev = row.get('Fecha Evento') or row.get('fecha_evento') or ''
+                            ubi_ev = row.get('Ubicación Predio') or row.get('ubicacion') or ''
+                            
+                            with st.expander(f"📅 {fec_ev} - {tipo_ev} ({ubi_ev}) [ID: {id_serv}]"):
+                                st.write(f"**Organizador:** {row.get('Organizador', '')}")
+                                st.write(f"**Horario:** {row.get('Horario', '')} | **Módulos:** {row.get('Módulos', '')}")
+                                st.write(f"**Personal:** {row.get('Cant. Jefes', 0)} Jefes / {row.get('Cant. Subalternos', 0)} Subalternos")
+                                
+                                with st.form(f"form_asist_{id_serv}"):
+                                    file_asist = st.file_uploader(
+                                        "Planilla de Asistencia Firmada",
+                                        type=["png", "jpg", "jpeg", "pdf"],
+                                        key=f"file_{id_serv}",
+                                    )
+                                    sub_asist = st.form_submit_button("Subir Planilla")
+                                    
+                                if sub_asist:
+                                    if not file_asist:
+                                        st.error("Seleccioná un archivo antes de enviar.")
+                                    else:
+                                        with st.spinner("Subiendo planilla..."):
+                                            payload = {
+                                                "action": "subir_asistencia",
+                                                "id_servicio": str(id_serv),
+                                                "file_asist_base64": base64.b64encode(
+                                                    file_asist.getvalue()
+                                                ).decode("utf-8"),
+                                                "name_asist": (
+                                                    f"{id_serv}_asistencia."
+                                                    f"{file_asist.name.split('.')[-1]}"
+                                                ),
+                                                "type_asist": file_asist.type,
+                                            }
+                                            res = _post_apps_script(payload)
+                                        if res.get("status") == "success":
+                                            st.success("¡Planilla subida con éxito!")
+                                            st.cache_data.clear()
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Error: {res.get('message')}")
+        except Exception as e:
+            logger.exception("Error tab pendientes")
+            st.error(f"Error al cargar los pendientes: {e}")
+
+    # ---------- TAB 3 ----------
+    with tab3:
+        st.header("Historial General de Servicios")
+        st.info(f"Listado completo de servicios de **{st.session_state.dependencia}**.")
+        try:
+            data = cargar_servicios_df()
+            if data.empty or "Dependencia" not in data.columns:
+                st.info("Aún no hay datos cargados.")
+            else:
+                df_dep = data[data["Dependencia"].astype(str) == str(st.session_state.dependencia)]
+                if df_dep.empty:
+                    st.info("No hay registros en el historial.")
+                else:
+                    st.dataframe(df_dep, use_container_width=True)
+        except Exception as e:
+            logger.exception("Error historial")
+            st.error(f"Error al cargar historial: {e}")
+
+
+# --- VISTA ADMIN ---
+def vista_admin():
+    st.sidebar.markdown(f"""
+        <div class="user-card">
+            <div class="user-avatar">👑</div>
+            <div style="font-weight:700; font-size: 1rem;">Administrador</div>
+            <div style="font-size:0.75rem; margin-top:8px; background: #E8F0FE; padding:4px 12px; border-radius:30px; display:inline-block;">
+                👑 ADMIN GENERAL
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    boton_refrescar()
+    if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
+        st.session_state.autenticado = False
+        st.rerun()
+
+    st.title("📋 Panel de Control General - Administrador")
+    try:
+        data = cargar_servicios_df()
+        if data.empty:
+            st.info("No hay servicios cargados.")
+            return
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric("Total de Servicios", len(data))
+        with c2:
+            monto = data["Monto Total"].sum() if "Monto Total" in data.columns else 0
+            st.metric("Recaudación Total", f"${monto:,.2f}")
+
+        st.markdown("---")
+        st.subheader("Gestión y Generación de Informes PDF")
+        deps = (
+            ["Todas"] + sorted(data["Dependencia"].dropna().unique().tolist())
+            if "Dependencia" in data.columns
+            else ["Todas"]
+        )
+        dep_sel = st.selectbox("Filtrar por Dependencia", options=deps)
+        data_f = data if dep_sel == "Todas" else data[data["Dependencia"].astype(str) == str(dep_sel)]
+        st.dataframe(data_f, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("📥 Descargar Informe PDF con Constancias")
+        if data_f.empty:
+            return
+
+        opciones = [
+            f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']} - {r['Tipo de Evento']})"
+            for _, r in data_f.iterrows()
+        ]
+        elegido = st.selectbox("Seleccioná un servicio", options=opciones)
+        if not elegido:
+            return
+
+        id_sel = elegido.split(" - ")[0]
+        row_data = data_f[data_f["ID Servicio"].astype(str) == id_sel].iloc[0]
+
+        if st.button("🚀 Generar PDF con Constancias"):
+            with st.spinner("Descargando archivos y armando PDF..."):
+                pdf_path = generar_pdf_servicio(row_data)
+                try:
+                    with open(pdf_path, "rb") as f:
+                        pdf_bytes = f.read()
+                finally:
+                    if os.path.exists(pdf_path):
+                        os.unlink(pdf_path)
+            st.download_button(
+                label="📥 Descargar PDF Final",
+                data=pdf_bytes,
+                file_name=f"{id_sel}_informe_completo.pdf",
+                mime="application/pdf",
+            )
+    except Exception as e:
+        logger.exception("Error panel admin")
+        st.error(f"Error al cargar el panel: {e}")
+
+
+# --- ROUTER PRINCIPAL ---
+if st.session_state.get("cambio_clave_requerido", False):
+    pantalla_cambio_clave()
+elif not st.session_state.autenticado:
+    login()
+elif st.session_state.rol == "Administrador":
+    vista_admin()
+else:
+    vista_dependencia()
