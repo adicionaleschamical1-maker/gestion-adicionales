@@ -64,7 +64,7 @@ st.markdown("""
         border-bottom: 1px solid #E0E0E0;
     }
 
-    /* MEJORA CLAVE: Cuadros de texto con fondo blanco puro y borde bien visible */
+    /* Cuadros de texto con fondo blanco puro y borde bien visible */
     input, textarea, select, div[data-baseweb="input"] > div, div[data-baseweb="base-input"] {
         background-color: #FFFFFF !important;
         border: 1.5px solid #B0BEC5 !important;
@@ -238,6 +238,7 @@ _defaults = {
     "usuario_dni": None,
     "dependencia": None,
     "rol": None,
+    "nombre_apellido": None,
     "cambio_clave_requerido": False,
     "form_counter": 0,
 }
@@ -280,8 +281,10 @@ def pantalla_cambio_clave():
         try:
             hoja = abrir_hoja(HOJA_USUARIOS)
             cell = hoja.find(str(st.session_state.dni_temp))
-            hoja.update_cell(cell.row, 3, nueva)
-            hoja.update_cell(cell.row, 4, "")
+            # Actualizamos la columna F (clave_personal, índice 6)
+            hoja.update_cell(cell.row, 6, nueva)
+            # Limpiamos la columna E (clave temporal, índice 5)
+            hoja.update_cell(cell.row, 5, "")
             st.success("¡Contraseña actualizada! Iniciá sesión nuevamente.")
             st.session_state.cambio_clave_requerido = False
             st.session_state.dni_temp = None
@@ -303,14 +306,17 @@ def login():
         st.error(f"Error al consultar la base de datos: {e}")
         return
 
+    # Normalizamos nombres de columnas por seguridad
+    data.columns = [str(c).strip().lower() for c in data.columns]
+    
     user = data[data["dni"].astype(str) == str(dni)]
     if user.empty:
         st.error("DNI no registrado.")
         return
 
     u = user.iloc[0]
-    clave_pers = str(u["clave_personal"]).strip()
-    clave_temp = str(u["clave_temporal"]).strip()
+    clave_pers = str(u.get("clave personal", u.get("clave_personal", ""))).strip()
+    clave_temp = str(u.get("clave", u.get("clave_temporal", ""))).strip()
 
     requiere_cambio = (
         clave_pers == ""
@@ -329,8 +335,9 @@ def login():
     if clave == clave_pers:
         st.session_state.autenticado = True
         st.session_state.usuario_dni = dni
-        st.session_state.dependencia = u["dependencia"]
-        st.session_state.rol = str(u["rol"]).strip()
+        st.session_state.dependencia = str(u.get("dependencia", ""))
+        st.session_state.rol = str(u.get("rol", "")).strip()
+        st.session_state.nombre_apellido = str(u.get("nombre y apellido", u.get("nombre_apellido", f"DNI: {dni}"))).strip()
         st.rerun()
     else:
         st.error("Contraseña incorrecta.")
@@ -482,11 +489,14 @@ def _post_apps_script(payload: dict) -> dict:
 
 
 def vista_dependencia():
+    nombre_efectivo = st.session_state.get("nombre_apellido", "Personal Policial")
+    
     st.sidebar.markdown(f"""
         <div class="user-card">
             <div class="user-avatar">👮</div>
-            <div style="font-weight:700; font-size: 1rem;">{st.session_state.dependencia}</div>
-            <div style="font-size:0.75rem; margin-top:8px; background: #E8F0FE; padding:4px 12px; border-radius:30px; display:inline-block;">
+            <div style="font-weight:800; font-size: 1.05rem; margin-top:2px;">{nombre_efectivo}</div>
+            <div style="font-size:0.8rem; color: #555; margin-top:4px;">Dep: {st.session_state.dependencia}</div>
+            <div style="font-size:0.75rem; margin-top:8px; background: #E8F0FE; padding:4px 12px; border-radius:30px; display:inline-block; font-weight:600;">
                 👤 COLABORADOR
             </div>
         </div>
@@ -724,11 +734,13 @@ def vista_dependencia():
 
 # --- VISTA ADMIN ---
 def vista_admin():
+    nombre_efectivo = st.session_state.get("nombre_apellido", "Administrador General")
+
     st.sidebar.markdown(f"""
         <div class="user-card">
             <div class="user-avatar">👑</div>
-            <div style="font-weight:700; font-size: 1rem;">Administrador</div>
-            <div style="font-size:0.75rem; margin-top:8px; background: #E8F0FE; padding:4px 12px; border-radius:30px; display:inline-block;">
+            <div style="font-weight:800; font-size: 1.05rem; margin-top:2px;">{nombre_efectivo}</div>
+            <div style="font-size:0.75rem; margin-top:8px; background: #E8F0FE; padding:4px 12px; border-radius:30px; display:inline-block; font-weight:600;">
                 👑 ADMIN GENERAL
             </div>
         </div>
