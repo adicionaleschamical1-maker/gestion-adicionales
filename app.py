@@ -375,18 +375,18 @@ def obtener_imagen_desde_drive(url_drive: str):
         return None
 
 
-# --- GENERADOR DE PDF PROFESIONAL Y LIMPIO ---
+# --- GENERADOR DE PDF CON TABLAS Y DISEÑO PROFESIONAL ---
 def generar_pdf_servicio(row: pd.Series) -> str:
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Encabezado con barra de estilo institucional
+    # Encabezado con barra institucional superior
     pdf.set_fill_color(0, 32, 96)  # Azul policial oscuro
-    pdf.rect(0, 0, 210, 22, 'F')
+    pdf.rect(0, 0, 210, 20, 'F')
     
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font("helvetica", "B", 14)
+    pdf.set_font("helvetica", "B", 13)
     pdf.set_xy(10, 5)
     pdf.cell(190, 8, "POLICÍA DE LA PROVINCIA DE LA RIOJA - URV V", ln=True, align="center")
     
@@ -394,51 +394,62 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.ln(12)
 
     # Título principal del reporte
-    pdf.set_font("helvetica", "B", 15)
-    pdf.cell(0, 8, "INFORME DE SERVICIO ADICIONAL", ln=True, align="center")
+    pdf.set_font("helvetica", "B", 14)
+    pdf.cell(0, 7, "INFORME DE SERVICIO ADICIONAL", ln=True, align="center")
     pdf.set_font("helvetica", "I", 9)
-    pdf.set_text_color(100, 100, 100)
+    pdf.set_text_color(90, 90, 90)
     pdf.cell(0, 5, f"ID de Solicitud: {row.get('ID Servicio', '')}", ln=True, align="center")
     pdf.set_text_color(0, 0, 0)
-    pdf.ln(6)
+    pdf.ln(5)
 
-    def seccion_pdf(titulo):
-        pdf.set_font("helvetica", "B", 11)
-        pdf.set_fill_color(240, 243, 246)
-        pdf.set_text_color(0, 32, 96)
-        pdf.cell(0, 7, f"  {titulo}", ln=True, fill=True)
-        pdf.set_text_color(0, 0, 0)
-        pdf.set_font("helvetica", "", 10)
+    def fila_tabla(lbl1, val1, lbl2, val2, w1=35, w2=60, w3=35, w4=60):
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(w1, 6, f" {lbl1}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(w2, 6, f" {val1}", 1, 0, 'L')
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(w3, 6, f" {lbl2}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(w4, 6, f" {val2}", 1, 1, 'L')
+
+    def fila_completa(lbl, val, w_lbl=45, w_val=145):
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(w_lbl, 6, f" {lbl}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(w_val, 6, f" {val}", 1, 1, 'L')
+
+    def seccion_titulo(titulo):
         pdf.ln(2)
+        pdf.set_font("helvetica", "B", 10)
+        pdf.set_fill_color(0, 32, 96)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(190, 6, f"  {titulo}", 1, 1, 'L', True)
+        pdf.set_text_color(0, 0, 0)
 
-    # 1. Datos Generales
-    seccion_pdf("1. DATOS GENERALES DEL EVENTO")
-    pdf.cell(95, 6, f"Dependencia: {row.get('Dependencia', '')}", ln=0)
-    pdf.cell(95, 6, f"Fecha del Evento: {row.get('Fecha Evento', '')}", ln=1)
-    pdf.cell(95, 6, f"Tipo de Evento: {row.get('Tipo de Evento', '')}", ln=0)
-    pdf.cell(95, 6, f"Horario: {row.get('Horario', '')}", ln=1)
-    pdf.cell(0, 6, f"Ubicación / Predio: {row.get('Ubicación Predio', '')}", ln=1)
-    pdf.cell(0, 6, f"Organizador: {row.get('Organizador', '')}", ln=1)
-    pdf.ln(4)
+    # 1. Datos Generales del Evento
+    seccion_titulo("1. DATOS GENERALES DEL EVENTO")
+    fila_tabla("Dependencia", str(row.get('Dependencia', '')), "Fecha", str(row.get('Fecha Evento', '')))
+    fila_tabla("Tipo de Evento", str(row.get('Tipo de Evento', '')), "Horario", str(row.get('Horario', '')))
+    fila_completa("Ubicación / Predio", str(row.get('Ubicación Predio', '')))
+    fila_completa("Organizador", str(row.get('Organizador', '')))
 
-    # 2. Recursos Asignados
-    seccion_pdf("2. RECURSOS Y MÓDULOS ASIGNADOS")
-    pdf.cell(95, 6, f"Cantidad de Jefes: {row.get('Cant. Jefes', '')}", ln=0)
-    pdf.cell(95, 6, f"Cantidad de Subalternos: {row.get('Cant. Subalternos', '')}", ln=1)
-    pdf.cell(95, 6, f"Módulos (Turnos): {row.get('Módulos', '')}", ln=0)
+    # 2. Recursos y Módulos
+    seccion_titulo("2. RECURSOS Y MÓDULOS ASIGNADOS")
     monto_val = row.get('Monto Total', 0)
     monto_str = f"${float(monto_val):,.2f}" if monto_val else "$0.00"
-    pdf.cell(95, 6, f"Monto Total: {monto_str}", ln=1)
-    pdf.ln(4)
+    fila_tabla("Cant. Jefes", str(row.get('Cant. Jefes', '')), "Cant. Subalternos", str(row.get('Cant. Subalternos', '')))
+    fila_tabla("Módulos (Turnos)", str(row.get('Módulos', '')), "Monto Total", monto_str)
 
-    # 3. Datos de Pago
-    seccion_pdf("3. DATOS DE FACTURACIÓN Y PAGO")
-    pdf.cell(0, 6, f"Pagado por: {row.get('Pagador', '')}", ln=1)
-    pdf.cell(0, 6, f"CUIL / CUIT Facturación: {row.get('CUIL Pagador', '')}", ln=1)
-    pdf.ln(4)
+    # 3. Facturación y Pago
+    seccion_titulo("3. DATOS DE FACTURACIÓN Y PAGO")
+    fila_completa("Pagado por", str(row.get('Pagador', '')))
+    fila_completa("CUIL / CUIT Facturación", str(row.get('CUIL Pagador', '')))
 
-    # 4. Enlaces Limpios y Profesionales
-    seccion_pdf("4. DOCUMENTACIÓN Y ENLACES (GOOGLE DRIVE)")
+    # 4. Enlaces de Documentación
+    seccion_titulo("4. DOCUMENTACIÓN Y ENLACES (GOOGLE DRIVE)")
     enlaces = [
         ("Habilitación Municipal", row.get("Enlace Habilitación", "")),
         ("Comprobante de Pago", row.get("Enlace Comprobante", "")),
@@ -446,17 +457,20 @@ def generar_pdf_servicio(row: pd.Series) -> str:
         ("Planilla de Asistencia", row.get("Enlace Asistencia", ""))
     ]
     
-    pdf.set_font("helvetica", "", 9)
+    pdf.set_font("helvetica", "B", 9)
     for etiqueta, url in enlaces:
-        pdf.cell(50, 6, f"- {etiqueta}:", ln=0)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(50, 6, f" {etiqueta}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
         if url and str(url).startswith("http"):
             pdf.set_text_color(0, 102, 204)
-            pdf.cell(140, 6, "[ Enlace Disponible / Ver Documento ]", ln=1, link=str(url))
+            pdf.cell(140, 6, " [ Enlace Disponible / Ver Documento ]", 1, 1, 'L', link=str(url))
             pdf.set_text_color(0, 0, 0)
         else:
             pdf.set_text_color(120, 120, 120)
-            pdf.cell(140, 6, "No disponible", ln=1)
+            pdf.cell(140, 6, " No disponible", 1, 1, 'L')
             pdf.set_text_color(0, 0, 0)
+        pdf.set_font("helvetica", "B", 9)
 
     # Anexos de imágenes con diseño prolijo
     anexos = [
@@ -472,16 +486,16 @@ def generar_pdf_servicio(row: pd.Series) -> str:
             continue
         try:
             pdf.add_page()
-            pdf.set_font("helvetica", "B", 12)
+            pdf.set_font("helvetica", "B", 11)
             pdf.set_text_color(0, 32, 96)
             pdf.cell(0, 8, titulo, ln=True, align="center")
             pdf.set_text_color(0, 0, 0)
-            pdf.ln(4)
+            pdf.ln(3)
             
             with Image.open(ruta_img) as im:
                 w, h = im.size
             ratio = min(170 / w, 220 / h)
-            pdf.image(ruta_img, x=20, y=30, w=w * ratio, h=h * ratio)
+            pdf.image(ruta_img, x=20, y=28, w=w * ratio, h=h * ratio)
         except Exception as e:
             logger.warning(f"PDF: no se pudo embeber {titulo}: {e}")
         finally:
