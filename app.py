@@ -35,6 +35,13 @@ st.markdown("""
         border: 1px solid #e9ecef;
     }
 
+    /* REFUERZO DE TÍTULOS Y ETIQUETAS (Labels más oscuros y destacados) */
+    label, .stTextInput label, .stDateInput label, .stTimeInput label, .stSelectbox label, .stFileUploader label {
+        color: #1a1a1a !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+    }
+
     /* Estilo para las métricas del panel admin */
     div[data-testid="stMetric"] {
         background-color: #ffffff;
