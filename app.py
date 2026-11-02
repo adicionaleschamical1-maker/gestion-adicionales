@@ -448,7 +448,7 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     
     pdf.set_font("helvetica", "", 9)
     for etiqueta, url in enlaces:
-        pdf.cell(50, 6, f"- {etкета_limpia(etiqueta)}:", ln=0) if 'etкета_limpia' else pdf.cell(50, 6, f"- {etiqueta}:", ln=0)
+        pdf.cell(50, 6, f"- {etiqueta}:", ln=0)
         if url and str(url).startswith("http"):
             pdf.set_text_color(0, 102, 204)
             pdf.cell(140, 6, "[ Enlace Disponible / Ver Documento ]", ln=1, link=str(url))
