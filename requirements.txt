@@ -2,6 +2,7 @@ streamlit
 pandas
 gspread
 google-auth
-requests
+google-api-python-client
 fpdf2
 Pillow
+requests
