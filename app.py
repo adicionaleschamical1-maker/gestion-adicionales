@@ -381,14 +381,14 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Encabezado con barra institucional superior
+    # Encabezado con barra institucional superior actualizada
     pdf.set_fill_color(0, 32, 96)  # Azul policial oscuro
     pdf.rect(0, 0, 210, 20, 'F')
     
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font("helvetica", "B", 13)
-    pdf.set_xy(10, 5)
-    pdf.cell(190, 8, "POLICÍA DE LA PROVINCIA DE LA RIOJA - URV V", ln=True, align="center")
+    pdf.set_font("helvetica", "B", 10)
+    pdf.set_xy(5, 6)
+    pdf.cell(200, 6, "POLICÍA DE LA PROVINCIA DE LA RIOJA - UNIDAD REGIONAL QUINTA - CHAMICAL", ln=True, align="center")
     
     pdf.set_text_color(0, 0, 0)
     pdf.ln(12)
