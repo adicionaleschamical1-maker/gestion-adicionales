@@ -645,23 +645,4 @@ def vista_dependencia():
                         st.warning(f"Tenés **{len(df_pend)}** servicio(s) pendiente(s) de asistencia.")
                         for _, row in df_pend.iterrows():
                             id_serv = row.get('ID Servicio') or row.get('id_servicio') or row.iloc[0]
-                            tipo_ev = row.get('Tipo de Evento') or row.get('tipo_evento') or 'Evento'
-                            fec_ev = row.get('Fecha Evento') or row.get('fecha_evento') or ''
-                            ubi_ev = row.get('Ubicación Predio') or row.get('ubicacion') or ''
-                            
-                            with st.expander(f"📅 {fec_ev} - {tipo_ev} ({ubi_ev}) [ID: {id_serv}]"):
-                                st.write(f"**Organizador:** {row.get('Organizador', '')}")
-                                st.write(f"**Horario:** {row.get('Horario', '')} | **Módulos:** {row.get('Módulos', '')}")
-                                st.write(f"**Personal:** {row.get('Cant. Jefes', 0)} Jefes / {row.get('Cant. Subalternos', 0)} Subalternos")
-                                
-                                with st.form(f"form_asist_{id_serv}"):
-                                    file_asist = st.file_uploader(
-                                        "Planilla de Asistencia Firmada",
-                                        type=["png", "jpg", "jpeg", "pdf"],
-                                        key=f"file_{id_serv}",
-                                    )
-                                    sub_asist = st.form_submit_button("Subir Planilla")
-                                    
-                                if sub_asist:
-                                    if not file_asist:
-                                        st.error("Seleccioná un archivo antes
+                            tipo_ev = row.get('Tipo de
