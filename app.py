@@ -455,4 +455,285 @@ def generar_pdf_servicio(row: pd.Series) -> str:
 
     seccion_titulo("1. DATOS GENERALES DEL EVENTO")
     fila_tabla("Dependencia", str(row.get('Dependencia', '')), "Fecha", str(row.get('Fecha Evento', '')))
-    fila_tabla
+    fila_tabla("Tipo de Evento", str(row.get('Tipo de Evento', '')), "Horario", str(row.get('Horario', '')))
+    fila_completa("Ubicación / Predio", str(row.get('Ubicación Predio', '')))
+    fila_completa("Organizador", str(row.get('Organizador', '')))
+
+    seccion_titulo("2. RECURSOS Y MÓDULOS ASIGNADOS")
+    monto_val = row.get('Monto Total', 0)
+    monto_str = f"${float(monto_val):,.2f}" if monto_val else "$0.00"
+    fila_tabla("Cant. Jefes", str(row.get('Cant. Jefes', '')), "Cant. Subalternos", str(row.get('Cant. Subalternos', '')))
+    fila_tabla("Módulos (Turnos)", str(row.get('Módulos', '')), "Monto Total", monto_str)
+
+    seccion_titulo("3. DATOS DE FACTURACIÓN Y PAGO")
+    fila_completa("Pagado por", str(row.get('Pagador', '')))
+    fila_completa("CUIL / CUIT Facturación", str(row.get('CUIL Pagador', '')))
+
+    seccion_titulo("4. DOCUMENTACIÓN Y ENLACES (GOOGLE DRIVE)")
+    enlaces = [
+        ("Habilitación Municipal", row.get("Enlace Habilitación", "")),
+        ("Comprobante de Pago", row.get("Enlace Comprobante", "")),
+        ("Contrato de Adicional", row.get("Enlace Contrato", "")),
+        ("Planilla de Asistencia", row.get("Enlace Asistencia", ""))
+    ]
+    
+    pdf.set_font("helvetica", "B", 9)
+    for etiqueta, url in enlaces:
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(50, 6, f" {etiqueta}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        if url and str(url).startswith("http"):
+            pdf.set_text_color(0, 102, 204)
+            pdf.cell(140, 6, " [ Enlace Disponible / Ver Documento ]", 1, 1, 'L', link=str(url))
+            pdf.set_text_color(0, 0, 0)
+        else:
+            pdf.set_text_color(120, 120, 120)
+            pdf.cell(140, 6, " No disponible", 1, 1, 'L')
+            pdf.set_text_color(0, 0, 0)
+        pdf.set_font("helvetica", "B", 9)
+
+    anexos = [
+        ("ANEXO: HABILITACIÓN MUNICIPAL", row.get("Enlace Habilitación", "")),
+        ("ANEXO: COMPROBANTE DE PAGO", row.get("Enlace Comprobante", "")),
+        ("ANEXO: CONTRATO DE ADICIONAL", row.get("Enlace Contrato", "")),
+        ("ANEXO: PLANILLA DE ASISTENCIA", row.get("Enlace Asistencia", ""))
+    ]
+    
+    for titulo, url in anexos:
+        ruta_img = obtener_imagen_desde_drive(url)
+        if not ruta_img:
+            continue
+        try:
+            pdf.add_page()
+            pdf.set_font("helvetica", "B", 11)
+            pdf.set_text_color(0, 32, 96)
+            pdf.cell(0, 8, titulo, ln=True, align="center")
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(3)
+            
+            with Image.open(ruta_img) as im:
+                w, h = im.size
+            ratio = min(170 / w, 220 / h)
+            pdf.image(ruta_img, x=20, y=28, w=w * ratio, h=h * ratio)
+        except Exception as e:
+            logger.warning(f"PDF: no se pudo embeber {titulo}: {e}")
+        finally:
+            if os.path.exists(ruta_img):
+                os.unlink(ruta_img)
+
+    tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    pdf.output(tmp_pdf.name)
+    return tmp_pdf.name
+
+
+# --- VISTA DEPENDENCIA (MÓDULOS DE MAYOR A MENOR Y PASO A PASO) ---
+def _render_modulos(max_modulos: int, counter: int):
+    labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)", "Cuádruple (16h)"]
+    labels_ordenados = labels_base[:max_modulos][::-1]
+    
+    jefes_dict = {}
+    subs_dict = {}
+    
+    for label in labels_ordenados:
+        st.markdown(f"**Turno {label}**")
+        c1, c2 = st.columns(2)
+        with c1:
+            j = st.number_input(f"Jefes ({label})", 0, step=1, key=f"j_{label}_{counter}")
+        with c2:
+            s = st.number_input(f"Subalternos ({label})", 0, step=1, key=f"s_{label}_{counter}")
+        
+        if "Simple" in label:
+            jefes_dict[0] = int(j)
+            subs_dict[0] = int(s)
+        elif "Doble" in label:
+            jefes_dict[1] = int(j)
+            subs_dict[1] = int(s)
+        elif "Triple" in label:
+            jefes_dict[2] = int(j)
+            subs_dict[2] = int(s)
+        elif "Cuádruple" in label:
+            jefes_dict[3] = int(j)
+            subs_dict[3] = int(s)
+
+    jefes_final = [jefes_dict.get(i, 0) for i in range(4)]
+    subs_final = [subs_dict.get(i, 0) for i in range(4)]
+    
+    return jefes_final, subs_final
+
+
+def _post_apps_script(payload: dict) -> dict:
+    try:
+        r = requests.post(URL_APPS_SCRIPT, json=payload, timeout=TIMEOUT_HTTP)
+        r.raise_for_status()
+        return r.json()
+    except requests.exceptions.Timeout:
+        return {"status": "error", "message": "Timeout al contactar Apps Script."}
+    except requests.exceptions.RequestException as e:
+        return {"status": "error", "message": f"Error de red: {e}"}
+    except ValueError:
+        return {"status": "error", "message": "Respuesta inválida del servidor."}
+
+
+def vista_dependencia():
+    nombre_efectivo = st.session_state.get("nombre_apellido", "Personal Policial")
+    saludo = obtener_saludo(nombre_efectivo)
+    
+    st.sidebar.markdown(f"""
+        <div class="user-card">
+            <div class="user-avatar">👮</div>
+            <div style="font-weight:800; font-size: 1.05rem; margin-top:2px;">{nombre_efectivo}</div>
+            <div style="font-size:0.8rem; color: #555; margin-top:4px;">Dep: {st.session_state.dependencia}</div>
+            <div style="font-size:0.75rem; margin-top:8px; background: #E8F0FE; padding:4px 12px; border-radius:30px; display:inline-block; font-weight:600;">
+                👤 COLABORADOR
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    boton_refrescar()
+    if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
+        st.session_state.autenticado = False
+        st.rerun()
+
+    st.markdown(f"### {saludo}")
+    st.markdown(f"<p style='color: #555; margin-top: -10px;'>Dependencia: <b>{st.session_state.dependencia}</b></p>", unsafe_allow_html=True)
+
+    tab1, tab2, tab3 = st.tabs(
+        ["🟢 Cargar Nuevo Servicio", "🔵 Pendientes de Asistencia", "📜 Historial de Servicios"]
+    )
+
+    counter = st.session_state.form_counter
+
+    # ---------- TAB 1 (FORMULARIO GUIADO PASO A PASO CON SELECCIÓN DE FECHA) ----------
+    with tab1:
+        st.header("Solicitud de Servicio Adicional")
+        st.info("💡 Complete los datos paso a paso. Cada sección se habilitará a medida que seleccione o ingrese la información.")
+
+        if f"fecha_elegida_{counter}" not in st.session_state:
+            st.session_state[f"fecha_elegida_{counter}"] = False
+
+        # PASO 1: Fecha del Evento
+        st.subheader("📌 Paso 1: Fecha del Evento")
+        
+        with st.form(f"form_fecha_{counter}"):
+            fecha = st.date_input("Seleccione la fecha del servicio", value=datetime.date.today(), min_value=datetime.date.today())
+            btn_confirmar_fecha = st.form_submit_button("Confirmar Fecha y Continuar")
+            
+        if btn_confirmar_fecha:
+            st.session_state[f"fecha_elegida_{counter}"] = True
+
+        if st.session_state[f"fecha_elegida_{counter}"]:
+            st.success(f"✔ Fecha registrada: **{fecha}**")
+            st.markdown("---")
+            
+            # PASO 2: Tipo de Evento
+            st.subheader("📌 Paso 2: Tipo de Evento")
+            tipo_evento = st.text_input(
+                "Ingrese el tipo de evento (Ej: Partido de fútbol, Baile, Recital, etc.)", key=f"tipo_{counter}"
+            )
+            
+            if tipo_evento.strip():
+                st.success("✔ Tipo de evento registrado.")
+                st.markdown("---")
+                
+                # PASO 3 y 4: Datos del Organizador (Nombre y DNI)
+                st.subheader("📌 Paso 3 y 4: Datos del Organizador")
+                col_org1, col_org2 = st.columns(2)
+                with col_org1:
+                    nombre_organizador = st.text_input("Nombre y Apellido del Organizador", key=f"nom_org_{counter}")
+                with col_org2:
+                    dni_organizador = st.text_input("DNI del Organizador", key=f"dni_org_{counter}")
+                
+                if nombre_organizador.strip() and dni_organizador.strip():
+                    st.success("✔ Datos del organizador registrados.")
+                    st.markdown("---")
+                    
+                    # PASO 5: CUIL / CUIT para Facturación
+                    st.subheader("📌 Paso 5: Facturación")
+                    cuil_organizador = st.text_input("CUIL / CUIT del Organizador (11 dígitos)", key=f"cuil_org_{counter}")
+                    
+                    if cuil_organizador.strip():
+                        st.success("✔ CUIL/CUIT registrado.")
+                        st.markdown("---")
+                        
+                        # PASO 6: Ubicación / Predio
+                        st.subheader("📌 Paso 6: Ubicación del Evento")
+                        ubicacion_predio = st.text_input("Ubicación / Predio donde se realizará el servicio", key=f"ubi_{counter}")
+                        
+                        if ubicacion_predio.strip():
+                            st.success("✔ Ubicación registrada.")
+                            st.markdown("---")
+                            
+                            # PASO 7: Horarios y Módulos
+                            st.subheader("📌 Paso 7: Horarios y Turnos")
+                            col_h1, col_h2 = st.columns(2)
+                            with col_h1:
+                                hora_inicio = st.time_input("Hora de Inicio", value=datetime.time(20, 0), key=f"h_ini_{counter}")
+                            with col_h2:
+                                hora_fin = st.time_input("Hora de Fin", value=datetime.time(4, 0), key=f"h_fin_{counter}")
+
+                            diferencia_horas, max_modulos = calcular_monto_y_modulos(hora_inicio, hora_fin)
+                            st.info(f"⏱️ Duración calculada: **{diferencia_horas:.1f} horas** (Hasta **{max_modulos} módulo(s)**)")
+
+                            jefes_por_mod, subs_por_mod = _render_modulos(max_modulos, counter)
+                            total_jefes = sum(jefes_por_mod)
+                            total_subalternos = sum(subs_por_mod)
+                            monto_total = calcular_monto_total(jefes_por_mod, subs_por_mod)
+
+                            st.markdown("---")
+                            st.success(f"💰 **Monto Total a Pagar: ${monto_total:,.2f}**")
+
+                            # PASO 8: Envío y Archivos
+                            st.markdown("---")
+                            st.subheader("📌 Paso 8: Facturación y Documentación Adjunta")
+                            with st.form(f"form_envio_{counter}", clear_on_submit=False):
+                                mismo_organizador = st.checkbox("¿El que paga es el mismo organizador?", value=True)
+                                if mismo_organizador:
+                                    pagado_por = f"{nombre_organizador} (DNI: {dni_organizador})" if nombre_organizador else ""
+                                    cuil_pagado_por = cuil_organizador
+                                else:
+                                    cp1, cp2 = st.columns(2)
+                                    with cp1:
+                                        pagado_por = st.text_input("Nombre y DNI de quien paga", key=f"pag_por_{counter}")
+                                    with cp2:
+                                        cuil_pagado_por = st.text_input("CUIL / CUIT de Facturación", key=f"cuil_pag_{counter}")
+
+                                st.markdown("---")
+                                st.subheader("📎 Archivos Obligatorios y Opcionales")
+                                file_hab = st.file_uploader(
+                                    "Habilitación Municipal (Obligatorio)",
+                                    type=["png", "jpg", "jpeg", "pdf"],
+                                    key=f"hab_{counter}",
+                                )
+                                file_comp = st.file_uploader(
+                                    "Comprobante de Pago (Obligatorio)",
+                                    type=["png", "jpg", "jpeg", "pdf"],
+                                    key=f"comp_{counter}",
+                                )
+                                file_cont = st.file_uploader(
+                                    "Contrato de Adicional (Opcional)",
+                                    type=["png", "jpg", "jpeg", "pdf"],
+                                    key=f"cont_{counter}",
+                                )
+
+                                submitted = st.form_submit_button("🚀 Enviar Solicitud Definitiva")
+
+                            if submitted:
+                                organizador_completo = f"{nombre_organizador} (DNI: {dni_organizador})"
+                                if total_jefes == 0 and total_subalternos == 0:
+                                    st.error("⚠️ Debés asignar al menos un efectivo (Jefe o Subalterno).")
+                                elif not (file_hab and file_comp):
+                                    st.error("Faltan los archivos obligatorios (Habilitación y Comprobante).")
+                                elif not validar_cuil(cuil_pagado_por):
+                                    st.error("CUIL/CUIT inválido: debe tener exactamente 11 dígitos numéricos.")
+                                else:
+                                    try:
+                                        with st.spinner("Subiendo archivos y registrando solicitud..."):
+                                            id_servicio = f"SERV-{int(datetime.datetime.now().timestamp())}"
+                                            payload = {
+                                                "id_servicio": id_servicio,
+                                                "dependencia": str(st.session_state.dependencia),
+                                                "fecha_evento": str(fecha),
+                                                "tipo_evento": str(tipo_evento),
+                                                "organizador": str(organizador_completo),
+                                                "ubicacion": str(ubicacion_predio),
+                                                "
