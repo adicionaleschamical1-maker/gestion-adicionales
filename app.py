@@ -422,4 +422,37 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.cell(0, 7, "INFORME DE SERVICIO ADICIONAL", ln=True, align="center")
     pdf.set_font("helvetica", "I", 9)
     pdf.set_text_color(90, 90, 90)
-    pdf.cell(0, 5, f"ID de Solicitud:
+    pdf.cell(0, 5, f"ID de Solicitud: {row.get('ID Servicio', '')}", ln=True, align="center")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(5)
+
+    def fila_tabla(lbl1, val1, lbl2, val2, w1=35, w2=60, w3=35, w4=60):
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(w1, 6, f" {lbl1}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(w2, 6, f" {val1}", 1, 0, 'L')
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(w3, 6, f" {lbl2}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(w4, 6, f" {val2}", 1, 1, 'L')
+
+    def fila_completa(lbl, val, w_lbl=45, w_val=145):
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(w_lbl, 6, f" {lbl}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(w_val, 6, f" {val}", 1, 1, 'L')
+
+    def seccion_titulo(titulo):
+        pdf.ln(2)
+        pdf.set_font("helvetica", "B", 10)
+        pdf.set_fill_color(0, 32, 96)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(190, 6, f"  {titulo}", 1, 1, 'L', True)
+        pdf.set_text_color(0, 0, 0)
+
+    seccion_titulo("1. DATOS GENERALES DEL EVENTO")
+    fila_tabla("Dependencia", str(row.get('Dependencia', '')), "Fecha", str(row.get('Fecha Evento', '')))
+    fila_tabla
