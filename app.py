@@ -390,4 +390,116 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.rect(0, 0, 210, 20, 'F')
     
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font("helvetica
+    pdf.set_font("helvetica", "B", 10)
+    pdf.set_xy(5, 6)
+    pdf.cell(200, 6, "POLICÍA DE LA PROVINCIA DE LA RIOJA - UNIDAD REGIONAL QUINTA - CHAMICAL", ln=True, align="center")
+    
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(12)
+
+    pdf.set_font("helvetica", "B", 14)
+    pdf.cell(0, 7, "INFORME DE SERVICIO ADICIONAL", ln=True, align="center")
+    pdf.set_font("helvetica", "I", 9)
+    pdf.set_text_color(90, 90, 90)
+    pdf.cell(0, 5, f"ID de Solicitud: {row.get('ID Servicio', '')}", ln=True, align="center")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(5)
+
+    def fila_tabla(lbl1, val1, lbl2, val2, w1=35, w2=60, w3=35, w4=60):
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(w1, 6, f" {lbl1}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(w2, 6, f" {val1}", 1, 0, 'L')
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(w3, 6, f" {lbl2}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(w4, 6, f" {val2}", 1, 1, 'L')
+
+    def fila_completa(lbl, val, w_lbl=45, w_val=145):
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(w_lbl, 6, f" {lbl}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(w_val, 6, f" {val}", 1, 1, 'L')
+
+    def seccion_titulo(titulo):
+        pdf.ln(2)
+        pdf.set_font("helvetica", "B", 10)
+        pdf.set_fill_color(0, 32, 96)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(190, 6, f"  {titulo}", 1, 1, 'L', True)
+        pdf.set_text_color(0, 0, 0)
+
+    seccion_titulo("1. DATOS GENERALES DEL EVENTO")
+    fila_tabla("Dependencia", str(row.get('Dependencia', '')), "Fecha", str(row.get('Fecha Evento', '')))
+    fila_tabla("Tipo de Evento", str(row.get('Tipo de Evento', '')), "Horario", str(row.get('Horario', '')))
+    fila_completa("Ubicación / Predio", str(row.get('Ubicación Predio', '')))
+    fila_completa("Organizador", str(row.get('Organizador', '')))
+
+    seccion_titulo("2. RECURSOS Y MÓDULOS ASIGNADOS")
+    monto_val = row.get('Monto Total', 0)
+    monto_str = f"${float(monto_val):,.2f}" if monto_val else "$0.00"
+    fila_tabla("Cant. Jefes", str(row.get('Cant. Jefes', '')), "Cant. Subalternos", str(row.get('Cant. Subalternos', '')))
+    fila_tabla("Módulos (Turnos)", str(row.get('Módulos', '')), "Monto Total", monto_str)
+
+    seccion_titulo("3. DATOS DE FACTURACIÓN Y PAGO")
+    fila_completa("Pagado por", str(row.get('Pagador', '')))
+    fila_completa("CUIL / CUIT Facturación", str(row.get('CUIL Pagador', '')))
+
+    seccion_titulo("4. DOCUMENTACIÓN Y ENLACES (GOOGLE DRIVE)")
+    enlaces = [
+        ("Habilitación Municipal", row.get("Enlace Habilitación", "")),
+        ("Comprobante de Pago", row.get("Enlace Comprobante", "")),
+        ("Contrato de Adicional", row.get("Enlace Contrato", "")),
+        ("Planilla de Asistencia", row.get("Enlace Asistencia", ""))
+    ]
+    
+    pdf.set_font("helvetica", "B", 9)
+    for etiqueta, url in enlaces:
+        pdf.set_fill_color(245, 247, 250)
+        pdf.cell(50, 6, f" {etiqueta}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        if url and str(url).startswith("http"):
+            pdf.set_text_color(0, 102, 204)
+            pdf.cell(140, 6, " [ Enlace Disponible / Ver Documento ]", 1, 1, 'L', link=str(url))
+            pdf.set_text_color(0, 0, 0)
+        else:
+            pdf.set_text_color(120, 120, 120)
+            pdf.cell(140, 6, " No disponible", 1, 1, 'L')
+            pdf.set_text_color(0, 0, 0)
+        pdf.set_font("helvetica", "B", 9)
+
+    anexos = [
+        ("ANEXO: HABILITACIÓN MUNICIPAL", row.get("Enlace Habilitación", "")),
+        ("ANEXO: COMPROBANTE DE PAGO", row.get("Enlace Comprobante", "")),
+        ("ANEXO: CONTRATO DE ADICIONAL", row.get("Enlace Contrato", "")),
+        ("ANEXO: PLANILLA DE ASISTENCIA", row.get("Enlace Asistencia", ""))
+    ]
+    
+    for titulo, url in anexos:
+        ruta_img = obtener_imagen_desde_drive(url)
+        if not ruta_img:
+            continue
+        try:
+            pdf.add_page()
+            pdf.set_font("helvetica", "B", 11)
+            pdf.set_text_color(0, 32, 96)
+            pdf.cell(0, 8, titulo, ln=True, align="center")
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(3)
+            
+            with Image.open(ruta_img) as im:
+                w, h = im.size
+            ratio = min(170 / w, 220 / h)
+            pdf.image(ruta_img, x=20, y=28, w=w * ratio, h=h * ratio)
+        except Exception as e:
+            logger.warning(f"PDF: no se pudo embeber {titulo}: {e}")
+        finally:
+            if os.path.exists(ruta_img):
+                os.unlink(ruta_img)
+
+    tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    pdf.output(tmp_pdf.name)
+    return tmp_pdf.name
