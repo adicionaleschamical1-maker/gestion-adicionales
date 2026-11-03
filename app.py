@@ -258,25 +258,17 @@ def calcular_monto_total(jefes_por_mod: list, subs_por_mod: list) -> float:
         total += ((j * PRECIO_JEFE) + (s * PRECIO_SUB)) * i
     return total
 
+# --- SALUDO DINÁMICO (USA EL NOMBRE COMPLETO DIRECTO DE LA COLUMNA B) ---
 def obtener_saludo(nombre_completo: str) -> str:
     hora_actual = datetime.datetime.now().hour
-    partes = str(nombre_completo).strip().split()
-    
-    if len(partes) > 0:
-        jerarquias_comunes = ["comisario", "inspector", "oficial", "suboficial", "cabo", "sargento", "agente", "subcomisario", "principal"]
-        if partes[0].lower() in jerarquias_comunes and len(partes) > 1:
-            nombre_pila = partes[1]
-        else:
-            nombre_pila = partes[-1] if len(partes) > 1 else partes[0]
-    else:
-        nombre_pila = "Efectivo"
+    nombre_str = str(nombre_completo).strip() if nombre_completo else "Efectivo"
     
     if 6 <= hora_actual < 13:
-        return f"🌅 ¡Buen día, {nombre_pila}!"
+        return f"🌅 ¡Buen día, {nombre_str}!"
     elif 13 <= hora_actual < 20:
-        return f"☀️ ¡Buenas tardes, {nombre_pila}!"
+        return f"☀️ ¡Buenas tardes, {nombre_str}!"
     else:
-        return f"🌙 ¡Buenas noches, {nombre_pila}!"
+        return f"🌙 ¡Buenas noches, {nombre_str}!"
 
 # --- LOGIN ---
 def pantalla_cambio_clave():
@@ -351,7 +343,11 @@ def login():
                     st.session_state.usuario_dni = dni
                     st.session_state.dependencia = str(u.get("dependencia", ""))
                     st.session_state.rol = str(u.get("rol", "")).strip()
-                    st.session_state.nombre_apellido = str(u.get("nombre y apellido", u.get("nombre_apellido", f"DNI: {dni}"))).strip()
+                    
+                    # CAPTURA EXACTA DEL NOMBRE COMPLETO DE LA COLUMNA B (nombre y apellido)
+                    col_nombre = next((c for c in u.index if "nombre" in str(c).lower()), data.columns[1] if len(data.columns) > 1 else "Usuario")
+                    st.session_state.nombre_apellido = str(u.get(col_nombre, f"DNI: {dni}")).strip()
+                    
                     st.rerun()
                 else:
                     st.error("Contraseña incorrecta.")
