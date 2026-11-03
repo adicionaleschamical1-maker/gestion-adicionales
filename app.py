@@ -268,17 +268,32 @@ def calcular_monto_total(jefes_por_mod: list, subs_por_mod: list) -> float:
     return total
 
 
-# --- SALUDO DINÁMICO SEGÚN LA HORA ---
+# --- SALUDO DINÁMICO (EXCLUSIVAMENTE POR EL NOMBRE DE PILA) ---
 def obtener_saludo(nombre_completo: str) -> str:
     hora_actual = datetime.datetime.now().hour
-    nombre_corto = nombre_completo.split()[0] if nombre_completo else "Efectivo"
+    
+    # Limpiamos y separamos las palabras del nombre completo registrado en la hoja
+    partes = str(nombre_completo).strip().split()
+    
+    if len(partes) > 0:
+        # Detectamos si la primera palabra es una jerarquía policial común para tomar el verdadero nombre
+        jerarquias_comunes = ["comisario", "inspector", "oficial", "suboficial", "cabo", "sargento", "agente", "subcomisario", "inspector", "principal"]
+        if partes[0].lower() in jerarquias_comunes and len(partes) > 1:
+            # Buscamos la siguiente palabra que no sea parte de la jerarquía
+            nombre_pila = partes[1]
+        else:
+            # En la estructura "Apellido Nombre", el nombre suele ser el último o el segundo término. 
+            # Si el usuario carga "RIVERO Andres", el nombre es la última palabra.
+            nombre_pila = partes[-1] if len(partes) > 1 else partes[0]
+    else:
+        nombre_pila = "Efectivo"
     
     if 6 <= hora_actual < 12:
-        return f"🌅 ¡Buen día, {nombre_corto}!"
+        return f"🌅 ¡Buen día, {nombre_pila}!"
     elif 12 <= hora_actual < 20:
-        return f"☀️ ¡Buenas tardes, {nombre_corto}!"
+        return f"☀️ ¡Buenas tardes, {nombre_pila}!"
     else:
-        return f"🌙 ¡Buenas noches, {nombre_corto}!"
+        return f"🌙 ¡Buenas noches, {nombre_pila}!"
 
 
 # --- LOGIN ---
@@ -517,20 +532,42 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     return tmp_pdf.name
 
 
-# --- VISTA DEPENDENCIA ---
+# --- VISTA DEPENDENCIA (MÓDULOS DE MAYOR A MENOR Y PASO A PASO) ---
 def _render_modulos(max_modulos: int, counter: int):
-    labels = ["Simple (4h)", "Doble (8h)", "Triple (12h)", "Cuádruple (16h)"]
-    jefes, subs = [], []
-    for i in range(max_modulos):
-        st.markdown(f"**Turno {labels[i]}**")
+    # Invertimos el orden para mostrar primero los turnos más largos (ej. cuádruple, triple, doble, simple)
+    labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)", "Cuádruple (16h)"]
+    labels_ordenados = labels_base[:max_modulos][::-1]
+    
+    jefes_dict = {}
+    subs_dict = {}
+    
+    for label in labels_ordenados:
+        st.markdown(f"**Turno {label}**")
         c1, c2 = st.columns(2)
         with c1:
-            j = st.number_input(f"Jefes ({labels[i]})", 0, step=1, key=f"j{i+1}_{counter}")
+            j = st.number_input(f"Jefes ({label})", 0, step=1, key=f"j_{label}_{counter}")
         with c2:
-            s = st.number_input(f"Subalternos ({labels[i]})", 0, step=1, key=f"s{i+1}_{counter}")
-        jefes.append(int(j))
-        subs.append(int(s))
-    return jefes + [0] * (4 - len(jefes)), subs + [0] * (4 - len(subs))
+            s = st.number_input(f"Subalternos ({label})", 0, step=1, key=f"s_{label}_{counter}")
+        
+        # Guardamos en diccionario temporal mapeando según la duración real (1, 2, 3 o 4)
+        if "Simple" in label:
+            jefes_dict[0] = int(j)
+            subs_dict[0] = int(s)
+        elif "Doble" in label:
+            jefes_dict[1] = int(j)
+            subs_dict[1] = int(s)
+        elif "Triple" in label:
+            jefes_dict[2] = int(j)
+            subs_dict[2] = int(s)
+        elif "Cuádruple" in label:
+            jefes_dict[3] = int(j)
+            subs_dict[3] = int(s)
+
+    # Reconstruimos las listas en orden cronológico correcto de menor a mayor módulo para el cálculo (1°, 2°, 3°, 4°)
+    jefes_final = [jefes_dict.get(i, 0) for i in range(4)]
+    subs_final = [subs_dict.get(i, 0) for i in range(4)]
+    
+    return jefes_final, subs_final
 
 
 def _post_apps_script(payload: dict) -> dict:
@@ -626,8 +663,8 @@ def vista_dependencia():
                             st.success("✔ Ubicación registrada.")
                             st.markdown("---")
                             
-                            # PASO 7: Horarios y Módulos
-                            st.subheader("📌 Paso 7: Horarios y Turnos")
+                            # PASO 7: Horarios y Módulos (Ordenados de mayor a menor)
+                            st.subheader("📌 Paso 7: Horarios y Turnos (Ordenados de mayor a menor duración)")
                             col_h1, col_h2 = st.columns(2)
                             with col_h1:
                                 hora_inicio = st.time_input("Hora de Inicio", value=datetime.time(20, 0), key=f"h_ini_{counter}")
