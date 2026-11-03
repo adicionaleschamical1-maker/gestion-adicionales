@@ -18,14 +18,13 @@ from io import BytesIO
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="URV V - Adicionales", layout="centered", page_icon="👮")
 
-# --- ESTILOS VISUALES MEJORADOS (ALTA VISIBILIDAD DE INPUTS) ---
+# --- ESTILOS VISUALES ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     * { font-family: 'Inter', sans-serif; }
     .stApp { background: #F5F5F5; }
     
-    /* Encabezado Institucional Azul con Borde Rojo */
     .header-container {
         background: linear-gradient(135deg, #002060, #002a80);
         color: white;
@@ -37,7 +36,6 @@ st.markdown("""
         border-bottom: 6px solid #8B1E1E;
     }
     
-    /* Botón rojo ovalado "CHAMICAL" */
     .badge-chamical {
         background: #8B1E1E;
         display: inline-block;
@@ -51,7 +49,6 @@ st.markdown("""
         letter-spacing: 1px;
     }
     
-    /* Tarjetas de contenedores y formularios */
     div.stExpander, div.stForm {
         background: #FFFFFF;
         border-radius: 20px;
@@ -64,7 +61,6 @@ st.markdown("""
         border-bottom: 1px solid #E0E0E0;
     }
 
-    /* Cuadros de texto con fondo blanco puro y borde bien visible */
     input, textarea, select, div[data-baseweb="input"] > div, div[data-baseweb="base-input"] {
         background-color: #FFFFFF !important;
         border: 1.5px solid #B0BEC5 !important;
@@ -77,14 +73,12 @@ st.markdown("""
         box-shadow: 0 0 0 2px rgba(0,32,96,0.2) !important;
     }
 
-    /* Etiquetas altamente legibles y oscuras */
     label, .stTextInput label, .stDateInput label, .stTimeInput label, .stSelectbox label, .stFileUploader label {
         color: #0f172a !important;
         font-weight: 700 !important;
         font-size: 0.95rem !important;
     }
     
-    /* Pestañas (Tabs) */
     .stTabs [data-baseweb="tab-list"] {
         gap: 6px;
         background: white;
@@ -107,7 +101,6 @@ st.markdown("""
         box-shadow: 0 2px 8px rgba(0,32,96,0.3);
     }
     
-    /* Botones de acción azul oscuro institucionales */
     .stButton > button, div.stFormSubmitButton > button {
         border-radius: 30px !important;
         font-weight: 700 !important;
@@ -175,12 +168,10 @@ PRECIO_SUB = 28000
 HORAS_POR_MODULO = 4
 TIMEOUT_HTTP = 30
 
-# URL de Apps Script
 try:
     URL_APPS_SCRIPT = st.secrets["URL_APPS_SCRIPT"]
 except (KeyError, FileNotFoundError):
     URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxqVp5T0fVGtPncuwkocbXbU5TSHLgPqgmD0A5pQ6CmuEU3C-UrGx2eZHxg2HTLUjU1/exec"
-
 
 # --- CONEXIÓN GOOGLE ---
 @st.cache_resource
@@ -204,7 +195,6 @@ def conectar_google():
     drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     return client, drive_service
 
-
 def abrir_hoja(nombre: str):
     client, _ = conectar_google()
     ss = client.open(SHEET_NAME)
@@ -213,24 +203,20 @@ def abrir_hoja(nombre: str):
     except gspread.WorksheetNotFound:
         return ss.sheet1
 
-
 @st.cache_data(ttl=60, show_spinner=False)
 def cargar_servicios_df() -> pd.DataFrame:
     hoja = abrir_hoja(HOJA_SERVICIOS)
     return pd.DataFrame(hoja.get_all_records())
-
 
 @st.cache_data(ttl=60, show_spinner=False)
 def cargar_usuarios_df() -> pd.DataFrame:
     hoja = abrir_hoja(HOJA_USUARIOS)
     return pd.DataFrame(hoja.get_all_records())
 
-
 def boton_refrescar():
     if st.sidebar.button("🔄 Refrescar datos"):
         st.cache_data.clear()
         st.rerun()
-
 
 # --- ESTADO DE SESIÓN ---
 _defaults = {
@@ -245,11 +231,9 @@ _defaults = {
 for k, v in _defaults.items():
     st.session_state.setdefault(k, v)
 
-
 # --- HELPERS ---
 def validar_cuil(valor: str) -> bool:
     return bool(re.fullmatch(r"\d{11}", str(valor).strip()))
-
 
 def calcular_monto_y_modulos(hora_inicio: datetime.time, hora_fin: datetime.time):
     dt_ini = datetime.datetime.combine(datetime.date.today(), hora_inicio)
@@ -260,15 +244,12 @@ def calcular_monto_y_modulos(hora_inicio: datetime.time, hora_fin: datetime.time
     max_mod = max(1, min(4, math.ceil(horas / HORAS_POR_MODULO)))
     return horas, max_mod
 
-
 def calcular_monto_total(jefes_por_mod: list, subs_por_mod: list) -> float:
     total = 0
     for i, (j, s) in enumerate(zip(jefes_por_mod, subs_por_mod), start=1):
         total += ((j * PRECIO_JEFE) + (s * PRECIO_SUB)) * i
     return total
 
-
-# --- SALUDO DINÁMICO (EXCLUSIVAMENTE POR EL NOMBRE DE PILA) ---
 def obtener_saludo(nombre_completo: str) -> str:
     hora_actual = datetime.datetime.now().hour
     partes = str(nombre_completo).strip().split()
@@ -288,7 +269,6 @@ def obtener_saludo(nombre_completo: str) -> str:
         return f"☀️ ¡Buenas tardes, {nombre_pila}!"
     else:
         return f"🌙 ¡Buenas noches, {nombre_pila}!"
-
 
 # --- LOGIN ---
 def pantalla_cambio_clave():
@@ -313,58 +293,58 @@ def pantalla_cambio_clave():
             logger.exception("Error actualizando clave")
             st.error(f"Error al actualizar: {e}")
 
-
 def login():
     st.markdown("### 🔐 Acceso al Sistema de Adicionales")
+    
     with st.form("form_login"):
         dni = st.text_input("DNI / Usuario")
         clave = st.text_input("Contraseña", type="password")
         submitted = st.form_submit_button("INGRESAR AL SISTEMA")
         
-    if not submitted:
-        return
+    if submitted:
+        if not dni or not clave:
+            st.error("Por favor complete el DNI y la contraseña.")
+            return
+            
+        try:
+            with st.spinner("Verificando credenciales..."):
+                data = cargar_usuarios_df()
+                data.columns = [str(c).strip().lower() for c in data.columns]
+                
+                user = data[data["dni"].astype(str) == str(dni)]
+                if user.empty:
+                    st.error("DNI no registrado.")
+                    return
 
-    try:
-        data = cargar_usuarios_df()
-    except Exception as e:
-        st.error(f"Error al consultar la base de datos: {e}")
-        return
+                u = user.iloc[0]
+                clave_pers = str(u.get("clave personal", u.get("clave_personal", ""))).strip()
+                clave_temp = str(u.get("clave", u.get("clave_temporal", ""))).strip()
 
-    data.columns = [str(c).strip().lower() for c in data.columns]
-    
-    user = data[data["dni"].astype(str) == str(dni)]
-    if user.empty:
-        st.error("DNI no registrado.")
-        return
+                requiere_cambio = (
+                    clave_pers == ""
+                    or clave_pers == str(dni)
+                    or (clave_temp != "" and clave == clave_temp)
+                )
+                if requiere_cambio:
+                    if clave == clave_temp or clave == str(dni) or clave == clave_pers:
+                        st.session_state.cambio_clave_requerido = True
+                        st.session_state.dni_temp = dni
+                        st.rerun()
+                    else:
+                        st.error("Contraseña temporal incorrecta.")
+                    return
 
-    u = user.iloc[0]
-    clave_pers = str(u.get("clave personal", u.get("clave_personal", ""))).strip()
-    clave_temp = str(u.get("clave", u.get("clave_temporal", ""))).strip()
-
-    requiere_cambio = (
-        clave_pers == ""
-        or clave_pers == str(dni)
-        or (clave_temp != "" and clave == clave_temp)
-    )
-    if requiere_cambio:
-        if clave == clave_temp or clave == str(dni) or clave == clave_pers:
-            st.session_state.cambio_clave_requerido = True
-            st.session_state.dni_temp = dni
-            st.rerun()
-        else:
-            st.error("Contraseña temporal incorrecta.")
-        return
-
-    if clave == clave_pers:
-        st.session_state.autenticado = True
-        st.session_state.usuario_dni = dni
-        st.session_state.dependencia = str(u.get("dependencia", ""))
-        st.session_state.rol = str(u.get("rol", "")).strip()
-        st.session_state.nombre_apellido = str(u.get("nombre y apellido", u.get("nombre_apellido", f"DNI: {dni}"))).strip()
-        st.rerun()
-    else:
-        st.error("Contraseña incorrecta.")
-
+                if clave == clave_pers:
+                    st.session_state.autenticado = True
+                    st.session_state.usuario_dni = dni
+                    st.session_state.dependencia = str(u.get("dependencia", ""))
+                    st.session_state.rol = str(u.get("rol", "")).strip()
+                    st.session_state.nombre_apellido = str(u.get("nombre y apellido", u.get("nombre_apellido", f"DNI: {dni}"))).strip()
+                    st.rerun()
+                else:
+                    st.error("Contraseña incorrecta.")
+        except Exception as e:
+            st.error(f"Error de conexión con la base de datos de usuarios: {e}")
 
 # --- DRIVE: DESCARGA DE IMAGEN VÍA API ---
 def obtener_imagen_desde_drive(url_drive: str):
@@ -400,8 +380,7 @@ def obtener_imagen_desde_drive(url_drive: str):
             os.unlink(tmp_path)
         return None
 
-
-# --- GENERADOR DE PDF CON TABLAS Y DISEÑO PROFESIONAL ---
+# --- GENERADOR DE PDF ---
 def generar_pdf_servicio(row: pd.Series) -> str:
     pdf = FPDF()
     pdf.add_page()
@@ -450,231 +429,4 @@ def generar_pdf_servicio(row: pd.Series) -> str:
         pdf.set_font("helvetica", "B", 10)
         pdf.set_fill_color(0, 32, 96)
         pdf.set_text_color(255, 255, 255)
-        pdf.cell(190, 6, f"  {titulo}", 1, 1, 'L', True)
-        pdf.set_text_color(0, 0, 0)
-
-    seccion_titulo("1. DATOS GENERALES DEL EVENTO")
-    fila_tabla("Dependencia", str(row.get('Dependencia', '')), "Fecha", str(row.get('Fecha Evento', '')))
-    fila_tabla("Tipo de Evento", str(row.get('Tipo de Evento', '')), "Horario", str(row.get('Horario', '')))
-    fila_completa("Ubicación / Predio", str(row.get('Ubicación Predio', '')))
-    fila_completa("Organizador", str(row.get('Organizador', '')))
-
-    seccion_titulo("2. RECURSOS Y MÓDULOS ASIGNADOS")
-    monto_val = row.get('Monto Total', 0)
-    monto_str = f"${float(monto_val):,.2f}" if monto_val else "$0.00"
-    fila_tabla("Cant. Jefes", str(row.get('Cant. Jefes', '')), "Cant. Subalternos", str(row.get('Cant. Subalternos', '')))
-    fila_tabla("Módulos (Turnos)", str(row.get('Módulos', '')), "Monto Total", monto_str)
-
-    seccion_titulo("3. DATOS DE FACTURACIÓN Y PAGO")
-    fila_completa("Pagado por", str(row.get('Pagador', '')))
-    fila_completa("CUIL / CUIT Facturación", str(row.get('CUIL Pagador', '')))
-
-    seccion_titulo("4. DOCUMENTACIÓN Y ENLACES (GOOGLE DRIVE)")
-    enlaces = [
-        ("Habilitación Municipal", row.get("Enlace Habilitación", "")),
-        ("Comprobante de Pago", row.get("Enlace Comprobante", "")),
-        ("Contrato de Adicional", row.get("Enlace Contrato", "")),
-        ("Planilla de Asistencia", row.get("Enlace Asistencia", ""))
-    ]
-    
-    pdf.set_font("helvetica", "B", 9)
-    for etiqueta, url in enlaces:
-        pdf.set_fill_color(245, 247, 250)
-        pdf.cell(50, 6, f" {etiqueta}", 1, 0, 'L', True)
-        pdf.set_font("helvetica", "", 9)
-        if url and str(url).startswith("http"):
-            pdf.set_text_color(0, 102, 204)
-            pdf.cell(140, 6, " [ Enlace Disponible / Ver Documento ]", 1, 1, 'L', link=str(url))
-            pdf.set_text_color(0, 0, 0)
-        else:
-            pdf.set_text_color(120, 120, 120)
-            pdf.cell(140, 6, " No disponible", 1, 1, 'L')
-            pdf.set_text_color(0, 0, 0)
-        pdf.set_font("helvetica", "B", 9)
-
-    anexos = [
-        ("ANEXO: HABILITACIÓN MUNICIPAL", row.get("Enlace Habilitación", "")),
-        ("ANEXO: COMPROBANTE DE PAGO", row.get("Enlace Comprobante", "")),
-        ("ANEXO: CONTRATO DE ADICIONAL", row.get("Enlace Contrato", "")),
-        ("ANEXO: PLANILLA DE ASISTENCIA", row.get("Enlace Asistencia", ""))
-    ]
-    
-    for titulo, url in anexos:
-        ruta_img = obtener_imagen_desde_drive(url)
-        if not ruta_img:
-            continue
-        try:
-            pdf.add_page()
-            pdf.set_font("helvetica", "B", 11)
-            pdf.set_text_color(0, 32, 96)
-            pdf.cell(0, 8, titulo, ln=True, align="center")
-            pdf.set_text_color(0, 0, 0)
-            pdf.ln(3)
-            
-            with Image.open(ruta_img) as im:
-                w, h = im.size
-            ratio = min(170 / w, 220 / h)
-            pdf.image(ruta_img, x=20, y=28, w=w * ratio, h=h * ratio)
-        except Exception as e:
-            logger.warning(f"PDF: no se pudo embeber {titulo}: {e}")
-        finally:
-            if os.path.exists(ruta_img):
-                os.unlink(ruta_img)
-
-    tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    pdf.output(tmp_pdf.name)
-    return tmp_pdf.name
-
-
-# --- VISTA DEPENDENCIA (MÓDULOS DE MAYOR A MENOR Y PASO A PASO) ---
-def _render_modulos(max_modulos: int, counter: int):
-    labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)", "Cuádruple (16h)"]
-    labels_ordenados = labels_base[:max_modulos][::-1]
-    
-    jefes_dict = {}
-    subs_dict = {}
-    
-    for label in labels_ordenados:
-        st.markdown(f"**Turno {label}**")
-        c1, c2 = st.columns(2)
-        with c1:
-            j = st.number_input(f"Jefes ({label})", 0, step=1, key=f"j_{label}_{counter}")
-        with c2:
-            s = st.number_input(f"Subalternos ({label})", 0, step=1, key=f"s_{label}_{counter}")
-        
-        if "Simple" in label:
-            jefes_dict[0] = int(j)
-            subs_dict[0] = int(s)
-        elif "Doble" in label:
-            jefes_dict[1] = int(j)
-            subs_dict[1] = int(s)
-        elif "Triple" in label:
-            jefes_dict[2] = int(j)
-            subs_dict[2] = int(s)
-        elif "Cuádruple" in label:
-            jefes_dict[3] = int(j)
-            subs_dict[3] = int(s)
-
-    jefes_final = [jefes_dict.get(i, 0) for i in range(4)]
-    subs_final = [subs_dict.get(i, 0) for i in range(4)]
-    
-    return jefes_final, subs_final
-
-
-def _post_apps_script(payload: dict) -> dict:
-    try:
-        r = requests.post(URL_APPS_SCRIPT, json=payload, timeout=TIMEOUT_HTTP)
-        r.raise_for_status()
-        return r.json()
-    except requests.exceptions.Timeout:
-        return {"status": "error", "message": "Timeout al contactar Apps Script."}
-    except requests.exceptions.RequestException as e:
-        return {"status": "error", "message": f"Error de red: {e}"}
-    except ValueError:
-        return {"status": "error", "message": "Respuesta inválida del servidor."}
-
-
-def vista_dependencia():
-    nombre_efectivo = st.session_state.get("nombre_apellido", "Personal Policial")
-    saludo = obtener_saludo(nombre_efectivo)
-    
-    st.sidebar.markdown(
-        f"""
-        <div class="user-card">
-            <div class="user-avatar">👮</div>
-            <div style="font-weight:800; font-size: 1.05rem; margin-top:2px;">{nombre_efectivo}</div>
-            <div style="font-size:0.8rem; color: #555; margin-top:4px;">Dep: {st.session_state.dependencia}</div>
-            <div style="font-size:0.75rem; margin-top:8px; background: #E8F0FE; padding:4px 12px; border-radius:30px; display:inline-block; font-weight:600;">
-                👤 COLABORADOR
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    boton_refrescar()
-    if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
-        st.session_state.autenticado = False
-        st.rerun()
-
-    st.markdown(f"### {saludo}")
-    st.markdown(f"<p style='color: #555; margin-top: -10px;'>Dependencia: <b>{st.session_state.dependencia}</b></p>", unsafe_allow_html=True)
-
-    tab1, tab2, tab3 = st.tabs(
-        ["🟢 Cargar Nuevo Servicio", "🔵 Pendientes de Asistencia", "📜 Historial de Servicios"]
-    )
-
-    counter = st.session_state.form_counter
-
-    # ---------- TAB 1 (FORMULARIO GUIADO PASO A PASO CON SELECCIÓN DE FECHA) ----------
-    with tab1:
-        st.header("Solicitud de Servicio Adicional")
-        st.info("💡 Complete los datos paso a paso. Cada sección se habilitará a medida que seleccione o ingrese la información.")
-
-        if f"fecha_elegida_{counter}" not in st.session_state:
-            st.session_state[f"fecha_elegida_{counter}"] = False
-
-        # PASO 1: Fecha del Evento
-        st.subheader("📌 Paso 1: Fecha del Evento")
-        
-        with st.form(f"form_fecha_{counter}"):
-            fecha = st.date_input("Seleccione la fecha del servicio", value=datetime.date.today(), min_value=datetime.date.today())
-            btn_confirmar_fecha = st.form_submit_button("Confirmar Fecha y Continuar")
-            
-        if btn_confirmar_fecha:
-            st.session_state[f"fecha_elegida_{counter}"] = True
-
-        if st.session_state[f"fecha_elegida_{counter}"]:
-            st.success(f"✔ Fecha registrada: **{fecha}**")
-            st.markdown("---")
-            
-            # PASO 2: Tipo de Evento
-            st.subheader("📌 Paso 2: Tipo de Evento")
-            tipo_evento = st.text_input(
-                "Ingrese el tipo de evento (Ej: Partido de fútbol, Baile, Recital, etc.)", key=f"tipo_{counter}"
-            )
-            
-            if tipo_evento.strip():
-                st.success("✔ Tipo de evento registrado.")
-                st.markdown("---")
-                
-                # PASO 3 y 4: Datos del Organizador (Nombre y DNI)
-                st.subheader("📌 Paso 3 y 4: Datos del Organizador")
-                col_org1, col_org2 = st.columns(2)
-                with col_org1:
-                    nombre_organizador = st.text_input("Nombre y Apellido del Organizador", key=f"nom_org_{counter}")
-                with col_org2:
-                    dni_organizador = st.text_input("DNI del Organizador", key=f"dni_org_{counter}")
-                
-                if nombre_organizador.strip() and dni_organizador.strip():
-                    st.success("✔ Datos del organizador registrados.")
-                    st.markdown("---")
-                    
-                    # PASO 5: CUIL / CUIT para Facturación
-                    st.subheader("📌 Paso 5: Facturación")
-                    cuil_organizador = st.text_input("CUIL / CUIT del Organizador (11 dígitos)", key=f"cuil_org_{counter}")
-                    
-                    if cuil_organizador.strip():
-                        st.success("✔ CUIL/CUIT registrado.")
-                        st.markdown("---")
-                        
-                        # PASO 6: Ubicación / Predio
-                        st.subheader("📌 Paso 6: Ubicación del Evento")
-                        ubicacion_predio = st.text_input("Ubicación / Predio donde se realizará el servicio", key=f"ubi_{counter}")
-                        
-                        if ubicacion_predio.strip():
-                            st.success("✔ Ubicación registrada.")
-                            st.markdown("---")
-                            
-                            # PASO 7: Horarios y Módulos
-                            st.subheader("📌 Paso 7: Horarios y Turnos")
-                            col_h1, col_h2 = st.columns(2)
-                            with col_h1:
-                                hora_inicio = st.time_input("Hora de Inicio", value=datetime.time(20, 0), key=f"h_ini_{counter}")
-                            with col_h2:
-                                hora_fin = st.time_input("Hora de Fin", value=datetime.time(4, 0), key=f"h_fin_{counter}")
-
-                            diferencia_horas, max_modulos = calcular_monto_y_modulos(hora_inicio, hora_fin)
-                            st.info(f"⏱️ Duración calculada: **{diferencia_horas:.1f} horas** (Hasta **{max_modulos} módulo(s)**)")
-
-                            jefes_por_mod, subs_por_mod = _render_modulos(max_modulos, counter)
+        pdf.cell(190, 6, f"  {titulo}",
