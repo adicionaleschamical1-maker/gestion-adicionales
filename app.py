@@ -805,4 +805,110 @@ def vista_dependencia():
     # ---------- TAB 3 ----------
     with tab3:
         st.header("Historial General de Servicios")
-        st.info
+        st.info(f"Listado completo de servicios de **{st.session_state.dependencia}**.")
+        try:
+            data = cargar_servicios_df()
+            if data.empty or "Dependencia" not in data.columns:
+                st.info("Aún no hay datos cargados.")
+            else:
+                df_dep = data[data["Dependencia"].astype(str) == str(st.session_state.dependencia)]
+                if df_dep.empty:
+                    st.info("No hay registros en el historial.")
+                else:
+                    st.dataframe(df_dep, use_container_width=True)
+        except Exception as e:
+            logger.exception("Error historial")
+            st.error(f"Error al cargar historial: {e}")
+
+
+# --- VISTA ADMIN ---
+def vista_admin():
+    nombre_efectivo = st.session_state.get("nombre_apellido", "Administrador General")
+    saludo = obtener_saludo(nombre_efectivo)
+
+    st.sidebar.markdown(f"""
+        <div class="user-card">
+            <div class="user-avatar">👑</div>
+            <div style="font-weight:800; font-size: 1.05rem; margin-top:2px;">{nombre_efectivo}</div>
+            <div style="font-size:0.75rem; margin-top:8px; background: #E8F0FE; padding:4px 12px; border-radius:30px; display:inline-block; font-weight:600;">
+                👑 ADMIN GENERAL
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    boton_refrescar()
+    if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
+        st.session_state.autenticado = False
+        st.rerun()
+
+    st.markdown(f"### {saludo}")
+    st.title("📋 Panel de Control General - Administrador")
+    try:
+        data = cargar_servicios_df()
+        if data.empty:
+            st.info("No hay servicios cargados.")
+            return
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric("Total de Servicios", len(data))
+        with c2:
+            monto = data["Monto Total"].sum() if "Monto Total" in data.columns else 0
+            st.metric("Recaudación Total", f"${monto:,.2f}")
+
+        st.markdown("---")
+        st.subheader("Gestión y Generación de Informes PDF")
+        deps = (
+            ["Todas"] + sorted(data["Dependencia"].dropna().unique().tolist())
+            if "Dependencia" in data.columns
+            else ["Todas"]
+        )
+        dep_sel = st.selectbox("Filtrar por Dependencia", options=deps)
+        data_f = data if dep_sel == "Todas" else data[data["Dependencia"].astype(str) == str(dep_sel)]
+        st.dataframe(data_f, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("📥 Descargar Informe PDF con Constancias")
+        if data_f.empty:
+            return
+
+        opciones = [
+            f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']} - {r['Tipo de Evento']})"
+            for _, r in data_f.iterrows()
+        ]
+        elegido = st.selectbox("Seleccioná un servicio", options=opciones)
+        if not elegido:
+            return
+
+        id_sel = elegido.split(" - ")[0]
+        row_data = data_f[data_f["ID Servicio"].astype(str) == id_sel].iloc[0]
+
+        if st.button("🚀 Generar PDF con Constancias"):
+            with st.spinner("Descargando archivos y armando PDF..."):
+                pdf_path = generar_pdf_servicio(row_data)
+                try:
+                    with open(pdf_path, "rb") as f:
+                        pdf_bytes = f.read()
+                finally:
+                    if os.path.exists(pdf_path):
+                        os.unlink(pdf_path)
+            st.download_button(
+                label="📥 Descargar PDF Final",
+                data=pdf_bytes,
+                file_name=f"{id_sel}_informe_completo.pdf",
+                mime="application/pdf",
+            )
+    except Exception as e:
+        logger.exception("Error panel admin")
+        st.error(f"Error al cargar el panel: {e}")
+
+
+# --- ROUTER PRINCIPAL ---
+if st.session_state.get("cambio_clave_requerido", False):
+    pantalla_cambio_clave()
+elif not st.session_state.autenticado:
+    login()
+elif st.session_state.rol == "Administrador":
+    vista_admin()
+else:
+    vista_dependencia()
