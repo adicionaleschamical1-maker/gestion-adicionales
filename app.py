@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as str_lit
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
@@ -16,10 +16,10 @@ from PIL import Image
 from io import BytesIO
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="URV V - Adicionales", layout="centered", page_icon="👮")
+str_lit.set_page_config(page_title="URV V - Adicionales", layout="centered", page_icon="👮")
 
 # --- ESTILOS VISUALES ---
-st.markdown("""
+str_lit.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     * { font-family: 'Inter', sans-serif; }
@@ -169,19 +169,19 @@ HORAS_POR_MODULO = 4
 TIMEOUT_HTTP = 30
 
 try:
-    URL_APPS_SCRIPT = st.secrets["URL_APPS_SCRIPT"]
+    URL_APPS_SCRIPT = str_lit.secrets["URL_APPS_SCRIPT"]
 except (KeyError, FileNotFoundError):
     URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxqVp5T0fVGtPncuwkocbXbU5TSHLgPqgmD0A5pQ6CmuEU3C-UrGx2eZHxg2HTLUjU1/exec"
 
 # --- CONEXIÓN GOOGLE ---
-@st.cache_resource
+@str_lit.cache_resource
 def conectar_google():
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    if "gcp_service_account" in st.secrets:
-        info = dict(st.secrets["gcp_service_account"])
+    if "gcp_service_account" in str_lit.secrets:
+        info = dict(str_lit.secrets["gcp_service_account"])
         credentials = Credentials.from_service_account_info(info, scopes=scopes)
     else:
         ruta = os.path.join(os.path.dirname(__file__), "credenciales.json")
@@ -203,28 +203,28 @@ def abrir_hoja(nombre: str):
     except gspread.WorksheetNotFound:
         return ss.sheet1
 
-@st.cache_data(ttl=60, show_spinner=False)
+@str_lit.cache_data(ttl=60, show_spinner=False)
 def cargar_servicios_df() -> pd.DataFrame:
     try:
         hoja = abrir_hoja(HOJA_SERVICIOS)
         return pd.DataFrame(hoja.get_all_records())
     except Exception as e:
-        st.error(f"Error al conectar con la hoja de Servicios: {e}")
+        str_lit.error(f"Error al conectar con la hoja de Servicios: {e}")
         return pd.DataFrame()
 
-@st.cache_data(ttl=60, show_spinner=False)
+@str_lit.cache_data(ttl=60, show_spinner=False)
 def cargar_usuarios_df() -> pd.DataFrame:
     try:
         hoja = abrir_hoja(HOJA_USUARIOS)
         return pd.DataFrame(hoja.get_all_records())
     except Exception as e:
-        st.error(f"Error al conectar con la hoja de Usuarios: {e}")
+        str_lit.error(f"Error al conectar con la hoja de Usuarios: {e}")
         return pd.DataFrame()
 
 def boton_refrescar():
-    if st.sidebar.button("🔄 Refrescar datos"):
-        st.cache_data.clear()
-        st.rerun()
+    if str_lit.sidebar.button("🔄 Refrescar datos"):
+        str_lit.cache_data.clear()
+        str_lit.rerun()
 
 # --- ESTADO DE SESIÓN ---
 _defaults = {
@@ -237,7 +237,7 @@ _defaults = {
     "form_counter": 0,
 }
 for k, v in _defaults.items():
-    st.session_state.setdefault(k, v)
+    str_lit.session_state.setdefault(k, v)
 
 # --- HELPERS ---
 def validar_cuil(valor: str) -> bool:
@@ -271,52 +271,52 @@ def obtener_saludo(nombre_completo: str) -> str:
 
 # --- LOGIN ---
 def pantalla_cambio_clave():
-    st.title("🔑 Definir Nueva Contraseña Personal")
-    st.warning("⚠️ Primer ingreso detectado. Debés cambiar tu contraseña temporal.")
-    nueva = st.text_input("Nueva Contraseña", type="password")
-    confirm = st.text_input("Confirmar Nueva Contraseña", type="password")
-    if st.button("Guardar Nueva Contraseña"):
+    str_lit.title("🔑 Definir Nueva Contraseña Personal")
+    str_lit.warning("⚠️ Primer ingreso detectado. Debés cambiar tu contraseña temporal.")
+    nueva = str_lit.text_input("Nueva Contraseña", type="password")
+    confirm = str_lit.text_input("Confirmar Nueva Contraseña", type="password")
+    if str_lit.button("Guardar Nueva Contraseña"):
         if not nueva or nueva != confirm:
-            st.error("Las contraseñas no coinciden o están vacías.")
+            str_lit.error("Las contraseñas no coinciden o están vacías.")
             return
         try:
             hoja = abrir_hoja(HOJA_USUARIOS)
-            cell = hoja.find(str(st.session_state.dni_temp))
+            cell = hoja.find(str(str_lit.session_state.dni_temp))
             hoja.update_cell(cell.row, 6, nueva)
             hoja.update_cell(cell.row, 5, "")
-            st.success("¡Contraseña actualizada! Iniciá sesión nuevamente.")
-            st.session_state.cambio_clave_requerido = False
-            st.session_state.dni_temp = None
-            st.rerun()
+            str_lit.success("¡Contraseña actualizada! Iniciá sesión nuevamente.")
+            str_lit.session_state.cambio_clave_requerido = False
+            str_lit.session_state.dni_temp = None
+            str_lit.rerun()
         except Exception as e:
             logger.exception("Error actualizando clave")
-            st.error(f"Error al actualizar: {e}")
+            str_lit.error(f"Error al actualizar: {e}")
 
 def login():
-    st.markdown("### 🔐 Acceso al Sistema de Adicionales")
+    str_lit.markdown("### 🔐 Acceso al Sistema de Adicionales")
     
-    with st.form("form_login"):
-        dni = st.text_input("DNI / Usuario")
-        clave = st.text_input("Contraseña", type="password")
-        submitted = st.form_submit_button("INGRESAR AL SISTEMA")
+    with str_lit.form("form_login"):
+        dni = str_lit.text_input("DNI / Usuario")
+        clave = str_lit.text_input("Contraseña", type="password")
+        submitted = str_lit.form_submit_button("INGRESAR AL SISTEMA")
         
     if submitted:
         if not dni or not clave:
-            st.error("Por favor complete el DNI y la contraseña.")
+            str_lit.error("Por favor complete el DNI y la contraseña.")
             return
             
         try:
-            with st.spinner("Verificando credenciales..."):
+            with str_lit.spinner("Verificando credenciales..."):
                 data = cargar_usuarios_df()
                 if data.empty:
-                    st.error("No se pudo cargar la base de datos de usuarios.")
+                    str_lit.error("No se pudo cargar la base de datos de usuarios.")
                     return
                 
                 data.columns = [str(c).strip().lower() for c in data.columns]
                 
                 user = data[data["dni"].astype(str) == str(dni)]
                 if user.empty:
-                    st.error("DNI no registrado.")
+                    str_lit.error("DNI no registrado.")
                     return
 
                 u = user.iloc[0]
@@ -330,27 +330,27 @@ def login():
                 )
                 if requiere_cambio:
                     if clave == clave_temp or clave == str(dni) or clave == clave_pers:
-                        st.session_state.cambio_clave_requerido = True
-                        st.session_state.dni_temp = dni
-                        st.rerun()
+                        str_lit.session_state.cambio_clave_requerido = True
+                        str_lit.session_state.dni_temp = dni
+                        str_lit.rerun()
                     else:
-                        st.error("Contraseña temporal incorrecta.")
+                        str_lit.error("Contraseña temporal incorrecta.")
                     return
 
                 if clave == clave_pers:
-                    st.session_state.autenticado = True
-                    st.session_state.usuario_dni = dni
-                    st.session_state.dependencia = str(u.get("dependencia", ""))
-                    st.session_state.rol = str(u.get("rol", "")).strip()
+                    str_lit.session_state.autenticado = True
+                    str_lit.session_state.usuario_dni = dni
+                    str_lit.session_state.dependencia = str(u.get("dependencia", ""))
+                    str_lit.session_state.rol = str(u.get("rol", "")).strip()
                     
                     col_nombre = next((c for c in u.index if "nombre" in str(c).lower()), data.columns[1] if len(data.columns) > 1 else "Usuario")
-                    st.session_state.nombre_apellido = str(u.get(col_nombre, f"DNI: {dni}")).strip()
+                    str_lit.session_state.nombre_apellido = str(u.get(col_nombre, f"DNI: {dni}")).strip()
                     
-                    st.rerun()
+                    str_lit.rerun()
                 else:
-                    st.error("Contraseña incorrecta.")
+                    str_lit.error("Contraseña incorrecta.")
         except Exception as e:
-            st.error(f"Error de conexión con la base de datos de usuarios: {e}")
+            str_lit.error(f"Error de conexión con la base de datos de usuarios: {e}")
 
 # --- DRIVE: DESCARGA DE IMAGEN VÍA API ---
 def obtener_imagen_desde_drive(url_drive: str):
@@ -519,12 +519,12 @@ def _render_modulos(max_modulos: int, counter: int):
     subs_dict = {}
     
     for label in labels_ordenados:
-        st.markdown(f"**Turno {label}**")
-        c1, c2 = st.columns(2)
+        str_lit.markdown(f"**Turno {label}**")
+        c1, c2 = str_lit.columns(2)
         with c1:
-            j = st.number_input(f"Jefes ({label})", 0, step=1, key=f"j_{label}_{counter}")
+            j = str_lit.number_input(f"Jefes ({label})", 0, step=1, key=f"j_{label}_{counter}")
         with c2:
-            s = st.number_input(f"Subalternos ({label})", 0, step=1, key=f"s_{label}_{counter}")
+            s = str_lit.number_input(f"Subalternos ({label})", 0, step=1, key=f"s_{label}_{counter}")
         
         if "Simple" in label:
             jefes_dict[0] = int(j)
@@ -557,15 +557,15 @@ def _post_apps_script(payload: dict) -> dict:
         return {"status": "error", "message": "Respuesta inválida del servidor."}
 
 def vista_dependencia():
-    nombre_efectivo = st.session_state.get("nombre_apellido", "Personal Policial")
+    nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Personal Policial")
     saludo = obtener_saludo(nombre_efectivo)
     
-    st.sidebar.markdown(
+    str_lit.sidebar.markdown(
         f"""
         <div class="user-card">
             <div class="user-avatar">👮</div>
             <div style="font-weight:800; font-size: 1.05rem; margin-top:2px;">{nombre_efectivo}</div>
-            <div style="font-size:0.8rem; color: #555; margin-top:4px;">Dep: {st.session_state.dependencia}</div>
+            <div style="font-size:0.8rem; color: #555; margin-top:4px;">Dep: {str_lit.session_state.dependencia}</div>
             <div style="font-size:0.75rem; margin-top:8px; background: #E8F0FE; padding:4px 12px; border-radius:30px; display:inline-block; font-weight:600;">
                 👤 COLABORADOR
             </div>
@@ -575,140 +575,139 @@ def vista_dependencia():
     )
     
     boton_refrescar()
-    if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
-        st.session_state.autenticado = False
-        st.rerun()
+    if str_lit.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
+        str_lit.session_state.autenticado = False
+        str_lit.rerun()
 
-    st.markdown(f"### {saludo}")
-    st.markdown(f"<p style='color: #555; margin-top: -10px;'>Dependencia: <b>{st.session_state.dependencia}</b></p>", unsafe_allow_html=True)
+    str_lit.markdown(f"### {saludo}")
+    str_lit.markdown(f"<p style='color: #555; margin-top: -10px;'>Dependencia: <b>{str_lit.session_state.dependencia}</b></p>", unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(
+    tab1, tab2, tab3 = str_lit.tabs(
         ["🟢 Cargar Nuevo Servicio", "🔵 Pendientes de Asistencia", "📜 Historial de Servicios"]
     )
 
-    counter = st.session_state.form_counter
+    counter = str_lit.session_state.form_counter
 
     with tab1:
-        st.header("Solicitud de Servicio Adicional")
-        st.info("💡 Complete los datos paso a paso. Cada sección se habilitará a medida que seleccione o ingrese la información.")
+        str_lit.header("Solicitud de Servicio Adicional")
+        str_lit.info("💡 Complete los datos paso a paso. Cada sección se habilitará a medida que seleccione o ingrese la información.")
 
-        if f"fecha_elegida_{counter}" not in st.session_state:
-            st.session_state[f"fecha_elegida_{counter}"] = False
+        if f"fecha_elegida_{counter}" not in str_lit.session_state:
+            str_lit.session_state[f"fecha_elegida_{counter}"] = False
 
-        st.subheader("📌 Paso 1: Fecha del Evento")
+        str_lit.subheader("📌 Paso 1: Fecha del Evento")
         
-        with st.form(f"form_fecha_{counter}"):
-            fecha = st.date_input("Seleccione la fecha del servicio", value=datetime.date.today(), min_value=datetime.date.today())
-            btn_confirmar_fecha = st.form_submit_button("Confirmar Fecha y Continuar")
+        with str_lit.form(f"form_fecha_{counter}"):
+            fecha = str_lit.date_input("Seleccione la fecha del servicio", value=datetime.date.today(), min_value=datetime.date.today())
+            btn_confirmar_fecha = str_lit.form_submit_button("Confirmar Fecha y Continuar")
             
         if btn_confirmar_fecha:
-            st.session_state[f"fecha_elegida_{counter}"] = True
+            str_lit.session_state[f"fecha_elegida_{counter}"] = True
 
-        if st.session_state[f"fecha_elegida_{counter}"]:
-            st.success(f"✔ Fecha registrada: **{fecha}**")
-            st.markdown("---")
+        if str_lit.session_state[f"fecha_elegida_{counter}"]:
+            str_lit.success(f"✔ Fecha registrada: **{fecha}**")
+            str_lit.markdown("---")
             
-            st.subheader("📌 Paso 2: Tipo de Evento")
-            tipo_evento = st.text_input(
+            str_lit.subheader("📌 Paso 2: Tipo de Evento")
+            tipo_evento = str_lit.text_input(
                 "Ingrese el tipo de evento (Ej: Partido de fútbol, Baile, Recital, etc.)", key=f"tipo_{counter}"
             )
             
             if tipo_evento.strip():
-                st.success("✔ Tipo de evento registrado.")
-                st.markdown("---")
+                str_lit.success("✔ Tipo de evento registrado.")
+                str_lit.markdown("---")
                 
-                st.subheader("📌 Paso 3 y 4: Datos del Organizador")
-                col_org1, col_org2 = st.columns(2)
+                str_lit.subheader("📌 Paso 3 y 4: Datos del Organizador")
+                col_org1, col_org2 = str_lit.columns(2)
                 with col_org1:
-                    nombre_organizador = st.text_input("Nombre y Apellido del Organizador", key=f"nom_org_{counter}")
+                    nombre_organizador = str_lit.text_input("Nombre y Apellido del Organizador", key=f"nom_org_{counter}")
                 with col_org2:
-                    dni_organizador = st.text_input("DNI del Organizador", key=f"dni_org_{counter}")
+                    dni_organizador = str_lit.text_input("DNI del Organizador", key=f"dni_org_{counter}")
                 
                 if nombre_organizador.strip() and dni_organizador.strip():
-                    st.success("✔ Datos del organizador registrados.")
-                    st.markdown("---")
+                    str_lit.success("✔ Datos del organizador registrados.")
+                    str_lit.markdown("---")
                     
-                    st.subheader("📌 Paso 5: Facturación")
-                    cuil_organizador = st.text_input("CUIL / CUIT del Organizador (11 dígitos)", key=f"cuil_org_{counter}")
+                    str_lit.subheader("📌 Paso 5: Facturación")
+                    cuil_organizador = str_lit.text_input("CUIL / CUIT del Organizador (11 dígitos)", key=f"cuil_org_{counter}")
                     
                     if cuil_organizador.strip():
-                        st.success("✔ CUIL/CUIT registrado.")
-                        st.markdown("---")
+                        str_lit.success("✔ CUIL/CUIT registrado.")
+                        str_lit.markdown("---")
                         
-                        st.subheader("📌 Paso 6: Ubicación del Evento")
-                        ubicacion_predio = st.text_input("Ubicación / Predio donde se realizará el servicio", key=f"ubi_{counter}")
+                        str_lit.subheader("📌 Paso 6: Ubicación del Evento")
+                        ubicacion_predio = str_lit.text_input("Ubicación / Predio donde se realizará el servicio", key=f"ubi_{counter}")
                         
                         if ubicacion_predio.strip():
-                            st.success("✔ Ubicación registrada.")
-                            st.markdown("---")
+                            str_lit.success("✔ Ubicación registrada.")
+                            str_lit.markdown("---")
                             
-                            st.subheader("📌 Paso 7: Horarios y Turnos")
-                            col_h1, col_h2 = st.columns(2)
+                            str_lit.subheader("📌 Paso 7: Horarios y Turnos")
+                            col_h1, col_h2 = str_lit.columns(2)
                             with col_h1:
-                                hora_inicio = st.time_input("Hora de Inicio", value=datetime.time(20, 0), key=f"h_ini_{counter}")
+                                hora_inicio = str_lit.time_input("Hora de Inicio", value=datetime.time(20, 0), key=f"h_ini_{counter}")
                             with col_h2:
-                                hora_fin = st.time_input("Hora de Fin", value=datetime.time(4, 0), key=f"h_fin_{counter}")
+                                hora_fin = str_lit.time_input("Hora de Fin", value=datetime.time(4, 0), key=f"h_fin_{counter}")
 
                             diferencia_horas, max_modulos = calcular_monto_y_modulos(hora_inicio, hora_fin)
-                            st.info(f"⏱️ Duración calculada: **{diferencia_horas:.1f} horas** (Hasta **{max_modulos} módulo(s)**)")
+                            str_lit.info(f"⏱️ Duración calculada: **{diferencia_horas:.1f} horas** (Hasta **{max_modulos} módulo(s)**)")
 
                             jefes_por_mod, subs_por_mod = _render_modulos(max_modulos, counter)
                             total_jefes = sum(jefes_por_mod)
                             total_subalternos = sum(subs_por_mod)
                             monto_total = calcular_monto_total(jefes_por_mod, subs_por_mod)
 
-                            st.markdown("---")
-                            st.success(f"💰 **Monto Total a Pagar: ${monto_total:,.2f}**")
+                            str_lit.markdown("---")
+                            str_lit.success(f"💰 **Monto Total a Pagar: ${monto_total:,.2f}**")
 
-                            st.markdown("---")
-                            st.subheader("📌 Paso 8: Facturación y Documentación Adjunta")
-                            with st.form(f"form_envio_{counter}", clear_on_submit=False):
-                                mismo_organizador = st.checkbox("¿El que paga es el mismo organizador?", value=True)
-                                if mismo_organizador:
-                                    pagado_por = f"{nombre_organizador} (DNI: {dni_organizador})" if nombre_organizador else ""
-                                    cuil_pagado_por = cuil_organizador
-                                else:
-                                    cp1, cp2 = st.columns(2)
-                                    with cp1:
-                                        pagado_por = st.text_input("Nombre y DNI de quien paga", key=f"pag_por_{counter}")
-                                    with cp2:
-                                        cuil_pagado_por = st.text_input("CUIL / CUIT de Facturación", key=f"cuil_pag_{counter}")
+                            str_lit.markdown("---")
+                            str_lit.subheader("📌 Paso 8: Facturación y Documentación Adjunta")
+                            
+                            mismo_organizador = str_lit.checkbox("¿El que paga es el mismo organizador?", value=True, key=f"mismo_org_{counter}")
+                            if mismo_organizador:
+                                pagado_por = f"{nombre_organizador} (DNI: {dni_organizador})" if nombre_organizador else ""
+                                cuil_pagado_por = cuil_organizador
+                            else:
+                                str_lit.markdown("**Ingrese los datos de quien realiza el pago:**")
+                                pagado_por = str_lit.text_input("Nombre y DNI de quien paga", key=f"pag_por_{counter}")
+                                cuil_pagado_por = str_lit.text_input("CUIL / CUIT de Facturación (11 dígitos)", key=f"cuil_pag_{counter}")
 
-                                st.markdown("---")
-                                st.subheader("📎 Archivos Obligatorios y Opcionales")
-                                file_hab = st.file_uploader(
+                            str_lit.markdown("---")
+                            with str_lit.form(f"form_envio_{counter}", clear_on_submit=False):
+                                str_lit.subheader("📎 Archivos Obligatorios y Opcionales")
+                                file_hab = str_lit.file_uploader(
                                     "Habilitación Municipal (Obligatorio)",
                                     type=["png", "jpg", "jpeg", "pdf"],
                                     key=f"hab_{counter}",
                                 )
-                                file_comp = st.file_uploader(
+                                file_comp = str_lit.file_uploader(
                                     "Comprobante de Pago (Obligatorio)",
                                     type=["png", "jpg", "jpeg", "pdf"],
                                     key=f"comp_{counter}",
                                 )
-                                file_cont = st.file_uploader(
+                                file_cont = str_lit.file_uploader(
                                     "Contrato de Adicional (Opcional)",
                                     type=["png", "jpg", "jpeg", "pdf"],
                                     key=f"cont_{counter}",
                                 )
 
-                                submitted = st.form_submit_button("🚀 Enviar Solicitud Definitiva")
+                                submitted = str_lit.form_submit_button("🚀 Enviar Solicitud Definitiva")
 
                             if submitted:
                                 organizador_completo = f"{nombre_organizador} (DNI: {dni_organizador})"
                                 if total_jefes == 0 and total_subalternos == 0:
-                                    st.error("⚠️ Debés asignar al menos un efectivo (Jefe o Subalterno).")
+                                    str_lit.error("⚠️ Debés asignar al menos un efectivo (Jefe o Subalterno).")
                                 elif not (file_hab and file_comp):
-                                    st.error("Faltan los archivos obligatorios (Habilitación y Comprobante).")
+                                    str_lit.error("Faltan los archivos obligatorios (Habilitación y Comprobante).")
                                 elif not validar_cuil(cuil_pagado_por):
-                                    st.error("CUIL/CUIT inválido: debe tener exactamente 11 dígitos numéricos.")
+                                    str_lit.error("CUIL/CUIT inválido: debe tener exactamente 11 dígitos numéricos.")
                                 else:
                                     try:
-                                        with st.spinner("Subiendo archivos y registrando solicitud..."):
+                                        with str_lit.spinner("Subiendo archivos y registrando solicitud..."):
                                             id_servicio = f"SERV-{int(datetime.datetime.now().timestamp())}"
                                             payload = {
                                                 "id_servicio": id_servicio,
-                                                "dependencia": str(st.session_state.dependencia),
+                                                "dependencia": str(str_lit.session_state.dependencia),
                                                 "fecha_evento": str(fecha),
                                                 "tipo_evento": str(tipo_evento),
                                                 "organizador": str(organizador_completo),
@@ -732,26 +731,26 @@ def vista_dependencia():
                                             }
                                             res = _post_apps_script(payload)
                                             if res.get("status") == "success":
-                                                st.success("¡Solicitud enviada con éxito!")
-                                                st.session_state[f"fecha_elegida_{counter}"] = False
-                                                st.session_state.form_counter += 1
-                                                st.cache_data.clear()
-                                                st.rerun()
+                                                str_lit.success("¡Solicitud enviada con éxito!")
+                                                str_lit.session_state[f"fecha_elegida_{counter}"] = False
+                                                str_lit.session_state.form_counter += 1
+                                                str_lit.cache_data.clear()
+                                                str_lit.rerun()
                                             else:
-                                                st.error(f"Error en Apps Script: {res.get('message')}")
+                                                str_lit.error(f"Error en Apps Script: {res.get('message')}")
                                     except Exception as e:
                                         logger.exception("Error enviando solicitud")
-                                        st.error(f"Error al enviar: {e}")
+                                        str_lit.error(f"Error al enviar: {e}")
 
     with tab2:
-        st.header("Servicios Pendientes de Planilla de Asistencia")
-        st.info(f"Mostrando servicios de: **{st.session_state.dependencia}**")
+        str_lit.header("Servicios Pendientes de Planilla de Asistencia")
+        str_lit.info(f"Mostrando servicios de: **{str_lit.session_state.dependencia}**")
         try:
             data = cargar_servicios_df()
             if data.empty or "Dependencia" not in data.columns:
-                st.info("Aún no hay servicios registrados.")
+                str_lit.info("Aún no hay servicios registrados.")
             else:
-                df_dep = data[data["Dependencia"].astype(str) == str(st.session_state.dependencia)]
+                df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
                 
                 col_asist = None
                 for c in df_dep.columns:
@@ -762,37 +761,37 @@ def vista_dependencia():
                     col_asist = df_dep.columns[16]
 
                 if not col_asist:
-                    st.warning("⚠️ No se encontró la columna de asistencia en la hoja.")
+                    str_lit.warning("⚠️ No se encontró la columna de asistencia en la hoja.")
                 else:
                     df_pend = df_dep[df_dep[col_asist].astype(str).str.strip() == ""]
                     if df_pend.empty:
-                        st.success("🎉 ¡No tenés servicios pendientes de asistencia!")
+                        str_lit.success("🎉 ¡No tenés servicios pendientes de asistencia!")
                     else:
-                        st.warning(f"Tenés **{len(df_pend)}** servicio(s) pendiente(s) de asistencia.")
+                        str_lit.warning(f"Tenés **{len(df_pend)}** servicio(s) pendiente(s) de asistencia.")
                         for _, row in df_pend.iterrows():
                             id_serv = row.get('ID Servicio') or row.get('id_servicio') or row.iloc[0]
                             tipo_ev = row.get('Tipo de Evento') or row.get('tipo_evento') or 'Evento'
                             fec_ev = row.get('Fecha Evento') or row.get('fecha_evento') or ''
                             ubi_ev = row.get('Ubicación Predio') or row.get('ubicacion') or ''
                             
-                            with st.expander(f"📅 {fec_ev} - {tipo_ev} ({ubi_ev}) [ID: {id_serv}]"):
-                                st.write(f"**Organizador:** {row.get('Organizador', '')}")
-                                st.write(f"**Horario:** {row.get('Horario', '')} | **Módulos:** {row.get('Módulos', '')}")
-                                st.write(f"**Personal:** {row.get('Cant. Jefes', 0)} Jefes / {row.get('Cant. Subalternos', 0)} Subalternos")
+                            with str_lit.expander(f"📅 {fec_ev} - {tipo_ev} ({ubi_ev}) [ID: {id_serv}]"):
+                                str_lit.write(f"**Organizador:** {row.get('Organizador', '')}")
+                                str_lit.write(f"**Horario:** {row.get('Horario', '')} | **Módulos:** {row.get('Módulos', '')}")
+                                str_lit.write(f"**Personal:** {row.get('Cant. Jefes', 0)} Jefes / {row.get('Cant. Subalternos', 0)} Subalternos")
                                 
-                                with st.form(f"form_asist_{id_serv}"):
-                                    file_asist = st.file_uploader(
+                                with str_lit.form(f"form_asist_{id_serv}"):
+                                    file_asist = str_lit.file_uploader(
                                         "Planilla de Asistencia Firmada",
                                         type=["png", "jpg", "jpeg", "pdf"],
                                         key=f"file_{id_serv}",
                                     )
-                                    sub_asist = st.form_submit_button("Subir Planilla")
+                                    sub_asist = str_lit.form_submit_button("Subir Planilla")
                                     
                                 if sub_asist:
                                     if not file_asist:
-                                        st.error("Seleccioná un archivo antes de enviar.")
+                                        str_lit.error("Seleccioná un archivo antes de enviar.")
                                     else:
-                                        with st.spinner("Subiendo planilla..."):
+                                        with str_lit.spinner("Subiendo planilla..."):
                                             payload = {
                                                 "action": "subir_asistencia",
                                                 "id_servicio": str(id_serv),
@@ -807,38 +806,38 @@ def vista_dependencia():
                                             }
                                             res = _post_apps_script(payload)
                                         if res.get("status") == "success":
-                                            st.success("¡Planilla subida con éxito!")
-                                            st.cache_data.clear()
-                                            st.rerun()
+                                            str_lit.success("¡Planilla subida con éxito!")
+                                            str_lit.cache_data.clear()
+                                            str_lit.rerun()
                                         else:
-                                            st.error(f"Error: {res.get('message')}")
+                                            str_lit.error(f"Error: {res.get('message')}")
         except Exception as e:
             logger.exception("Error tab pendientes")
-            st.error(f"Error al cargar los pendientes: {e}")
+            str_lit.error(f"Error al cargar los pendientes: {e}")
 
     with tab3:
-        st.header("Historial General de Servicios")
-        st.info(f"Listado completo de servicios de **{st.session_state.dependencia}**.")
+        str_lit.header("Historial General de Servicios")
+        str_lit.info(f"Listado completo de servicios de **{str_lit.session_state.dependencia}**.")
         try:
             data = cargar_servicios_df()
             if data.empty or "Dependencia" not in data.columns:
-                st.info("Aún no hay datos cargados.")
+                str_lit.info("Aún no hay datos cargados.")
             else:
-                df_dep = data[data["Dependencia"].astype(str) == str(st.session_state.dependencia)]
+                df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
                 if df_dep.empty:
-                    st.info("No hay registros en el historial.")
+                    str_lit.info("No hay registros en el historial.")
                 else:
-                    st.dataframe(df_dep, use_container_width=True)
+                    str_lit.dataframe(df_dep, use_container_width=True)
         except Exception as e:
             logger.exception("Error historial")
-            st.error(f"Error al cargar historial: {e}")
+            str_lit.error(f"Error al cargar historial: {e}")
 
 # --- VISTA ADMIN ---
 def vista_admin():
-    nombre_efectivo = st.session_state.get("nombre_apellido", "Administrador General")
+    nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
 
-    st.sidebar.markdown(
+    str_lit.sidebar.markdown(
         f"""
         <div class="user-card">
             <div class="user-avatar">👑</div>
@@ -852,16 +851,16 @@ def vista_admin():
     )
     
     boton_refrescar()
-    if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
-        st.session_state.autenticado = False
-        st.rerun()
+    if str_lit.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
+        str_lit.session_state.autenticado = False
+        str_lit.rerun()
 
-    st.markdown(f"### {saludo}")
-    st.title("📋 Panel de Control General - Administrador")
+    str_lit.markdown(f"### {saludo}")
+    str_lit.title("📋 Panel de Control General - Administrador")
     try:
         data = cargar_servicios_df()
         if data.empty:
-            st.info("No hay servicios cargados.")
+            str_lit.info("No hay servicios cargados.")
             return
 
         if "Monto Total" in data.columns:
@@ -875,26 +874,26 @@ def vista_admin():
             )
             data["Monto Total"] = pd.to_numeric(data["Monto Total"], errors="coerce").fillna(0)
 
-        c1, c2 = st.columns(2)
+        c1, c2 = str_lit.columns(2)
         with c1:
-            st.metric("Total de Servicios", len(data))
+            str_lit.metric("Total de Servicios", len(data))
         with c2:
             monto = data["Monto Total"].sum() if "Monto Total" in data.columns else 0
-            st.metric("Recaudación Total", f"${monto:,.2f}")
+            str_lit.metric("Recaudación Total", f"${monto:,.2f}")
 
-        st.markdown("---")
-        st.subheader("Gestión y Generación de Informes PDF")
+        str_lit.markdown("---")
+        str_lit.subheader("Gestión y Generación de Informes PDF")
         deps = (
             ["Todas"] + sorted(data["Dependencia"].dropna().unique().tolist())
             if "Dependencia" in data.columns
             else ["Todas"]
         )
-        dep_sel = st.selectbox("Filtrar por Dependencia", options=deps)
+        dep_sel = str_lit.selectbox("Filtrar por Dependencia", options=deps)
         data_f = data if dep_sel == "Todas" else data[data["Dependencia"].astype(str) == str(dep_sel)]
-        st.dataframe(data_f, use_container_width=True)
+        str_lit.dataframe(data_f, use_container_width=True)
 
-        st.markdown("---")
-        st.subheader("📥 Descargar Informe PDF con Constancias")
+        str_lit.markdown("---")
+        str_lit.subheader("📥 Descargar Informe PDF con Constancias")
         if data_f.empty:
             return
 
@@ -902,15 +901,15 @@ def vista_admin():
             f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']} - {r['Tipo de Evento']})"
             for _, r in data_f.iterrows()
         ]
-        elegido = st.selectbox("Seleccioná un servicio", options=opciones)
+        elegido = str_lit.selectbox("Seleccioná un servicio", options=opciones)
         if not elegido:
             return
 
         id_sel = elegido.split(" - ")[0]
         row_data = data_f[data_f["ID Servicio"].astype(str) == id_sel].iloc[0]
 
-        if st.button("🚀 Generar PDF con Constancias"):
-            with st.spinner("Descargando archivos y armando PDF..."):
+        if str_lit.button("🚀 Generar PDF con Constancias"):
+            with str_lit.spinner("Descargando archivos y armando PDF..."):
                 pdf_path = generar_pdf_servicio(row_data)
                 try:
                     with open(pdf_path, "rb") as f:
@@ -918,22 +917,29 @@ def vista_admin():
                 finally:
                     if os.path.exists(pdf_path):
                         os.unlink(pdf_path)
-            st.download_button(
+            
+            tipo_ev_limpio = str(row_data.get('Tipo de Evento', 'Evento')).replace('/', '-').replace(':', '-')
+            org_limpio = str(row_data.get('Organizador', 'Organizador')).replace('/', '-').replace(':', '-')
+            fecha_ev = str(row_data.get('Fecha Evento', ''))
+            
+            nombre_archivo = f"{tipo_ev_limpio} - {org_limpio} - {fecha_ev}.pdf"
+
+            str_lit.download_button(
                 label="📥 Descargar PDF Final",
                 data=pdf_bytes,
-                file_name=f"{id_sel}_informe_completo.pdf",
+                file_name=nombre_archivo,
                 mime="application/pdf",
             )
     except Exception as e:
         logger.exception("Error panel admin")
-        st.error(f"Error al cargar el panel: {e}")
+        str_lit.error(f"Error al cargar el panel: {e}")
 
 # --- ROUTER PRINCIPAL ---
-if st.session_state.get("cambio_clave_requerido", False):
+if str_lit.session_state.get("cambio_clave_requerido", False):
     pantalla_cambio_clave()
-elif not st.session_state.autenticado:
+elif not str_lit.session_state.autenticado:
     login()
-elif st.session_state.rol == "Administrador":
+elif str_lit.session_state.rol == "Administrador":
     vista_admin()
 else:
     vista_dependencia()
