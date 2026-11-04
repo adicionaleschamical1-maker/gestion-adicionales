@@ -258,7 +258,6 @@ def calcular_monto_total(jefes_por_mod: list, subs_por_mod: list) -> float:
         total += ((j * PRECIO_JEFE) + (s * PRECIO_SUB)) * i
     return total
 
-# --- SALUDO DINÁMICO (USA EL NOMBRE COMPLETO DIRECTO DE LA COLUMNA B) ---
 def obtener_saludo(nombre_completo: str) -> str:
     hora_actual = datetime.datetime.now().hour
     nombre_str = str(nombre_completo).strip() if nombre_completo else "Efectivo"
@@ -344,7 +343,6 @@ def login():
                     st.session_state.dependencia = str(u.get("dependencia", ""))
                     st.session_state.rol = str(u.get("rol", "")).strip()
                     
-                    # CAPTURA EXACTA DEL NOMBRE COMPLETO DE LA COLUMNA B (nombre y apellido)
                     col_nombre = next((c for c in u.index if "nombre" in str(c).lower()), data.columns[1] if len(data.columns) > 1 else "Usuario")
                     st.session_state.nombre_apellido = str(u.get(col_nombre, f"DNI: {dni}")).strip()
                     
@@ -865,6 +863,17 @@ def vista_admin():
         if data.empty:
             st.info("No hay servicios cargados.")
             return
+
+        if "Monto Total" in data.columns:
+            data["Monto Total"] = (
+                data["Monto Total"]
+                .astype(str)
+                .str.replace("$", "", regex=False)
+                .str.replace(".", "", regex=False)
+                .str.replace(",", ".", regex=False)
+                .str.strip()
+            )
+            data["Monto Total"] = pd.to_numeric(data["Monto Total"], errors="coerce").fillna(0)
 
         c1, c2 = st.columns(2)
         with c1:
