@@ -832,7 +832,7 @@ def vista_dependencia():
             logger.exception("Error historial")
             str_lit.error(f"Error al cargar historial: {e}")
 
-# --- VISTA ADMIN ---
+# --- VISTA ADMIN CON CONTROL DE ENVÍO A CENTRAL ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
@@ -856,7 +856,8 @@ def vista_admin():
         str_lit.rerun()
 
     str_lit.markdown(f"### {saludo}")
-    str_lit.title("📋 Panel de Control General - Administrador")
+    str_lit.title("📋 Control General y Despacho a Central - UR V")
+    
     try:
         data = cargar_servicios_df()
         if data.empty:
@@ -874,62 +875,98 @@ def vista_admin():
             )
             data["Monto Total"] = pd.to_numeric(data["Monto Total"], errors="coerce").fillna(0)
 
-        c1, c2 = str_lit.columns(2)
+        if "Estado Central" not in data.columns:
+            data["Estado Central"] = "🟡 Pendiente"
+
+        pendientes_cnt = len(data[data["Estado Central"].str.contains("Pendiente", na=False)])
+        enviados_cnt = len(data[data["Estado Central"].str.contains("Enviado", na=False)])
+
+        c1, c2, c3 = str_lit.columns(3)
         with c1:
-            str_lit.metric("Total de Servicios", len(data))
+            str_lit.metric("Total Recibidos UR-5", len(data))
         with c2:
-            monto = data["Monto Total"].sum() if "Monto Total" in data.columns else 0
-            str_lit.metric("Recaudación Total", f"${monto:,.2f}")
+            str_lit.metric("🟡 Pendientes de Envío", pendientes_cnt)
+        with c3:
+            str_lit.metric("🟢 Enviados a Central", enviados_cnt)
 
         str_lit.markdown("---")
-        str_lit.subheader("Gestión y Generación de Informes PDF")
-        deps = (
-            ["Todas"] + sorted(data["Dependencia"].dropna().unique().tolist())
-            if "Dependencia" in data.columns
-            else ["Todas"]
-        )
-        dep_sel = str_lit.selectbox("Filtrar por Dependencia", options=deps)
-        data_f = data if dep_sel == "Todas" else data[data["Dependencia"].astype(str) == str(dep_sel)]
+        
+        col_f1, col_f2 = str_lit.columns(2)
+        with col_f1:
+            filtro_estado = str_lit.radio(
+                "Filtrar por estado de despacho:", 
+                ["Todos", "🟡 Pendientes de enviar a Central", "🟢 Enviados a Central"],
+                horizontal=True
+            )
+        with col_f2:
+            deps = ["Todas"] + sorted(data["Dependencia"].dropna().unique().tolist()) if "Dependencia" in data.columns else ["Todas"]
+            dep_sel = str_lit.selectbox("Filtrar por Dependencia", options=deps)
+
+        data_f = data.copy()
+        if dep_sel != "Todas":
+            data_f = data_f[data_f["Dependencia"].astype(str) == str(dep_sel)]
+        
+        if filtro_estado == "🟡 Pendientes de enviar a Central":
+            data_f = data_f[data_f["Estado Central"].str.contains("Pendiente", na=False)]
+        elif filtro_estado == "🟢 Enviados a Central":
+            data_f = data_f[data_f["Estado Central"].str.contains("Enviado", na=False)]
+
         str_lit.dataframe(data_f, use_container_width=True)
 
         str_lit.markdown("---")
-        str_lit.subheader("📥 Descargar Informe PDF con Constancias")
+        str_lit.subheader("📄 Gestión de Informes PDF y Despacho")
         if data_f.empty:
+            str_lit.warning("No hay registros en esta vista.")
             return
 
         opciones = [
             f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']} - {r['Tipo de Evento']})"
             for _, r in data_f.iterrows()
         ]
-        elegido = str_lit.selectbox("Seleccioná un servicio", options=opciones)
-        if not elegido:
-            return
+        elegido = str_lit.selectbox("Seleccioná un servicio para accionar", options=opciones)
+        if elegido:
+            id_sel = elegido.split(" - ")[0]
+            row_data = data_f[data_f["ID Servicio"].astype(str) == id_sel].iloc[0]
 
-        id_sel = elegido.split(" - ")[0]
-        row_data = data_f[data_f["ID Servicio"].astype(str) == id_sel].iloc[0]
-
-        if str_lit.button("🚀 Generar PDF con Constancias"):
-            with str_lit.spinner("Descargando archivos y armando PDF..."):
-                pdf_path = generar_pdf_servicio(row_data)
-                try:
-                    with open(pdf_path, "rb") as f:
-                        pdf_bytes = f.read()
-                finally:
-                    if os.path.exists(pdf_path):
-                        os.unlink(pdf_path)
+            col_btn1, col_btn2 = str_lit.columns(2)
             
-            tipo_ev_limpio = str(row_data.get('Tipo de Evento', 'Evento')).replace('/', '-').replace(':', '-')
-            org_limpio = str(row_data.get('Organizador', 'Organizador')).replace('/', '-').replace(':', '-')
-            fecha_ev = str(row_data.get('Fecha Evento', ''))
-            
-            nombre_archivo = f"{tipo_ev_limpio} - {org_limpio} - {fecha_ev}.pdf"
+            with col_btn1:
+                if str_lit.button("🚀 Generar PDF con Constancias"):
+                    with str_lit.spinner("Descargando archivos y armando PDF..."):
+                        pdf_path = generar_pdf_servicio(row_data)
+                        try:
+                            with open(pdf_path, "rb") as f:
+                                pdf_bytes = f.read()
+                        finally:
+                            if os.path.exists(pdf_path):
+                                os.unlink(pdf_path)
+                    
+                    tipo_ev_limpio = str(row_data.get('Tipo de Evento', 'Evento')).replace('/', '-').replace(':', '-')
+                    org_limpio = str(row_data.get('Organizador', 'Organizador')).replace('/', '-').replace(':', '-')
+                    fecha_ev = str(row_data.get('Fecha Evento', ''))
+                    nombre_archivo = f"{tipo_ev_limpio} - {org_limpio} - {fecha_ev}.pdf"
 
-            str_lit.download_button(
-                label="📥 Descargar PDF Final",
-                data=pdf_bytes,
-                file_name=nombre_archivo,
-                mime="application/pdf",
-            )
+                    str_lit.download_button(
+                        label="📥 Descargar PDF Final",
+                        data=pdf_bytes,
+                        file_name=nombre_archivo,
+                        mime="application/pdf",
+                    )
+
+            with col_btn2:
+                estado_actual = str(row_data.get("Estado Central", "🟡 Pendiente"))
+                str_lit.write(f"**Estado actual:** {estado_actual}")
+                if "Pendiente" in estado_actual:
+                    if str_lit.button("✅ Marcar como Enviado a Central"):
+                        payload = {
+                            "action": "marcar_enviado_central",
+                            "id_servicio": str(id_sel)
+                        }
+                        res = _post_apps_script(payload)
+                        str_lit.success("¡Servicio marcado como ENVIADO A CENTRAL!")
+                        str_lit.cache_data.clear()
+                        str_lit.rerun()
+
     except Exception as e:
         logger.exception("Error panel admin")
         str_lit.error(f"Error al cargar el panel: {e}")
