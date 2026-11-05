@@ -719,6 +719,7 @@ def vista_dependencia():
                                                 "monto_total": float(monto_total),
                                                 "pagado_por": str(pagado_por),
                                                 "cuil_pagado_por": str(cuil_pagado_por),
+                                                "estado_central": "🟡 Pendiente",
                                                 "file_hab_base64": base64.b64encode(file_hab.getvalue()).decode("utf-8"),
                                                 "name_hab": f"{id_servicio}_habilitacion.{file_hab.name.split('.')[-1]}",
                                                 "type_hab": file_hab.type,
@@ -875,11 +876,23 @@ def vista_admin():
             )
             data["Monto Total"] = pd.to_numeric(data["Monto Total"], errors="coerce").fillna(0)
 
-        if "Estado Central" not in data.columns:
+        # Normalizar nombre de la columna de estado
+        col_estado_nombre = None
+        for c in data.columns:
+            if "estado" in str(c).lower():
+                col_estado_nombre = c
+                break
+        
+        if not col_estado_nombre:
             data["Estado Central"] = "🟡 Pendiente"
+            col_estado_nombre = "Estado Central"
+        else:
+            data[col_estado_nombre] = data[col_estado_nombre].fillna("🟡 Pendiente")
+            data[col_estado_nombre] = data[col_estado_nombre].astype(str).str.strip()
+            data.loc[data[col_estado_nombre] == "", col_estado_nombre] = "🟡 Pendiente"
 
-        pendientes_cnt = len(data[data["Estado Central"].str.contains("Pendiente", na=False)])
-        enviados_cnt = len(data[data["Estado Central"].str.contains("Enviado", na=False)])
+        pendientes_cnt = len(data[data[col_estado_nombre].str.contains("Pendiente", na=False)])
+        enviados_cnt = len(data[data[col_estado_nombre].str.contains("Enviado", na=False)])
 
         c1, c2, c3 = str_lit.columns(3)
         with c1:
@@ -907,9 +920,9 @@ def vista_admin():
             data_f = data_f[data_f["Dependencia"].astype(str) == str(dep_sel)]
         
         if filtro_estado == "🟡 Pendientes de enviar a Central":
-            data_f = data_f[data_f["Estado Central"].str.contains("Pendiente", na=False)]
+            data_f = data_f[data_f[col_estado_nombre].str.contains("Pendiente", na=False)]
         elif filtro_estado == "🟢 Enviados a Central":
-            data_f = data_f[data_f["Estado Central"].str.contains("Enviado", na=False)]
+            data_f = data_f[data_f[col_estado_nombre].str.contains("Enviado", na=False)]
 
         str_lit.dataframe(data_f, use_container_width=True)
 
@@ -954,7 +967,7 @@ def vista_admin():
                     )
 
             with col_btn2:
-                estado_actual = str(row_data.get("Estado Central", "🟡 Pendiente"))
+                estado_actual = str(row_data.get(col_estado_nombre, "🟡 Pendiente"))
                 str_lit.write(f"**Estado actual:** {estado_actual}")
                 if "Pendiente" in estado_actual:
                     if str_lit.button("✅ Marcar como Enviado a Central"):
@@ -963,9 +976,12 @@ def vista_admin():
                             "id_servicio": str(id_sel)
                         }
                         res = _post_apps_script(payload)
-                        str_lit.success("¡Servicio marcado como ENVIADO A CENTRAL!")
-                        str_lit.cache_data.clear()
-                        str_lit.rerun()
+                        if res.get("status") == "success":
+                            str_lit.success("¡Servicio marcado como ENVIADO A CENTRAL!")
+                            str_lit.cache_data.clear()
+                            str_lit.rerun()
+                        else:
+                            str_lit.error(f"Error al actualizar: {res.get('message')}")
 
     except Exception as e:
         logger.exception("Error panel admin")
