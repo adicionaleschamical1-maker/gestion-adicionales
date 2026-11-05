@@ -243,6 +243,28 @@ for k, v in _defaults.items():
 def validar_cuil(valor: str) -> bool:
     return bool(re.fullmatch(r"\d{11}", str(valor).strip()))
 
+def calcular_cuil_desde_dni(dni: str, genero: str = "M") -> str:
+    dni_limpio = ''.join(filter(str.isdigit, str(dni)))
+    if len(dni_limpio) < 7 or len(dni_limpio) > 8:
+        return ""
+    dni_limpio = dni_limpio.zfill(8)
+    prefijo = "20" if genero.upper() == "M" else "27"
+    base = prefijo + dni_limpio
+    multiplicadores = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
+    suma = sum(int(base[i]) * multiplicadores[i] for i in range(10))
+    resto = suma % 11
+    if resto == 0:
+        verificador = 0
+    elif resto == 1:
+        prefijo = "23"
+        base = prefijo + dni_limpio
+        suma = sum(int(base[i]) * multiplicadores[i] for i in range(10))
+        resto = suma % 11
+        verificador = 0 if resto == 0 else 11 - resto
+    else:
+        verificador = 11 - resto
+    return f"{prefijo}{dni_limpio}{verificador}"
+
 def calcular_monto_y_modulos(hora_inicio: datetime.time, hora_fin: datetime.time):
     dt_ini = datetime.datetime.combine(datetime.date.today(), hora_inicio)
     dt_fin = datetime.datetime.combine(datetime.date.today(), hora_fin)
@@ -261,7 +283,6 @@ def calcular_monto_total(jefes_por_mod: list, subs_por_mod: list) -> float:
 def obtener_saludo(nombre_completo: str) -> str:
     hora_actual = datetime.datetime.now().hour
     nombre_str = str(nombre_completo).strip() if nombre_completo else "Efectivo"
-    
     if 6 <= hora_actual < 13:
         return f"🌅 ¡Buen día, {nombre_str}!"
     elif 13 <= hora_actual < 20:
@@ -294,7 +315,6 @@ def pantalla_cambio_clave():
 
 def login():
     str_lit.markdown("### 🔐 Acceso al Sistema de Adicionales")
-    
     with str_lit.form("form_login"):
         dni = str_lit.text_input("DNI / Usuario")
         clave = str_lit.text_input("Contraseña", type="password")
@@ -304,16 +324,13 @@ def login():
         if not dni or not clave:
             str_lit.error("Por favor complete el DNI y la contraseña.")
             return
-            
         try:
             with str_lit.spinner("Verificando credenciales..."):
                 data = cargar_usuarios_df()
                 if data.empty:
                     str_lit.error("No se pudo cargar la base de datos de usuarios.")
                     return
-                
                 data.columns = [str(c).strip().lower() for c in data.columns]
-                
                 user = data[data["dni"].astype(str) == str(dni)]
                 if user.empty:
                     str_lit.error("DNI no registrado.")
@@ -342,10 +359,8 @@ def login():
                     str_lit.session_state.usuario_dni = dni
                     str_lit.session_state.dependencia = str(u.get("dependencia", ""))
                     str_lit.session_state.rol = str(u.get("rol", "")).strip()
-                    
                     col_nombre = next((c for c in u.index if "nombre" in str(c).lower()), data.columns[1] if len(data.columns) > 1 else "Usuario")
                     str_lit.session_state.nombre_apellido = str(u.get(col_nombre, f"DNI: {dni}")).strip()
-                    
                     str_lit.rerun()
                 else:
                     str_lit.error("Contraseña incorrecta.")
@@ -439,7 +454,7 @@ def generar_pdf_servicio(row: pd.Series) -> str:
         pdf.set_text_color(0, 0, 0)
 
     seccion_titulo("1. DATOS GENERALES DEL EVENTO")
-    fila_tabla("Dependencia", str(row.get('Dependencia', '')), "Fecha", str(row.get('Fecha Evento', '')))
+    fila_tabla("Dependencia", str(row.get('Dependencia', '')), "Fecha(s)", str(row.get('Fecha Evento', '')))
     fila_tabla("Tipo de Evento", str(row.get('Tipo de Evento', '')), "Horario", str(row.get('Horario', '')))
     fila_completa("Ubicación / Predio", str(row.get('Ubicación Predio', '')))
     fila_completa("Organizador", str(row.get('Organizador', '')))
@@ -495,7 +510,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
             pdf.cell(0, 8, titulo, ln=True, align="center")
             pdf.set_text_color(0, 0, 0)
             pdf.ln(3)
-            
             with Image.open(ruta_img) as im:
                 w, h = im.size
             ratio = min(170 / w, 220 / h)
@@ -514,10 +528,8 @@ def generar_pdf_servicio(row: pd.Series) -> str:
 def _render_modulos(max_modulos: int, counter: int):
     labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)", "Cuádruple (16h)"]
     labels_ordenados = labels_base[:max_modulos][::-1]
-    
     jefes_dict = {}
     subs_dict = {}
-    
     for label in labels_ordenados:
         str_lit.markdown(f"**Turno {label}**")
         c1, c2 = str_lit.columns(2)
@@ -525,23 +537,17 @@ def _render_modulos(max_modulos: int, counter: int):
             j = str_lit.number_input(f"Jefes ({label})", 0, step=1, key=f"j_{label}_{counter}")
         with c2:
             s = str_lit.number_input(f"Subalternos ({label})", 0, step=1, key=f"s_{label}_{counter}")
-        
         if "Simple" in label:
-            jefes_dict[0] = int(j)
-            subs_dict[0] = int(s)
+            jefes_dict[0] = int(j); subs_dict[0] = int(s)
         elif "Doble" in label:
-            jefes_dict[1] = int(j)
-            subs_dict[1] = int(s)
+            jefes_dict[1] = int(j); subs_dict[1] = int(s)
         elif "Triple" in label:
-            jefes_dict[2] = int(j)
-            subs_dict[2] = int(s)
+            jefes_dict[2] = int(j); subs_dict[2] = int(s)
         elif "Cuádruple" in label:
-            jefes_dict[3] = int(j)
-            subs_dict[3] = int(s)
+            jefes_dict[3] = int(j); subs_dict[3] = int(s)
 
     jefes_final = [jefes_dict.get(i, 0) for i in range(4)]
     subs_final = [subs_dict.get(i, 0) for i in range(4)]
-    
     return jefes_final, subs_final
 
 def _post_apps_script(payload: dict) -> dict:
@@ -595,23 +601,27 @@ def vista_dependencia():
         if f"fecha_elegida_{counter}" not in str_lit.session_state:
             str_lit.session_state[f"fecha_elegida_{counter}"] = False
 
-        str_lit.subheader("📌 Paso 1: Fecha del Evento")
-        
+        str_lit.subheader("📌 Paso 1: Fechas Específicas del Evento")
         with str_lit.form(f"form_fecha_{counter}"):
-            fecha = str_lit.date_input("Seleccione la fecha del servicio", value=datetime.date.today(), min_value=datetime.date.today())
-            btn_confirmar_fecha = str_lit.form_submit_button("Confirmar Fecha y Continuar")
+            fecha_texto = str_lit.text_input(
+                "Indique las fechas (Ej: Viernes 6 y Sábado 7, o Viernes y Sábado)", 
+                placeholder="Ej: Viernes y Sábado", 
+                key=f"txt_fecha_{counter}"
+            )
+            btn_confirmar_fecha = str_lit.form_submit_button("Confirmar Fechas y Continuar")
             
         if btn_confirmar_fecha:
-            str_lit.session_state[f"fecha_elegida_{counter}"] = True
+            if fecha_texto.strip():
+                str_lit.session_state[f"fecha_elegida_{counter}"] = True
+            else:
+                str_lit.error("Por favor ingrese las fechas del evento.")
 
-        if str_lit.session_state[f"fecha_elegida_{counter}"]:
-            str_lit.success(f"✔ Fecha registrada: **{fecha}**")
+        if str_lit.session_state.get(f"fecha_elegida_{counter}", False):
+            str_lit.success(f"✔ Fechas registradas: **{fecha_texto}**")
             str_lit.markdown("---")
             
             str_lit.subheader("📌 Paso 2: Tipo de Evento")
-            tipo_evento = str_lit.text_input(
-                "Ingrese el tipo de evento (Ej: Partido de fútbol, Baile, Recital, etc.)", key=f"tipo_{counter}"
-            )
+            tipo_evento = str_lit.text_input("Ingrese el tipo de evento (Ej: Partido de fútbol, Baile, Recital, etc.)", key=f"tipo_{counter}")
             
             if tipo_evento.strip():
                 str_lit.success("✔ Tipo de evento registrado.")
@@ -628,8 +638,17 @@ def vista_dependencia():
                     str_lit.success("✔ Datos del organizador registrados.")
                     str_lit.markdown("---")
                     
-                    str_lit.subheader("📌 Paso 5: Facturación")
-                    cuil_organizador = str_lit.text_input("CUIL / CUIT del Organizador (11 dígitos)", key=f"cuil_org_{counter}")
+                    str_lit.subheader("📌 Paso 5: Facturación (CUIL / CUIT)")
+                    col_cuil1, col_cuil2 = str_lit.columns([2, 1])
+                    with col_cuil1:
+                        cuil_organizador = str_lit.text_input("CUIL / CUIT del Organizador (11 dígitos)", key=f"cuil_org_{counter}")
+                    with col_cuil2:
+                        genero_auto = str_lit.selectbox("Género para CUIL", ["M", "F"], key=f"gen_org_{counter}")
+                        if str_lit.button("⚡ Autocalcular CUIL", key=f"btn_calc_cuil_{counter}"):
+                            if dni_organizador:
+                                cuil_sugerido = calcular_cuil_desde_dni(dni_organizador, genero_auto)
+                                if cuil_sugerido:
+                                    str_lit.info(f"Sugerido: {cuil_sugerido}. Cópielo arriba.")
                     
                     if cuil_organizador.strip():
                         str_lit.success("✔ CUIL/CUIT registrado.")
@@ -642,23 +661,25 @@ def vista_dependencia():
                             str_lit.success("✔ Ubicación registrada.")
                             str_lit.markdown("---")
                             
-                            str_lit.subheader("📌 Paso 7: Horarios y Turnos")
-                            col_h1, col_h2 = str_lit.columns(2)
+                            str_lit.subheader("📌 Paso 7: Horarios, Turnos y Jornadas")
+                            col_jornadas, col_h1, col_h2 = str_lit.columns([1, 1, 1])
+                            with col_jornadas:
+                                cant_dias = str_lit.number_input("Cantidad de días", min_value=1, max_value=7, value=2, key=f"dias_{counter}")
                             with col_h1:
-                                hora_inicio = str_lit.time_input("Hora de Inicio", value=datetime.time(20, 0), key=f"h_ini_{counter}")
+                                hora_inicio = str_lit.time_input("Hora de Inicio", value=datetime.time(15, 0), key=f"h_ini_{counter}")
                             with col_h2:
-                                hora_fin = str_lit.time_input("Hora de Fin", value=datetime.time(4, 0), key=f"h_fin_{counter}")
+                                hora_fin = str_lit.time_input("Hora de Fin", value=datetime.time(19, 0), key=f"h_fin_{counter}")
 
                             diferencia_horas, max_modulos = calcular_monto_y_modulos(hora_inicio, hora_fin)
-                            str_lit.info(f"⏱️ Duración calculada: **{diferencia_horas:.1f} horas** (Hasta **{max_modulos} módulo(s)**)")
 
                             jefes_por_mod, subs_por_mod = _render_modulos(max_modulos, counter)
-                            total_jefes = sum(jefes_por_mod)
-                            total_subalternos = sum(subs_por_mod)
-                            monto_total = calcular_monto_total(jefes_por_mod, subs_por_mod)
+                            total_jefes = sum(jefes_por_mod) * cant_dias
+                            total_subalternos = sum(subs_por_mod) * cant_dias
+                            monto_total = calcular_monto_total(jefes_por_mod, subs_por_mod) * cant_dias
 
+                            str_lit.info(f"⏱️ Duración diaria: **{diferencia_horas:.1f} hs** | Total jornadas: **{cant_dias} día(s)**")
                             str_lit.markdown("---")
-                            str_lit.success(f"💰 **Monto Total a Pagar: ${monto_total:,.2f}**")
+                            str_lit.success(f"💰 **Monto Total Unificado a Pagar: ${monto_total:,.2f}** (Suma de los {cant_dias} días con un solo comprobante)")
 
                             str_lit.markdown("---")
                             str_lit.subheader("📌 Paso 8: Facturación y Documentación Adjunta")
@@ -681,7 +702,7 @@ def vista_dependencia():
                                     key=f"hab_{counter}",
                                 )
                                 file_comp = str_lit.file_uploader(
-                                    "Comprobante de Pago (Obligatorio)",
+                                    "Comprobante de Pago Único (Obligatorio)",
                                     type=["png", "jpg", "jpeg", "pdf"],
                                     key=f"comp_{counter}",
                                 )
@@ -708,11 +729,11 @@ def vista_dependencia():
                                             payload = {
                                                 "id_servicio": id_servicio,
                                                 "dependencia": str(str_lit.session_state.dependencia),
-                                                "fecha_evento": str(fecha),
+                                                "fecha_evento": fecha_texto,
                                                 "tipo_evento": str(tipo_evento),
                                                 "organizador": str(organizador_completo),
                                                 "ubicacion": str(ubicacion_predio),
-                                                "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
+                                                "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')} ({cant_dias} días)",
                                                 "cant_jefes": int(total_jefes),
                                                 "cant_subalternos": int(total_subalternos),
                                                 "modulos": int(max_modulos),
@@ -752,14 +773,7 @@ def vista_dependencia():
                 str_lit.info("Aún no hay servicios registrados.")
             else:
                 df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
-                
-                col_asist = None
-                for c in df_dep.columns:
-                    if "asistencia" in str(c).lower():
-                        col_asist = c
-                        break
-                if not col_asist and len(df_dep.columns) > 16:
-                    col_asist = df_dep.columns[16]
+                col_asist = next((c for c in df_dep.columns if "asistencia" in str(c).lower()), df_dep.columns[16] if len(df_dep.columns) > 16 else None)
 
                 if not col_asist:
                     str_lit.warning("⚠️ No se encontró la columna de asistencia en la hoja.")
@@ -781,11 +795,7 @@ def vista_dependencia():
                                 str_lit.write(f"**Personal:** {row.get('Cant. Jefes', 0)} Jefes / {row.get('Cant. Subalternos', 0)} Subalternos")
                                 
                                 with str_lit.form(f"form_asist_{id_serv}"):
-                                    file_asist = str_lit.file_uploader(
-                                        "Planilla de Asistencia Firmada",
-                                        type=["png", "jpg", "jpeg", "pdf"],
-                                        key=f"file_{id_serv}",
-                                    )
+                                    file_asist = str_lit.file_uploader("Planilla de Asistencia Firmada", type=["png", "jpg", "jpeg", "pdf"], key=f"file_{id_serv}")
                                     sub_asist = str_lit.form_submit_button("Subir Planilla")
                                     
                                 if sub_asist:
@@ -796,13 +806,8 @@ def vista_dependencia():
                                             payload = {
                                                 "action": "subir_asistencia",
                                                 "id_servicio": str(id_serv),
-                                                "file_asist_base64": base64.b64encode(
-                                                    file_asist.getvalue()
-                                                ).decode("utf-8"),
-                                                "name_asist": (
-                                                    f"{id_serv}_asistencia."
-                                                    f"{file_asist.name.split('.')[-1]}"
-                                                ),
+                                                "file_asist_base64": base64.b64encode(file_asist.getvalue()).decode("utf-8"),
+                                                "name_asist": f"{id_serv}_asistencia.{file_asist.name.split('.')[-1]}",
                                                 "type_asist": file_asist.type,
                                             }
                                             res = _post_apps_script(payload)
@@ -876,13 +881,7 @@ def vista_admin():
             )
             data["Monto Total"] = pd.to_numeric(data["Monto Total"], errors="coerce").fillna(0)
 
-        # Normalizar nombre de la columna de estado
-        col_estado_nombre = None
-        for c in data.columns:
-            if "estado" in str(c).lower():
-                col_estado_nombre = c
-                break
-        
+        col_estado_nombre = next((c for c in data.columns if "estado" in str(c).lower()), None)
         if not col_estado_nombre:
             data["Estado Central"] = "🟡 Pendiente"
             col_estado_nombre = "Estado Central"
