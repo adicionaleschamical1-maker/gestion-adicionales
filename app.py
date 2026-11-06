@@ -402,7 +402,7 @@ def obtener_imagen_desde_drive(url_drive: str):
             os.unlink(tmp_path)
         return None
 
-# --- GENERADOR DE PDF ---
+# --- GENERADOR DE PDF CON ORDEN DE MAYOR A MENOR Y OCULTANDO CEROS ---
 def generar_pdf_servicio(row: pd.Series) -> str:
     pdf = FPDF()
     pdf.add_page()
@@ -499,18 +499,19 @@ def generar_pdf_servicio(row: pd.Series) -> str:
         elif idx_mod == 1: j_dob = safe_int(total_jefes_val); s_dob = safe_int(total_subs_val)
         else: j_tri = safe_int(total_jefes_val); s_tri = safe_int(total_subs_val)
 
+    # Armamos la lista de turnos para mostrar solo los que tienen personal (ordenados de mayor a menor)
+    turnos_disponibles = [
+        {"nombre": " Módulo Triple (12 hs)", "jefes": j_tri, "subs": s_tri},
+        {"nombre": " Módulo Doble (8 hs)", "jefes": j_dob, "subs": s_dob},
+        {"nombre": " Módulo Simple (4 hs)", "jefes": j_sim, "subs": s_sim}
+    ]
+
     pdf.set_font("helvetica", "", 9)
-    pdf.cell(70, 5, " Módulo Simple (4 hs)", 1, 0, 'L')
-    pdf.cell(60, 5, f" {j_sim}", 1, 0, 'C')
-    pdf.cell(60, 5, f" {s_sim}", 1, 1, 'C')
-
-    pdf.cell(70, 5, " Módulo Doble (8 hs)", 1, 0, 'L')
-    pdf.cell(60, 5, f" {j_dob}", 1, 0, 'C')
-    pdf.cell(60, 5, f" {s_dob}", 1, 1, 'C')
-
-    pdf.cell(70, 5, " Módulo Triple (12 hs)", 1, 0, 'L')
-    pdf.cell(60, 5, f" {j_tri}", 1, 0, 'C')
-    pdf.cell(60, 5, f" {s_tri}", 1, 1, 'C')
+    for t in turnos_disponibles:
+        if t["jefes"] > 0 or t["subs"] > 0:
+            pdf.cell(70, 5, t["nombre"], 1, 0, 'L')
+            pdf.cell(60, 5, f" {t['jefes']}", 1, 0, 'C')
+            pdf.cell(60, 5, f" {t['subs']}", 1, 1, 'C')
 
     seccion_titulo("3. DATOS DE FACTURACIÓN Y PAGO")
     fila_completa("Pagado por", str(row.get('Pagador', '')))
@@ -648,7 +649,6 @@ def vista_dependencia():
 
         str_lit.subheader("📌 Paso 1: Cantidad de Días y Fechas del Evento")
         with str_lit.form(f"form_fecha_{counter}"):
-            # Selector para elegir si es 1 día o 2 días específicos
             tipo_cant_dias = str_lit.radio(
                 "Seleccione la modalidad de días:",
                 ["1 Día único", "2 Días específicos (Ej: Viernes y Sábado)"],
@@ -658,7 +658,7 @@ def vista_dependencia():
             
             if tipo_cant_dias == "1 Día único":
                 fec_inicio = str_lit.date_input("Fecha del Evento", value=datetime.date.today(), key=f"fec_ini_{counter}")
-                fec_fin = fec_inicio  # Se iguala para que tome un solo día
+                fec_fin = fec_inicio
             else:
                 col_f1, col_f2 = str_lit.columns(2)
                 with col_f1:
