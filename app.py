@@ -159,13 +159,14 @@ str_lit.markdown("""
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Constantes de negocio
+# Constantes de negocio (Máximo 3 módulos / 12 horas)
 SHEET_NAME = "Gestion_Adicionales"
 HOJA_SERVICIOS = "Servicios"
 HOJA_USUARIOS = "Usuarios"
 PRECIO_JEFE = 33000
 PRECIO_SUB = 28000
 HORAS_POR_MODULO = 4
+MAX_MODULOS_PERMITIDOS = 3
 TIMEOUT_HTTP = 30
 
 try:
@@ -271,7 +272,8 @@ def calcular_monto_y_modulos(hora_inicio: datetime.time, hora_fin: datetime.time
     if dt_fin <= dt_ini:
         dt_fin += datetime.timedelta(days=1)
     horas = (dt_fin - dt_ini).total_seconds() / 3600.0
-    max_mod = max(1, min(4, math.ceil(horas / HORAS_POR_MODULO)))
+    # Limitamos a un máximo de 3 módulos (12 horas)
+    max_mod = max(1, min(MAX_MODULOS_PERMITIDOS, math.ceil(horas / HORAS_POR_MODULO)))
     return horas, max_mod
 
 def calcular_monto_total(jefes_por_mod: list, subs_por_mod: list) -> float:
@@ -401,7 +403,7 @@ def obtener_imagen_desde_drive(url_drive: str):
             os.unlink(tmp_path)
         return None
 
-# --- GENERADOR DE PDF CON DESGLOSE DETALLADO ---
+# --- GENERADOR DE PDF CON DESGLOSE HASTA MÓDULO TRIPLE ---
 def generar_pdf_servicio(row: pd.Series) -> str:
     pdf = FPDF()
     pdf.add_page()
@@ -463,10 +465,14 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     monto_val = row.get('Monto Total', 0)
     monto_str = f"${float(monto_val):,.2f}" if monto_val else "$0.00"
     
-    fila_tabla("Total Jefes", str(row.get('Cant. Jefes', '')), "Total Subalternos", str(row.get('Cant. Subalternos', '')))
-    fila_tabla("Módulos (Max)", str(row.get('Módulos', '')), "Monto Total", monto_str)
+    total_jefes_val = row.get('Cant. Jefes', 0)
+    total_subs_val = row.get('Cant. Subalternos', 0)
+    modulos_val = row.get('Módulos', 1)
 
-    # Detalle de Turnos en tabla PDF
+    fila_tabla("Total Jefes", str(total_jefes_val), "Total Subalternos", str(total_subs_val))
+    fila_tabla("Módulos (Max)", str(modulos_val), "Monto Total", monto_str)
+
+    # Detalle de Turnos en tabla PDF (hasta Módulo Triple)
     pdf.ln(2)
     pdf.set_font("helvetica", "B", 9)
     pdf.set_fill_color(230, 235, 245)
@@ -474,14 +480,26 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.cell(60, 6, " Jefes Asignados", 1, 0, 'C', True)
     pdf.cell(60, 6, " Subalternos Asignados", 1, 1, 'C', True)
 
-    j_sim = str(row.get('Jefes Simples', 0))
-    s_sim = str(row.get('Subalternos Simples', 0))
-    j_dob = str(row.get('Jefes Dobles', 0))
-    s_dob = str(row.get('Subalternos Dobles', 0))
-    j_tri = str(row.get('Jefes Triples', 0))
-    s_tri = str(row.get('Subalternos Triples', 0))
-    j_cua = str(row.get('Jefes Cuádruples', 0))
-    s_cua = str(row.get('Subalternos Cuádruples', 0))
+    def safe_int(val):
+        try:
+            return int(float(val))
+        except:
+            return 0
+
+    j_sim = safe_int(row.get('Jefes Simples', 0))
+    s_sim = safe_int(row.get('Subalternos Simples', 0))
+    j_dob = safe_int(row.get('Jefes Dobles', 0))
+    s_dob = safe_int(row.get('Subalternos Dobles', 0))
+    j_tri = safe_int(row.get('Jefes Triples', 0))
+    s_tri = safe_int(row.get('Subalternos Triples', 0))
+
+    suma_jefes_desglose = j_sim + j_dob + j_tri
+    suma_subs_desglose = s_sim + s_dob + s_tri
+    if suma_jefes_desglose == 0 and suma_subs_desglose == 0 and (total_jefes_val or total_subs_val):
+        idx_mod = max(1, min(MAX_MODULOS_PERMITIDOS, safe_int(modulos_val))) - 1
+        if idx_mod == 0: j_sim = safe_int(total_jefes_val); s_sim = safe_int(total_subs_val)
+        elif idx_mod == 1: j_dob = safe_int(total_jefes_val); s_dob = safe_int(total_subs_val)
+        else: j_tri = safe_int(total_jefes_val); s_tri = safe_int(total_subs_val)
 
     pdf.set_font("helvetica", "", 9)
     pdf.cell(70, 5, " Módulo Simple (4 hs)", 1, 0, 'L')
@@ -495,10 +513,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.cell(70, 5, " Módulo Triple (12 hs)", 1, 0, 'L')
     pdf.cell(60, 5, f" {j_tri}", 1, 0, 'C')
     pdf.cell(60, 5, f" {s_tri}", 1, 1, 'C')
-
-    pdf.cell(70, 5, " Módulo Cuádruple (16 hs)", 1, 0, 'L')
-    pdf.cell(60, 5, f" {j_cua}", 1, 0, 'C')
-    pdf.cell(60, 5, f" {s_cua}", 1, 1, 'C')
 
     seccion_titulo("3. DATOS DE FACTURACIÓN Y PAGO")
     fila_completa("Pagado por", str(row.get('Pagador', '')))
@@ -559,9 +573,9 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-# --- VISTA DEPENDENCIA ---
+# --- VISTA DEPENDENCIA (MÁXIMO TRIPLE) ---
 def _render_modulos(max_modulos: int, counter: int):
-    labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)", "Cuádruple (16h)"]
+    labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)"]
     labels_ordenados = labels_base[:max_modulos][::-1]
     jefes_dict = {}
     subs_dict = {}
@@ -578,11 +592,9 @@ def _render_modulos(max_modulos: int, counter: int):
             jefes_dict[1] = int(j); subs_dict[1] = int(s)
         elif "Triple" in label:
             jefes_dict[2] = int(j); subs_dict[2] = int(s)
-        elif "Cuádruple" in label:
-            jefes_dict[3] = int(j); subs_dict[3] = int(s)
 
-    jefes_final = [jefes_dict.get(i, 0) for i in range(4)]
-    subs_final = [subs_dict.get(i, 0) for i in range(4)]
+    jefes_final = [jefes_dict.get(i, 0) for i in range(3)]
+    subs_final = [subs_dict.get(i, 0) for i in range(3)]
     return jefes_final, subs_final
 
 def _post_apps_script(payload: dict) -> dict:
@@ -776,14 +788,12 @@ def vista_dependencia():
                                                 "cant_subalternos": int(total_subalternos),
                                                 "modulos": int(max_modulos),
                                                 "monto_total": float(monto_total),
-                                                "jefes_simples": int(jefes_por_mod[0]),
-                                                "subalternos_simples": int(subs_por_mod[0]),
-                                                "jefes_dobles": int(jefes_por_mod[1]),
-                                                "subalternos_dobles": int(subs_por_mod[1]),
-                                                "jefes_triples": int(jefes_por_mod[2]),
-                                                "subalternos_triples": int(subs_por_mod[2]),
-                                                "jefes_cuadruples": int(jefes_por_mod[3]),
-                                                "subalternos_cuadruples": int(subs_por_mod[3]),
+                                                "Jefes Simples": int(jefes_por_mod[0]),
+                                                "Subalternos Simples": int(subs_por_mod[0]),
+                                                "Jefes Dobles": int(jefes_por_mod[1]),
+                                                "Subalternos Dobles": int(subs_por_mod[1]),
+                                                "Jefes Triples": int(jefes_por_mod[2]),
+                                                "Subalternos Triples": int(subs_por_mod[2]),
                                                 "pagado_por": str(pagado_por),
                                                 "cuil_pagado_por": str(cuil_pagado_por),
                                                 "estado_central": "🟡 Pendiente",
@@ -819,7 +829,7 @@ def vista_dependencia():
                 str_lit.info("Aún no hay servicios registrados.")
             else:
                 df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
-                col_asist = next((c for c in df_dep.columns if "asistencia" in str(c).lower()), df_dep.columns[16] if len(df_dep.columns) > 16 else None)
+                col_asist = next((c for c in df_dep.columns if "asistencia" in str(c).lower()), df_dep.columns[14] if len(df_dep.columns) > 14 else None)
 
                 if not col_asist:
                     str_lit.warning("⚠️ No se encontró la columna de asistencia en la hoja.")
