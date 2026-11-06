@@ -401,7 +401,7 @@ def obtener_imagen_desde_drive(url_drive: str):
             os.unlink(tmp_path)
         return None
 
-# --- GENERADOR DE PDF ---
+# --- GENERADOR DE PDF CON DESGLOSE DETALLADO ---
 def generar_pdf_servicio(row: pd.Series) -> str:
     pdf = FPDF()
     pdf.add_page()
@@ -462,8 +462,43 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     seccion_titulo("2. RECURSOS Y MÓDULOS ASIGNADOS")
     monto_val = row.get('Monto Total', 0)
     monto_str = f"${float(monto_val):,.2f}" if monto_val else "$0.00"
-    fila_tabla("Cant. Jefes", str(row.get('Cant. Jefes', '')), "Cant. Subalternos", str(row.get('Cant. Subalternos', '')))
-    fila_tabla("Módulos (Turnos)", str(row.get('Módulos', '')), "Monto Total", monto_str)
+    
+    fila_tabla("Total Jefes", str(row.get('Cant. Jefes', '')), "Total Subalternos", str(row.get('Cant. Subalternos', '')))
+    fila_tabla("Módulos (Max)", str(row.get('Módulos', '')), "Monto Total", monto_str)
+
+    # Detalle de Turnos en tabla PDF
+    pdf.ln(2)
+    pdf.set_font("helvetica", "B", 9)
+    pdf.set_fill_color(230, 235, 245)
+    pdf.cell(70, 6, " Módulo / Tipo de Turno", 1, 0, 'L', True)
+    pdf.cell(60, 6, " Jefes Asignados", 1, 0, 'C', True)
+    pdf.cell(60, 6, " Subalternos Asignados", 1, 1, 'C', True)
+
+    j_sim = str(row.get('Jefes Simples', 0))
+    s_sim = str(row.get('Subalternos Simples', 0))
+    j_dob = str(row.get('Jefes Dobles', 0))
+    s_dob = str(row.get('Subalternos Dobles', 0))
+    j_tri = str(row.get('Jefes Triples', 0))
+    s_tri = str(row.get('Subalternos Triples', 0))
+    j_cua = str(row.get('Jefes Cuádruples', 0))
+    s_cua = str(row.get('Subalternos Cuádruples', 0))
+
+    pdf.set_font("helvetica", "", 9)
+    pdf.cell(70, 5, " Módulo Simple (4 hs)", 1, 0, 'L')
+    pdf.cell(60, 5, f" {j_sim}", 1, 0, 'C')
+    pdf.cell(60, 5, f" {s_sim}", 1, 1, 'C')
+
+    pdf.cell(70, 5, " Módulo Doble (8 hs)", 1, 0, 'L')
+    pdf.cell(60, 5, f" {j_dob}", 1, 0, 'C')
+    pdf.cell(60, 5, f" {s_dob}", 1, 1, 'C')
+
+    pdf.cell(70, 5, " Módulo Triple (12 hs)", 1, 0, 'L')
+    pdf.cell(60, 5, f" {j_tri}", 1, 0, 'C')
+    pdf.cell(60, 5, f" {s_tri}", 1, 1, 'C')
+
+    pdf.cell(70, 5, " Módulo Cuádruple (16 hs)", 1, 0, 'L')
+    pdf.cell(60, 5, f" {j_cua}", 1, 0, 'C')
+    pdf.cell(60, 5, f" {s_cua}", 1, 1, 'C')
 
     seccion_titulo("3. DATOS DE FACTURACIÓN Y PAGO")
     fila_completa("Pagado por", str(row.get('Pagador', '')))
@@ -601,23 +636,28 @@ def vista_dependencia():
         if f"fecha_elegida_{counter}" not in str_lit.session_state:
             str_lit.session_state[f"fecha_elegida_{counter}"] = False
 
-        str_lit.subheader("📌 Paso 1: Fechas Específicas del Evento")
+        str_lit.subheader("📌 Paso 1: Fechas del Evento (Días Específicos)")
         with str_lit.form(f"form_fecha_{counter}"):
-            fecha_texto = str_lit.text_input(
-                "Indique las fechas (Ej: Viernes 6 y Sábado 7, o Viernes y Sábado)", 
-                placeholder="Ej: Viernes y Sábado", 
-                key=f"txt_fecha_{counter}"
-            )
+            col_f1, col_f2 = str_lit.columns(2)
+            with col_f1:
+                fec_inicio = str_lit.date_input("Fecha Día 1 (Ej: Viernes)", value=datetime.date.today(), key=f"fec_ini_{counter}")
+            with col_f2:
+                fec_fin = str_lit.date_input("Fecha Día 2 (Ej: Sábado)", value=datetime.date.today(), key=f"fec_fin_{counter}")
+                
             btn_confirmar_fecha = str_lit.form_submit_button("Confirmar Fechas y Continuar")
             
         if btn_confirmar_fecha:
-            if fecha_texto.strip():
-                str_lit.session_state[f"fecha_elegida_{counter}"] = True
-            else:
-                str_lit.error("Por favor ingrese las fechas del evento.")
+            str_lit.session_state[f"fecha_elegida_{counter}"] = True
 
         if str_lit.session_state.get(f"fecha_elegida_{counter}", False):
-            str_lit.success(f"✔ Fechas registradas: **{fecha_texto}**")
+            if fec_inicio == fec_fin:
+                fecha_texto = f"{fec_inicio.strftime('%d/%m/%Y')}"
+                cant_dias = 1
+            else:
+                fecha_texto = f"{fec_inicio.strftime('%d/%m/%Y')} y {fec_fin.strftime('%d/%m/%Y')}"
+                cant_dias = 2
+
+            str_lit.success(f"✔ Fechas seleccionadas: **{fecha_texto}** ({cant_dias} día/s)")
             str_lit.markdown("---")
             
             str_lit.subheader("📌 Paso 2: Tipo de Evento")
@@ -662,9 +702,7 @@ def vista_dependencia():
                             str_lit.markdown("---")
                             
                             str_lit.subheader("📌 Paso 7: Horarios, Turnos y Jornadas")
-                            col_jornadas, col_h1, col_h2 = str_lit.columns([1, 1, 1])
-                            with col_jornadas:
-                                cant_dias = str_lit.number_input("Cantidad de días", min_value=1, max_value=7, value=2, key=f"dias_{counter}")
+                            col_h1, col_h2 = str_lit.columns(2)
                             with col_h1:
                                 hora_inicio = str_lit.time_input("Hora de Inicio", value=datetime.time(15, 0), key=f"h_ini_{counter}")
                             with col_h2:
@@ -677,7 +715,7 @@ def vista_dependencia():
                             total_subalternos = sum(subs_por_mod) * cant_dias
                             monto_total = calcular_monto_total(jefes_por_mod, subs_por_mod) * cant_dias
 
-                            str_lit.info(f"⏱️ Duración diaria: **{diferencia_horas:.1f} hs** | Total jornadas: **{cant_dias} día(s)**")
+                            str_lit.info(f"⏱️ Duración diaria: **{diferencia_horas:.1f} hs** | Jornadas: **{cant_dias} día(s)**")
                             str_lit.markdown("---")
                             str_lit.success(f"💰 **Monto Total Unificado a Pagar: ${monto_total:,.2f}** (Suma de los {cant_dias} días con un solo comprobante)")
 
@@ -738,6 +776,14 @@ def vista_dependencia():
                                                 "cant_subalternos": int(total_subalternos),
                                                 "modulos": int(max_modulos),
                                                 "monto_total": float(monto_total),
+                                                "jefes_simples": int(jefes_por_mod[0]),
+                                                "subalternos_simples": int(subs_por_mod[0]),
+                                                "jefes_dobles": int(jefes_por_mod[1]),
+                                                "subalternos_dobles": int(subs_por_mod[1]),
+                                                "jefes_triples": int(jefes_por_mod[2]),
+                                                "subalternos_triples": int(subs_por_mod[2]),
+                                                "jefes_cuadruples": int(jefes_por_mod[3]),
+                                                "subalternos_cuadruples": int(subs_por_mod[3]),
                                                 "pagado_por": str(pagado_por),
                                                 "cuil_pagado_por": str(cuil_pagado_por),
                                                 "estado_central": "🟡 Pendiente",
