@@ -761,7 +761,7 @@ def vista_dependencia():
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
             str_lit.dataframe(df_dep, use_container_width=True)
 
-# --- PANEL DE ADMINISTRACIÓN CON FILTROS POR ESTADO Y MODO MANTENIMIENTO NUBE ---
+# --- PANEL DE ADMINISTRACIÓN CON FILTROS LIMPIOS Y MODO MANTENIMIENTO NUBE ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
@@ -816,7 +816,8 @@ def vista_admin():
 
             str_lit.dataframe(df_filtrado, use_container_width=True)
             
-            opciones = [f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']}) [{r.get('Estado Central', '')}]" for _, r in df_filtrado.iterrows()]
+            # Opciones limpias sin repetir el estado en la etiqueta del selectbox
+            opciones = [f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']})" for _, r in df_filtrado.iterrows()]
             if opciones:
                 elegido = str_lit.selectbox("Seleccionar servicio para verificar / despachar", options=opciones)
                 if elegido:
