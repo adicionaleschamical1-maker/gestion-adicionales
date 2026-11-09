@@ -247,10 +247,10 @@ def _post_apps_script(payload: dict) -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# --- PANTALLA PÚBLICA DE FICHAJE (SIMPLIFICADA Y CON AUTO-REGISTRO) ---
+# --- PANTALLA PÚBLICA DE FICHAJE (PARA EL ENCARGADO EN TERRENO - SIN LOGUEO) ---
 def pantalla_fichaje_qr(id_servicio_defecto=None):
-    str_lit.subheader("📱 Registro de Asistencia de Efectivos (Servicio)")
-    str_lit.info("Ingrese el DNI del efectivo para autocompletar o registrar su asistencia.")
+    str_lit.subheader("📱 Registro de Asistencia en Terreno (Encargado de Servicio)")
+    str_lit.info("Ingrese el DNI del efectivo para autocompletar o registrar su presencia en el evento.")
 
     id_serv_input = str_lit.text_input("ID / PIN del Servicio", value=id_servicio_defecto or "")
     dni_input = str_lit.text_input("DNI del Efectivo")
@@ -330,63 +330,57 @@ def pantalla_cambio_clave():
 def login():
     str_lit.markdown("### 🔐 Acceso al Sistema de Adicionales")
     
-    t_login, t_qr = str_lit.tabs(["🔑 Acceso Personal / Administración", "📱 Fichar Asistencia por DNI / PIN"])
-    
-    with t_login:
-        with str_lit.form("form_login"):
-            dni = str_lit.text_input("DNI / Usuario")
-            clave = str_lit.text_input("Contraseña", type="password")
-            submitted = str_lit.form_submit_button("INGRESAR AL SISTEMA")
-            
-        if submitted:
-            if not dni or not clave:
-                str_lit.error("Por favor complete el DNI y la contraseña.")
-                return
-            try:
-                with str_lit.spinner("Verificando credenciales..."):
-                    data = cargar_usuarios_df()
-                    if data.empty:
-                        str_lit.error("No se pudo cargar la base de datos de usuarios.")
-                        return
-                    data.columns = [str(c).strip().lower() for c in data.columns]
-                    user = data[data["dni"].astype(str) == str(dni)]
-                    if user.empty:
-                        str_lit.error("DNI no registrado.")
-                        return
+    with str_lit.form("form_login"):
+        dni = str_lit.text_input("DNI / Usuario")
+        clave = str_lit.text_input("Contraseña", type="password")
+        submitted = str_lit.form_submit_button("INGRESAR AL SISTEMA")
+        
+    if submitted:
+        if not dni or not clave:
+            str_lit.error("Por favor complete el DNI y la contraseña.")
+            return
+        try:
+            with str_lit.spinner("Verificando credenciales..."):
+                data = cargar_usuarios_df()
+                if data.empty:
+                    str_lit.error("No se pudo cargar la base de datos de usuarios.")
+                    return
+                data.columns = [str(c).strip().lower() for c in data.columns]
+                user = data[data["dni"].astype(str) == str(dni)]
+                if user.empty:
+                    str_lit.error("DNI no registrado.")
+                    return
 
-                    u = user.iloc[0]
-                    clave_pers = str(u.get("clave personal", u.get("clave_personal", ""))).strip()
-                    clave_temp = str(u.get("clave", u.get("clave_temporal", ""))).strip()
+                u = user.iloc[0]
+                clave_pers = str(u.get("clave personal", u.get("clave_personal", ""))).strip()
+                clave_temp = str(u.get("clave", u.get("clave_temporal", ""))).strip()
 
-                    requiere_cambio = (
-                        clave_pers == ""
-                        or clave_pers == str(dni)
-                        or (clave_temp != "" and clave == clave_temp)
-                    )
-                    if requiere_cambio:
-                        if clave == clave_temp or clave == str(dni) or clave == clave_pers:
-                            str_lit.session_state.cambio_clave_requerido = True
-                            str_lit.session_state.dni_temp = dni
-                            str_lit.rerun()
-                        else:
-                            str_lit.error("Contraseña temporal incorrecta.")
-                        return
-
-                    if clave == clave_pers:
-                        str_lit.session_state.autenticado = True
-                        str_lit.session_state.usuario_dni = dni
-                        str_lit.session_state.dependencia = str(u.get("dependencia", ""))
-                        str_lit.session_state.rol = str(u.get("rol", "")).strip()
-                        col_nombre = next((c for c in u.index if "nombre" in str(c).lower()), data.columns[1] if len(data.columns) > 1 else "Usuario")
-                        str_lit.session_state.nombre_apellido = str(u.get(col_nombre, f"DNI: {dni}")).strip()
+                requiere_cambio = (
+                    clave_pers == ""
+                    or clave_pers == str(dni)
+                    or (clave_temp != "" and clave == clave_temp)
+                )
+                if requiere_cambio:
+                    if clave == clave_temp or clave == str(dni) or clave == clave_pers:
+                        str_lit.session_state.cambio_clave_requerido = True
+                        str_lit.session_state.dni_temp = dni
                         str_lit.rerun()
                     else:
-                        str_lit.error("Contraseña incorrecta.")
-            except Exception as e:
-                str_lit.error(f"Error de conexión con la base de usuarios: {e}")
+                        str_lit.error("Contraseña temporal incorrecta.")
+                    return
 
-    with t_qr:
-        pantalla_fichaje_qr()
+                if clave == clave_pers:
+                    str_lit.session_state.autenticado = True
+                    str_lit.session_state.usuario_dni = dni
+                    str_lit.session_state.dependencia = str(u.get("dependencia", ""))
+                    str_lit.session_state.rol = str(u.get("rol", "")).strip()
+                    col_nombre = next((c for c in u.index if "nombre" in str(c).lower()), data.columns[1] if len(data.columns) > 1 else "Usuario")
+                    str_lit.session_state.nombre_apellido = str(u.get(col_nombre, f"DNI: {dni}")).strip()
+                    str_lit.rerun()
+                else:
+                    str_lit.error("Contraseña incorrecta.")
+        except Exception as e:
+            str_lit.error(f"Error de conexión con la base de usuarios: {e}")
 
 # --- GENERACIÓN DE IMÁGENES DESDE DRIVE ---
 def obtener_imagen_desde_drive(url_drive: str):
@@ -732,9 +726,6 @@ def vista_dependencia():
                     id_serv = row.get('ID Servicio') or row.get('id_servicio') or row.iloc[0]
                     fec_ev = str(row.get('Fecha Evento') or '')
                     with str_lit.expander(f"📁 EXPEDIENTE: {id_serv} | 📅 {fec_ev}"):
-                        str_lit.markdown(f"**PIN de Fichaje / Link directo:**")
-                        str_lit.code(f"/?id_servicio={id_serv}", language="text")
-                        
                         with str_lit.form(f"form_asist_1_{id_serv}"):
                             file_a1 = str_lit.file_uploader("Planilla Asistencia (Escaneada / Foto)", type=["png", "jpg", "jpeg", "pdf"], key=f"f1_{id_serv}")
                             sub_a1 = str_lit.form_submit_button("Subir Archivo al Expediente")
@@ -760,7 +751,7 @@ def vista_dependencia():
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
             str_lit.dataframe(df_dep, use_container_width=True)
 
-# --- PANEL DE ADMINISTRACIÓN CON FILTROS LIMPIOS Y MODO MANTENIMIENTO NUBE ---
+# --- PANEL DE ADMINISTRACIÓN (EXCLUSIVO PARA GESTIONAR Y ENVIAR ENLACES A ENCARGADOS) ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
@@ -800,10 +791,10 @@ def vista_admin():
         if not pendientes_revision.empty:
             str_lit.warning(f"🔔 **¡Atención Admin!** Hay **{len(pendientes_revision)}** servicio(s) con planillas de asistencia subidas por las dependencias pendientes de revisión y despacho.")
 
-    t_expedientes, t_asistencia_qr, t_depuracion = str_lit.tabs(["📄 Expedientes y PDF", "📱 Asistencias Digitales", "🧹 Mantenimiento / Depuración Mensual"])
+    t_expedientes, t_asistencia_qr, t_depuracion = str_lit.tabs(["📄 Expedientes y Enlaces", "📱 Asistencias Digitales", "🧹 Mantenimiento / Depuración Mensual"])
     
     with t_expedientes:
-        str_lit.subheader("Gestión de Expedientes y Constancias")
+        str_lit.subheader("Gestión de Expedientes, Enlaces para Encargados y Constancias")
         if not data.empty:
             col_f1, col_f2 = str_lit.columns([2, 2])
             with col_f1:
@@ -815,13 +806,19 @@ def vista_admin():
 
             str_lit.dataframe(df_filtrado, use_container_width=True)
             
-            # Opciones limpias sin repetir el estado en la etiqueta del selectbox
             opciones = [f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']})" for _, r in df_filtrado.iterrows()]
             if opciones:
-                elegido = str_lit.selectbox("Seleccionar servicio para verificar / despachar", options=opciones)
+                elegido = str_lit.selectbox("Seleccionar servicio para verificar / enviar enlace", options=opciones)
                 if elegido:
                     id_sel = elegido.split(" - ")[0]
                     row_data = data[data["ID Servicio"].astype(str) == id_sel].iloc[0]
+
+                    # --- SECCIÓN EXCLUSIVA ADMIN: ENLACE PARA EL ENCARGADO DEL EVENTO ---
+                    str_lit.markdown("---")
+                    str_lit.markdown("##### 📤 Enlace de Asistencia para el Encargado del Evento:")
+                    str_lit.info("Copiá este enlace y envíaselo por WhatsApp al efectivo a cargo del servicio para que registre la asistencia en vivo desde su teléfono:")
+                    str_lit.code(f"/?id_servicio={id_sel}", language="text")
+                    str_lit.markdown("---")
 
                     c_pdf, c_excel, c_estado = str_lit.columns(3)
                     with c_pdf:
