@@ -193,6 +193,7 @@ _defaults = {
     "nombre_apellido": None,
     "cambio_clave_requerido": False,
     "form_counter": 0,
+    "modo_mantenimiento": False,
 }
 for k, v in _defaults.items():
     str_lit.session_state.setdefault(k, v)
@@ -593,7 +594,13 @@ def vista_dependencia():
         str_lit.rerun()
 
     str_lit.markdown(f"### {saludo}")
-    tab1, tab2, tab3 = str_lit.tabs(["🟢 Cargar Nuevo Servicio", "🔵 Pendientes de Asistencia", "📜 Historial de Servicios"])
+    
+    tab1, tab2, tab3, tab4 = str_lit.tabs([
+        "🟢 Cargar Nuevo Servicio", 
+        "⏳ Pendientes de Planilla", 
+        "✅ Expedientes Enviados", 
+        "📜 Historial General"
+    ])
 
     counter = str_lit.session_state.form_counter
 
@@ -699,7 +706,7 @@ def vista_dependencia():
                                         str_lit.rerun()
 
     with tab2:
-        str_lit.header("Servicios Pendientes de Planilla de Asistencia")
+        str_lit.header("⏳ Servicios Pendientes de Adjuntar Planilla")
         data = cargar_servicios_df()
         if not data.empty and "Dependencia" in data.columns:
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
@@ -715,16 +722,16 @@ def vista_dependencia():
 
             df_pend = df_dep[df_dep.apply(esta_pendiente, axis=1)]
             if df_pend.empty:
-                str_lit.success("🎉 ¡Sin pendientes!")
+                str_lit.success("🎉 ¡No tenés expedientes pendientes de planilla!")
             else:
                 for _, row in df_pend.iterrows():
                     id_serv = row.get('ID Servicio') or row.get('id_servicio') or row.iloc[0]
                     fec_ev = str(row.get('Fecha Evento') or '')
-                    with str_lit.expander(f"📁 EXPEDIENTE: {id_serv} | 📅 {fec_ev}"):
-                        str_lit.markdown(f"**PIN de Fichaje:** `{id_serv}`")
+                    with str_lit.expander(f"📁 PENDIENTE: {id_serv} | 📅 {fec_ev}"):
+                        str_lit.markdown(f"**PIN de Fichaje para el Jefe:** `{id_serv}`")
                         with str_lit.form(f"form_asist_1_{id_serv}"):
-                            file_a1 = str_lit.file_uploader("Planilla Asistencia (Escaneada / Foto)", type=["png", "jpg", "jpeg", "pdf"], key=f"f1_{id_serv}")
-                            sub_a1 = str_lit.form_submit_button("Subir Archivo al Expediente")
+                            file_a1 = str_lit.file_uploader("Subir Planilla de Asistencia (Escaneada / Foto)", type=["png", "jpg", "jpeg", "pdf"], key=f"f1_{id_serv}")
+                            sub_a1 = str_lit.form_submit_button("📤 Enviar Planilla al Administrador")
                         if sub_a1 and file_a1:
                             payload = {
                                 "action": "subir_asistencia",
@@ -736,12 +743,29 @@ def vista_dependencia():
                             }
                             res = _post_apps_script(payload)
                             if res.get("status") == "success":
-                                str_lit.success("¡Planilla adjuntada!")
+                                str_lit.success("¡Planilla adjuntada con éxito! El administrador fue notificado.")
                                 str_lit.cache_data.clear()
                                 str_lit.rerun()
 
     with tab3:
-        str_lit.header("Historial General")
+        str_lit.header("✅ Expedientes con Planilla Enviada")
+        data = cargar_servicios_df()
+        if not data.empty and "Dependencia" in data.columns:
+            df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
+            def esta_enviado(r):
+                fec = str(r.get("Fecha Evento", ""))
+                a1_val = str(r.get("Enlace Asistencia Día 1", r.get("Enlace Asistencia", ""))).strip()
+                a2_val = str(r.get("Enlace Asistencia Día 2", "")).strip()
+                return (a1_val != "" and a2_val != "") if " y " in fec else (a1_val != "")
+
+            df_enviados = df_dep[df_dep.apply(esta_enviado, axis=1)]
+            if df_enviados.empty:
+                str_lit.info("Aún no hay expedientes con planillas enviadas.")
+            else:
+                str_lit.dataframe(df_enviados, use_container_width=True)
+
+    with tab4:
+        str_lit.header("📜 Historial General de la Dependencia")
         data = cargar_servicios_df()
         if not data.empty and "Dependencia" in data.columns:
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
@@ -752,6 +776,16 @@ def vista_admin():
     saludo = obtener_saludo(nombre_efectivo)
 
     str_lit.sidebar.markdown(f"**{nombre_efectivo}** (ADMINISTRADOR)")
+    
+    # --- CONTROL DE MODO MANTENIMIENTO EN BARRA LATERAL ---
+    str_lit.sidebar.markdown("---")
+    str_lit.sidebar.subheader("⚙️ Control de Sistema")
+    modo_mant_actual = str_lit.session_state.get("modo_mantenimiento", False)
+    nuevo_modo = str_lit.sidebar.toggle("🛠️ Modo Mantenimiento", value=modo_mant_actual)
+    if nuevo_modo != modo_mant_actual:
+        str_lit.session_state["modo_mantenimiento"] = nuevo_modo
+        str_lit.rerun()
+
     boton_refrescar()
     if str_lit.sidebar.button("🚪 Cerrar Sesión"):
         str_lit.session_state.autenticado = False
@@ -846,5 +880,15 @@ elif not str_lit.session_state.autenticado:
     login()
 elif str_lit.session_state.rol == "Administrador":
     vista_admin()
+elif str_lit.session_state.get("modo_mantenimiento", False):
+    str_lit.markdown("""
+        <div style="text-align: center; padding: 4rem 2rem;">
+            <h1>🛠️ SITIO EN MANTENIMIENTO</h1>
+            <p style="font-size: 1.2rem; color: #555;">La Oficina de Adicionales de la UR V se encuentra realizando tareas de actualización en el sistema. Por favor intente nuevamente en unos momentos.</p>
+        </div>
+    """, unsafe_allow_html=True)
+    if str_lit.button("🚪 Cerrar Sesión"):
+        str_lit.session_state.autenticado = False
+        str_lit.rerun()
 else:
     vista_dependencia()
