@@ -757,14 +757,27 @@ def vista_admin():
                                 str_lit.error(f"Error al actualizar estado: {e}")
 
     with t_asistencia_qr:
-        str_lit.subheader("Listado Global de Asistencias Registradas")
+        str_lit.subheader("Listado de Eventos con Asistencia Registrada")
+        str_lit.info("Acá se visualiza cada evento registrado una sola vez. Podés descargar el detalle completo en Excel de los efectivos de cada servicio.")
+        
         df_asist = cargar_asistencia_digital_df()
         if not df_asist.empty:
-            str_lit.dataframe(df_asist, use_container_width=True)
+            columnas_agrupar = [c for c in ["Tipo de Evento", "Fecha del Evento", "Ubicación / Predio", "Dependencia Solicitante"] if c in df_asist.columns]
+            
+            if columnas_agrupar:
+                df_resumen = df_asist.groupby(columnas_agrupar, as_index=False).agg(
+                    Efectivos_Cargados=("DNI", "count"),
+                    Ultimo_Fichaje=("Fecha Hora Fichaje", "max")
+                )
+                str_lit.dataframe(df_resumen, use_container_width=True)
+            else:
+                str_lit.dataframe(df_asist, use_container_width=True)
+
+            str_lit.markdown("---")
             output_global = BytesIO()
             with pd.ExcelWriter(output_global, engine='openpyxl') as writer:
                 df_asist.to_excel(writer, index=False, sheet_name='Global_Asistencias')
-            str_lit.download_button("📊 Descargar Toda la Asistencia (Excel)", data=output_global.getvalue(), file_name="Asistencia_Global.xlsx")
+            str_lit.download_button("📊 Descargar Planilla Completa de Asistencias (Excel)", data=output_global.getvalue(), file_name="Asistencia_Global_Completa.xlsx")
         else:
             str_lit.info("Aún no hay registros de asistencia.")
 
