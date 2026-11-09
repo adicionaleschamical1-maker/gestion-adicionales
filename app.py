@@ -247,10 +247,10 @@ def _post_apps_script(payload: dict) -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# --- PANTALLA PÚBLICA DE FICHAJE (CON AUTOCOMPLETADO POR DNI) ---
+# --- PANTALLA PÚBLICA DE FICHAJE (SIMPLIFICADA Y CON AUTO-REGISTRO) ---
 def pantalla_fichaje_qr(id_servicio_defecto=None):
-    str_lit.subheader("📱 Registro / Fichaje de Asistencia (Jefe o Terreno)")
-    str_lit.info("Ingrese el DNI para autocompletar la información del efectivo desde el padrón.")
+    str_lit.subheader("📱 Registro de Asistencia de Efectivos (Servicio)")
+    str_lit.info("Ingrese el DNI del efectivo para autocompletar o registrar su asistencia.")
 
     id_serv_input = str_lit.text_input("ID / PIN del Servicio", value=id_servicio_defecto or "")
     dni_input = str_lit.text_input("DNI del Efectivo")
@@ -266,30 +266,24 @@ def pantalla_fichaje_qr(id_servicio_defecto=None):
             res_p = df_personal[df_personal["DNI"].astype(str).str.strip() == dni_input.strip()]
             if not res_p.empty:
                 fila_p = res_p.iloc[0]
-                nombre_auto = str(fila_p.get("Nombre y Apellido", fila_p.get("nombre_apellido", "")))
-                jerarquia_auto = str(fila_p.get("Jerarquia", fila_p.get("jerarquia", "")))
-                dep_auto = str(fila_p.get("Dependencia", fila_p.get("dependencia", "")))
+                nombre_auto = str(fila_p.get("Nombre y Apellido", ""))
+                jerarquia_auto = str(fila_p.get("Jerarquia", ""))
+                dep_auto = str(fila_p.get("Dependencia", ""))
                 encontrado = True
-                str_lit.success(f"🟢 Efectivo en Padrón: **{jerarquia_auto} {nombre_auto}** ({dep_auto})")
+                str_lit.success(f"🟢 En Padrón: **{jerarquia_auto} {nombre_auto}** ({dep_auto})")
+            else:
+                str_lit.warning("⚠️ Efectivo no encontrado en Padrón Base. Complete los datos para registrarlo y agregarlo automáticamente.")
 
-    with str_lit.form("form_fichaje_terreno"):
+    with str_lit.form("form_fichaje_efectivo"):
         jerarquia_val = str_lit.text_input("Jerarquía / Rango", value=jerarquia_auto)
         nombre_val = str_lit.text_input("Nombre y Apellido Completo", value=nombre_auto)
         dep_val = str_lit.text_input("Dependencia de Origen", value=dep_auto)
         
-        jornada_sel = str_lit.selectbox("Turno / Tanda", [
-            "Módulo Triple (12 hs)",
-            "Módulo Doble (8 hs)",
-            "Módulo Simple (4 hs)",
-            "Día 1",
-            "Día 2"
-        ])
-        
-        btn_fichar = str_lit.form_submit_button("✅ Confirmar Asistencia")
+        btn_fichar = str_lit.form_submit_button("✅ Registrar Asistencia")
         
     if btn_fichar:
         if not id_serv_input or not dni_input or not nombre_val:
-            str_lit.error("Por favor complete los campos obligatorios.")
+            str_lit.error("Por favor complete todos los datos obligatorios.")
         else:
             payload = {
                 "action": "fichaje_qr",
@@ -298,12 +292,15 @@ def pantalla_fichaje_qr(id_servicio_defecto=None):
                 "jerarquia": str(jerarquia_val).strip(),
                 "nombre_apellido": str(nombre_val).strip(),
                 "dependencia": str(dep_val).strip(),
-                "jornada": jornada_sel
+                "es_nuevo": not encontrado
             }
             res = _post_apps_script(payload)
             if res.get("status") == "success":
                 str_lit.balloons()
-                str_lit.success("¡Asistencia registrada e impactada con éxito!")
+                str_lit.success("¡Asistencia registrada con éxito!")
+                if not encontrado:
+                    str_lit.info("💡 El efectivo fue incorporado automáticamente al Padrón Base para futuros eventos.")
+                str_lit.cache_data.clear()
             else:
                 str_lit.error(f"Error al registrar: {res.get('message')}")
 
@@ -735,7 +732,9 @@ def vista_dependencia():
                     id_serv = row.get('ID Servicio') or row.get('id_servicio') or row.iloc[0]
                     fec_ev = str(row.get('Fecha Evento') or '')
                     with str_lit.expander(f"📁 EXPEDIENTE: {id_serv} | 📅 {fec_ev}"):
-                        str_lit.markdown(f"**PIN de Fichaje:** `{id_serv}`")
+                        str_lit.markdown(f"**PIN de Fichaje / Link directo:**")
+                        str_lit.code(f"/?id_servicio={id_serv}", language="text")
+                        
                         with str_lit.form(f"form_asist_1_{id_serv}"):
                             file_a1 = str_lit.file_uploader("Planilla Asistencia (Escaneada / Foto)", type=["png", "jpg", "jpeg", "pdf"], key=f"f1_{id_serv}")
                             sub_a1 = str_lit.form_submit_button("Subir Archivo al Expediente")
