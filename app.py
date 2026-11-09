@@ -619,7 +619,7 @@ def vista_dependencia():
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
             str_lit.dataframe(df_dep, use_container_width=True)
 
-# --- PANEL DE ADMINISTRACIÓN (GENERADOR DE ENLACES PARA EL FORMULARIO WEB DEL ENCARGADO) ---
+# --- PANEL DE ADMINISTRACIÓN ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
@@ -679,13 +679,41 @@ def vista_admin():
                     id_sel = elegido.split(" - ")[0]
                     row_data = data[data["ID Servicio"].astype(str) == id_sel].iloc[0]
 
-                    # --- ENLACE DIRECTO AL FORMULARIO WEB DE APPS SCRIPT (SIN PASAR POR STREAMLIT) ---
+                    # --- ENLACE DIRECTO AL FORMULARIO WEB DE APPS SCRIPT ---
                     link_formulario_limpio = f"{URL_APPS_SCRIPT}?id_servicio={id_sel}"
 
                     str_lit.markdown("---")
-                    str_lit.markdown("##### 📤 Enlace del Formulario de Asistencia para el Encargado:")
-                    str_lit.info("Copiá este enlace y envíaselo por WhatsApp. Al abrirlo, el encargado verá solamente el formulario para cargar la asistencia de este evento:")
-                    str_lit.code(link_formulario_limpio, language="text")
+                    str_lit.markdown("##### 📤 Enviar Planilla al Encargado del Evento")
+                    
+                    mensaje_wa = (
+                        f"Hola, te envío el enlace para cargar la planilla de asistencia del servicio *{id_sel}* "
+                        f"({row_data.get('Tipo de Evento', '')}):\n\n{link_formulario_limpio}"
+                    )
+                    url_wa_directo = f"https://api.whatsapp.com/send?text={requests.utils.quote(mensaje_wa)}"
+
+                    str_lit.markdown(
+                        f"""
+                        <a href="{url_wa_directo}" target="_blank" style="text-decoration:none;">
+                            <button style="
+                                background-color: #25D366; 
+                                color: white; 
+                                border: none; 
+                                padding: 12px 20px; 
+                                font-size: 1rem; 
+                                font-weight: bold; 
+                                border-radius: 8px; 
+                                cursor: pointer; 
+                                width: 100%; 
+                                margin-bottom: 10px;">
+                                📲 Enviar Formulario directamente por WhatsApp
+                            </button>
+                        </a>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    
+                    with str_lit.expander("Ver enlace en texto"):
+                        str_lit.code(link_formulario_limpio, language="text")
                     str_lit.markdown("---")
 
                     c_pdf, c_excel, c_estado = str_lit.columns(3)
