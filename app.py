@@ -757,8 +757,8 @@ def vista_admin():
                                 str_lit.error(f"Error al actualizar estado: {e}")
 
     with t_asistencia_qr:
-        str_lit.subheader("Listado de Eventos con Asistencia Registrada")
-        str_lit.info("Acá se visualiza cada evento registrado una sola vez. Podés descargar el detalle completo en Excel de los efectivos de cada servicio.")
+        str_lit.subheader("Listado y Descarga de Asistencias por Evento")
+        str_lit.info("Visualizá el resumen de los eventos registrados y seleccioná cuál querés descargar de forma individual.")
         
         df_asist = cargar_asistencia_digital_df()
         if not df_asist.empty:
@@ -770,14 +770,42 @@ def vista_admin():
                     Ultimo_Fichaje=("Fecha Hora Fichaje", "max")
                 )
                 str_lit.dataframe(df_resumen, use_container_width=True)
+                
+                str_lit.markdown("---")
+                str_lit.subheader("📥 Descargar Planilla Específica de un Evento")
+                
+                # Crear lista desplegable con eventos únicos
+                opciones_eventos = []
+                for _, r in df_resumen.iterrows():
+                    tipo_ev = str(r.get("Tipo de Evento", "Evento"))
+                    fec_ev = str(r.get("Fecha del Evento", ""))
+                    ubi_ev = str(r.get("Ubicación / Predio", ""))
+                    opciones_eventos.append(f"{tipo_ev} - {fec_ev} ({ubi_ev})")
+                
+                evento_elegido = str_lit.selectbox("Seleccioná el evento que querés descargar en Excel:", options=opciones_eventos)
+                
+                if evento_elegido:
+                    tipo_sel = evento_elegido.split(" - ")[0]
+                    fec_sel = evento_elegido.split(" - ")[1].split(" (")[0]
+                    
+                    df_filtrado_evento = df_asist[
+                        (df_asist["Tipo de Evento"].astype(str) == tipo_sel) & 
+                        (df_asist["Fecha del Evento"].astype(str) == fec_sel)
+                    ]
+                    
+                    output_evento = BytesIO()
+                    with pd.ExcelWriter(output_evento, engine='openpyxl') as writer:
+                        df_filtrado_evento.to_excel(writer, index=False, sheet_name='Asistencia_Evento')
+                    
+                    nombre_archivo_limpio = f"Asistencia_{tipo_sel}_{fec_sel}.xlsx".replace(" ", "_").replace("/", "-")
+                    str_lit.download_button(
+                        label=f"📊 Descargar Excel de: {tipo_sel} ({fec_sel})",
+                        data=output_evento.getvalue(),
+                        file_name=nombre_archivo_limpio,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
             else:
                 str_lit.dataframe(df_asist, use_container_width=True)
-
-            str_lit.markdown("---")
-            output_global = BytesIO()
-            with pd.ExcelWriter(output_global, engine='openpyxl') as writer:
-                df_asist.to_excel(writer, index=False, sheet_name='Global_Asistencias')
-            str_lit.download_button("📊 Descargar Planilla Completa de Asistencias (Excel)", data=output_global.getvalue(), file_name="Asistencia_Global_Completa.xlsx")
         else:
             str_lit.info("Aún no hay registros de asistencia.")
 
