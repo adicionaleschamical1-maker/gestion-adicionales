@@ -559,7 +559,7 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-# --- PANEL DE DEPENDENCIA Y ADMINISTRACIÓN ---
+# --- PANEL DE DEPENDENCIA ---
 def _render_modulos(max_modulos: int, counter: int):
     labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)"]
     labels_ordenados = labels_base[:max_modulos][::-1]
@@ -595,12 +595,7 @@ def vista_dependencia():
 
     str_lit.markdown(f"### {saludo}")
     
-    tab1, tab2, tab3, tab4 = str_lit.tabs([
-        "🟢 Cargar Nuevo Servicio", 
-        "⏳ Pendientes de Planilla", 
-        "✅ Expedientes Enviados", 
-        "📜 Historial General"
-    ])
+    tab1, tab2, tab3 = str_lit.tabs(["🟢 Cargar Nuevo Servicio", "⏳ Pendientes de Asistencia", "📜 Historial de Servicios"])
 
     counter = str_lit.session_state.form_counter
 
@@ -706,7 +701,7 @@ def vista_dependencia():
                                         str_lit.rerun()
 
     with tab2:
-        str_lit.header("⏳ Servicios Pendientes de Adjuntar Planilla")
+        str_lit.header("Servicios Pendientes de Planilla de Asistencia")
         data = cargar_servicios_df()
         if not data.empty and "Dependencia" in data.columns:
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
@@ -722,16 +717,16 @@ def vista_dependencia():
 
             df_pend = df_dep[df_dep.apply(esta_pendiente, axis=1)]
             if df_pend.empty:
-                str_lit.success("🎉 ¡No tenés expedientes pendientes de planilla!")
+                str_lit.success("🎉 ¡Sin pendientes!")
             else:
                 for _, row in df_pend.iterrows():
                     id_serv = row.get('ID Servicio') or row.get('id_servicio') or row.iloc[0]
                     fec_ev = str(row.get('Fecha Evento') or '')
-                    with str_lit.expander(f"📁 PENDIENTE: {id_serv} | 📅 {fec_ev}"):
-                        str_lit.markdown(f"**PIN de Fichaje para el Jefe:** `{id_serv}`")
+                    with str_lit.expander(f"📁 EXPEDIENTE: {id_serv} | 📅 {fec_ev}"):
+                        str_lit.markdown(f"**PIN de Fichaje:** `{id_serv}`")
                         with str_lit.form(f"form_asist_1_{id_serv}"):
-                            file_a1 = str_lit.file_uploader("Subir Planilla de Asistencia (Escaneada / Foto)", type=["png", "jpg", "jpeg", "pdf"], key=f"f1_{id_serv}")
-                            sub_a1 = str_lit.form_submit_button("📤 Enviar Planilla al Administrador")
+                            file_a1 = str_lit.file_uploader("Planilla Asistencia (Escaneada / Foto)", type=["png", "jpg", "jpeg", "pdf"], key=f"f1_{id_serv}")
+                            sub_a1 = str_lit.form_submit_button("Subir Archivo al Expediente")
                         if sub_a1 and file_a1:
                             payload = {
                                 "action": "subir_asistencia",
@@ -743,41 +738,25 @@ def vista_dependencia():
                             }
                             res = _post_apps_script(payload)
                             if res.get("status") == "success":
-                                str_lit.success("¡Planilla adjuntada con éxito! El administrador fue notificado.")
+                                str_lit.success("¡Planilla adjuntada!")
                                 str_lit.cache_data.clear()
                                 str_lit.rerun()
 
     with tab3:
-        str_lit.header("✅ Expedientes con Planilla Enviada")
-        data = cargar_servicios_df()
-        if not data.empty and "Dependencia" in data.columns:
-            df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
-            def esta_enviado(r):
-                fec = str(r.get("Fecha Evento", ""))
-                a1_val = str(r.get("Enlace Asistencia Día 1", r.get("Enlace Asistencia", ""))).strip()
-                a2_val = str(r.get("Enlace Asistencia Día 2", "")).strip()
-                return (a1_val != "" and a2_val != "") if " y " in fec else (a1_val != "")
-
-            df_enviados = df_dep[df_dep.apply(esta_enviado, axis=1)]
-            if df_enviados.empty:
-                str_lit.info("Aún no hay expedientes con planillas enviadas.")
-            else:
-                str_lit.dataframe(df_enviados, use_container_width=True)
-
-    with tab4:
-        str_lit.header("📜 Historial General de la Dependencia")
+        str_lit.header("Historial General")
         data = cargar_servicios_df()
         if not data.empty and "Dependencia" in data.columns:
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
             str_lit.dataframe(df_dep, use_container_width=True)
 
+# --- PANEL DE ADMINISTRACIÓN CON FILTROS POR ESTADO Y MARCA A CENTRAL ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
 
     str_lit.sidebar.markdown(f"**{nombre_efectivo}** (ADMINISTRADOR)")
     
-    # --- CONTROL DE MODO MANTENIMIENTO EN BARRA LATERAL ---
+    # Control de Modo Mantenimiento en barra lateral
     str_lit.sidebar.markdown("---")
     str_lit.sidebar.subheader("⚙️ Control de Sistema")
     modo_mant_actual = str_lit.session_state.get("modo_mantenimiento", False)
@@ -796,7 +775,7 @@ def vista_admin():
     
     data = cargar_servicios_df()
     
-    # --- ALERTA VISUAL AUTOMÁTICA PARA EL ADMINISTRADOR ---
+    # Alerta visual automática
     if not data.empty and "Estado Central" in data.columns:
         pendientes_revision = data[data["Estado Central"].astype(str).str.contains("Recibido", na=False)]
         if not pendientes_revision.empty:
@@ -807,39 +786,65 @@ def vista_admin():
     with t_expedientes:
         str_lit.subheader("Gestión de Expedientes y Constancias")
         if not data.empty:
-            str_lit.dataframe(data, use_container_width=True)
-            opciones = [f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']}) [{r.get('Estado Central', '')}]" for _, r in data.iterrows()]
-            elegido = str_lit.selectbox("Seleccionar servicio para verificar", options=opciones)
-            if elegido:
-                id_sel = elegido.split(" - ")[0]
-                row_data = data[data["ID Servicio"].astype(str) == id_sel].iloc[0]
+            # --- FILTRO POR ESTADO PARA EL ADMINISTRADOR ---
+            col_f1, col_f2 = str_lit.columns([2, 2])
+            with col_f1:
+                filtro_estado = str_lit.selectbox("🔍 Filtrar expedientes por estado:", ["Todos", "🟡 Recibido - Requiere Revisión", "🟡 Pendiente", "🟢 Enviado a Central"])
+            
+            df_filtrado = data.copy()
+            if filtro_estado != "Todos" and "Estado Central" in df_filtrado.columns:
+                df_filtrado = df_filtrado[df_filtrado["Estado Central"].astype(str).str.contains(filtro_estado, na=False)]
 
-                c_pdf, c_excel = str_lit.columns(2)
-                with c_pdf:
-                    if str_lit.button("🚀 Generar PDF con Constancias"):
-                        pdf_path = generar_pdf_servicio(row_data)
-                        with open(pdf_path, "rb") as f:
-                            pdf_bytes = f.read()
-                        os.unlink(pdf_path)
-                        str_lit.download_button("📥 Descargar PDF Final", data=pdf_bytes, file_name=f"{id_sel}.pdf", mime="application/pdf")
-                
-                with c_excel:
-                    df_asist = cargar_asistencia_digital_df()
-                    if not df_asist.empty and "ID Servicio" in df_asist.columns:
-                        df_exp = df_asist[df_asist["ID Servicio"].astype(str) == str(id_sel)]
-                        if not df_exp.empty:
-                            output = BytesIO()
-                            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                                df_exp.to_excel(writer, index=False, sheet_name='Asistentes')
-                            excel_data = output.getvalue()
-                            str_lit.download_button(
-                                label="📊 Descargar Asistentes (Excel)",
-                                data=excel_data,
-                                file_name=f"Asistentes_{id_sel}.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                            )
-                        else:
-                            str_lit.info("Sin registros de asistencia digital para este ID.")
+            str_lit.dataframe(df_filtrado, use_container_width=True)
+            
+            opciones = [f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']}) [{r.get('Estado Central', '')}]" for _, r in df_filtrado.iterrows()]
+            if opciones:
+                elegido = str_lit.selectbox("Seleccionar servicio para verificar / despachar", options=opciones)
+                if elegido:
+                    id_sel = elegido.split(" - ")[0]
+                    row_data = data[data["ID Servicio"].astype(str) == id_sel].iloc[0]
+
+                    c_pdf, c_excel, c_estado = str_lit.columns(3)
+                    with c_pdf:
+                        if str_lit.button("🚀 Generar PDF con Constancias"):
+                            pdf_path = generar_pdf_servicio(row_data)
+                            with open(pdf_path, "rb") as f:
+                                pdf_bytes = f.read()
+                            os.unlink(pdf_path)
+                            str_lit.download_button("📥 Descargar PDF Final", data=pdf_bytes, file_name=f"{id_sel}.pdf", mime="application/pdf")
+                    
+                    with c_excel:
+                        df_asist = cargar_asistencia_digital_df()
+                        if not df_asist.empty and "ID Servicio" in df_asist.columns:
+                            df_exp = df_asist[df_asist["ID Servicio"].astype(str) == str(id_sel)]
+                            if not df_exp.empty:
+                                output = BytesIO()
+                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                                    df_exp.to_excel(writer, index=False, sheet_name='Asistentes')
+                                excel_data = output.getvalue()
+                                str_lit.download_button(
+                                    label="📊 Descargar Asistentes (Excel)",
+                                    data=excel_data,
+                                    file_name=f"Asistentes_{id_sel}.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                )
+                            else:
+                                str_lit.info("Sin registros de asistencia digital.")
+
+                    with c_estado:
+                        if str_lit.button("✅ Marcar como Enviado a Central"):
+                            try:
+                                hoja_serv = abrir_hoja(HOJA_SERVICIOS)
+                                cell = hoja_serv.find(str(id_sel))
+                                if cell:
+                                    hoja_serv.update_cell(cell.row, 25, "🟢 Enviado a Central")
+                                    str_lit.success("¡Expediente marcado como enviado a Central!")
+                                    str_lit.cache_data.clear()
+                                    str_lit.rerun()
+                            except Exception as e:
+                                str_lit.error(f"Error al actualizar estado: {e}")
+            else:
+                str_lit.info("No hay expedientes en este filtro.")
 
     with t_asistencia_qr:
         str_lit.subheader("Listado Global de Asistencias Registradas")
