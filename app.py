@@ -18,7 +18,7 @@ from io import BytesIO
 # --- CONFIGURACIÓN DE PÁGINA ---
 str_lit.set_page_config(page_title="UR V - Adicionales", layout="centered", page_icon="👮")
 
-# --- PARÁMETROS VÍA URL PARA EL FICHAJE DIRECTO ---
+# --- PARÁMETROS VÍA URL PARA EL FICHAJE DIRECTO DEL EVENTO ---
 query_params = str_lit.query_params
 pin_servicio_qr = query_params.get("id_servicio", None)
 
@@ -113,7 +113,6 @@ HORAS_POR_MODULO = 4
 MAX_MODULOS_PERMITIDOS = 3
 TIMEOUT_HTTP = 30
 
-# URL pública por defecto o desde los secrets
 try:
     URL_APPS_SCRIPT = str_lit.secrets["URL_APPS_SCRIPT"]
 except (KeyError, FileNotFoundError):
@@ -122,7 +121,7 @@ except (KeyError, FileNotFoundError):
 try:
     URL_DOMINIO_APP = str_lit.secrets["URL_DOMINIO_APP"]
 except (KeyError, FileNotFoundError):
-    URL_DOMINIO_APP = "https://tu-aplicacion.streamlit.app"  # Reemplazar por la URL real en producción
+    URL_DOMINIO_APP = "https://gestion-adicionales.streamlit.app"
 
 # --- CONEXIÓN A GOOGLE SHEETS ---
 @str_lit.cache_resource
@@ -216,7 +215,6 @@ _defaults = {
 for k, v in _defaults.items():
     str_lit.session_state.setdefault(k, v)
 
-# --- HELPERS ---
 def validar_cuil(valor: str) -> bool:
     return bool(re.fullmatch(r"\d{11}", str(valor).strip()))
 
@@ -253,13 +251,50 @@ def _post_apps_script(payload: dict) -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# --- PANTALLA PÚBLICA DE FICHAJE (DESDE LINK DE WHATSAPP SIN LOGUEO) ---
+# --- PANTALLA PÚBLICA EXCLUSIVA DE FICHAJE PARA EL ENCARGADO EN TERRENO ---
 def pantalla_fichaje_qr(id_servicio_defecto=None):
-    str_lit.subheader("📱 Registro de Asistencia en Terreno (Encargado del Evento)")
-    str_lit.info("Ingrese el DNI del efectivo para autocompletar o registrar su presencia en el servicio.")
+    # Ocultar menú lateral y barras de Streamlit para que sea una planilla limpia
+    str_lit.markdown("""
+        <style>
+        [data-testid="stSidebar"] { display: none; }
+        header { visibility: hidden; }
+        footer { visibility: hidden; }
+        </style>
+    """, unsafe_allow_html=True)
 
-    id_serv_input = str_lit.text_input("ID / PIN del Servicio", value=id_servicio_defecto or "", disabled=bool(id_servicio_defecto))
-    dni_input = str_lit.text_input("DNI del Efectivo")
+    df_servicios = cargar_servicios_df()
+    info_servicio = None
+    if not df_servicios.empty and "ID Servicio" in df_servicios.columns:
+        res = df_servicios[df_servicios["ID Servicio"].astype(str).str.strip() == str(id_servicio_defecto).strip()]
+        if not res.empty:
+            info_servicio = res.iloc[0]
+
+    if info_servicio is not None:
+        str_lit.subheader(f"📋 Planilla de Asistencia: {info_servicio.get('Tipo de Evento', 'Servicio Adicional')}")
+        str_lit.caption(f"📅 Fecha: {info_servicio.get('Fecha Evento', '')} | 🏛️ Dep: {info_servicio.get('Dependencia', '')} | 📌 ID: {id_servicio_defecto}")
+        
+        cant_jefes = int(info_servicio.get("Cant. Jefes", 0))
+        cant_subs = int(info_servicio.get("Cant. Subalternos", 0))
+        str_lit.info(f"👥 **Efectivos requeridos:** {cant_jefes} Jefe(s) / Encargado(s) y {cant_subs} Subalterno(s)")
+    else:
+        str_lit.subheader(f"📋 Planilla de Asistencia - Servicio: {id_servicio_defecto}")
+
+    str_lit.markdown("---")
+
+    # Mostrar efectivos ya registrados con tilde verde
+    df_asist = cargar_asistencia_digital_df()
+    fichados_ids = []
+    if not df_asist.empty and "ID Servicio" in df_asist.columns:
+        df_este_serv = df_asist[df_asist["ID Servicio"].astype(str).str.strip() == str(id_servicio_defecto).strip()]
+        if not df_este_serv.empty:
+            str_lit.markdown("##### 🟢 Efectivos Presentes Registrados:")
+            for _, r in df_este_serv.iterrows():
+                str_lit.success(f"✔️ **{r.get('Jerarquia', '')} {r.get('Nombre y Apellido', '')}** (DNI: {r.get('DNI', '')}) - {r.get('Fecha Hora Fichaje', '')}")
+                fichados_ids.append(str(r.get('DNI', '')).strip())
+            str_lit.markdown("---")
+
+    str_lit.markdown("##### ➕ Registrar Presencia de Efectivo")
+    dni_input = str_lit.text_input("Ingresar DNI del efectivo:", key="dni_fichaje_directo")
 
     nombre_auto = ""
     jerarquia_auto = ""
@@ -267,48 +302,50 @@ def pantalla_fichaje_qr(id_servicio_defecto=None):
     encontrado = False
 
     if dni_input.strip():
-        df_personal = cargar_personal_base_df()
-        if not df_personal.empty and "DNI" in df_personal.columns:
-            res_p = df_personal[df_personal["DNI"].astype(str).str.strip() == dni_input.strip()]
-            if not res_p.empty:
-                fila_p = res_p.iloc[0]
-                nombre_auto = str(fila_p.get("Nombre y Apellido", ""))
-                jerarquia_auto = str(fila_p.get("Jerarquia", ""))
-                dep_auto = str(fila_p.get("Dependencia", ""))
-                encontrado = True
-                str_lit.success(f"🟢 En Padrón: **{jerarquia_auto} {nombre_auto}** ({dep_auto})")
-            else:
-                str_lit.warning("⚠️ Efectivo no encontrado en Padrón Base. Complete los datos para registrarlo y agregarlo automáticamente.")
-
-    with str_lit.form("form_fichaje_efectivo"):
-        jerarquia_val = str_lit.text_input("Jerarquía / Rango", value=jerarquia_auto)
-        nombre_val = str_lit.text_input("Nombre y Apellido Completo", value=nombre_auto)
-        dep_val = str_lit.text_input("Dependencia de Origen", value=dep_auto)
-        
-        btn_fichar = str_lit.form_submit_button("✅ Registrar Asistencia")
-        
-    if btn_fichar:
-        if not id_serv_input or not dni_input or not nombre_val:
-            str_lit.error("Por favor complete todos los datos obligatorios.")
+        if dni_input.strip() in fichados_ids:
+            str_lit.warning("⚠️ Este DNI ya fue registrado como presente en este servicio.")
         else:
-            payload = {
-                "action": "fichaje_qr",
-                "id_servicio": str(id_serv_input).strip(),
-                "dni": str(dni_input).strip(),
-                "jerarquia": str(jerarquia_val).strip(),
-                "nombre_apellido": str(nombre_val).strip(),
-                "dependencia": str(dep_val).strip(),
-                "es_nuevo": not encontrado
-            }
-            res = _post_apps_script(payload)
-            if res.get("status") == "success":
-                str_lit.balloons()
-                str_lit.success("¡Asistencia registrada con éxito!")
-                if not encontrado:
-                    str_lit.info("💡 El efectivo fue incorporado automáticamente al Padrón Base para futuros eventos.")
-                str_lit.cache_data.clear()
-            else:
-                str_lit.error(f"Error al registrar: {res.get('message')}")
+            df_personal = cargar_personal_base_df()
+            if not df_personal.empty and "DNI" in df_personal.columns:
+                res_p = df_personal[df_personal["DNI"].astype(str).str.strip() == dni_input.strip()]
+                if not res_p.empty:
+                    fila_p = res_p.iloc[0]
+                    nombre_auto = str(fila_p.get("Nombre y Apellido", ""))
+                    jerarquia_auto = str(fila_p.get("Jerarquia", ""))
+                    dep_auto = str(fila_p.get("Dependencia", ""))
+                    encontrado = True
+                    str_lit.success(f"🟢 En Padrón: **{jerarquia_auto} {nombre_auto}** ({dep_auto})")
+                else:
+                    str_lit.warning("⚠️ Efectivo no encontrado en el padrón. Complete los datos para incorporarlo automáticamente.")
+
+            with str_lit.form("form_fichaje_efectivo_directo"):
+                jerarquia_val = str_lit.text_input("Jerarquía / Rango", value=jerarquia_auto)
+                nombre_val = str_lit.text_input("Nombre y Apellido Completo", value=nombre_auto)
+                dep_val = str_lit.text_input("Dependencia de Origen", value=dep_auto)
+                
+                btn_fichar = str_lit.form_submit_button("✅ CONFIRMAR ASISTENCIA")
+                
+            if btn_fichar:
+                if not dni_input or not nombre_val:
+                    str_lit.error("Por favor complete los campos requeridos.")
+                else:
+                    payload = {
+                        "action": "fichaje_qr",
+                        "id_servicio": str(id_servicio_defecto).strip(),
+                        "dni": str(dni_input).strip(),
+                        "jerarquia": str(jerarquia_val).strip(),
+                        "nombre_apellido": str(nombre_val).strip(),
+                        "dependencia": str(dep_val).strip(),
+                        "es_nuevo": not encontrado
+                    }
+                    res = _post_apps_script(payload)
+                    if res.get("status") == "success":
+                        str_lit.balloons()
+                        str_lit.success("¡Asistencia guardada correctamente!")
+                        str_lit.cache_data.clear()
+                        str_lit.rerun()
+                    else:
+                        str_lit.error(f"Error al registrar: {res.get('message')}")
 
 # --- LOGIN Y CAMBIO DE CLAVE ---
 def pantalla_cambio_clave():
@@ -388,7 +425,6 @@ def login():
         except Exception as e:
             str_lit.error(f"Error de conexión con la base de usuarios: {e}")
 
-# --- GENERACIÓN DE IMÁGENES DESDE DRIVE ---
 def obtener_imagen_desde_drive(url_drive: str):
     file_id = None
     if url_drive:
@@ -422,7 +458,6 @@ def obtener_imagen_desde_drive(url_drive: str):
             os.unlink(tmp_path)
         return None
 
-# --- GENERADOR DE REPORTES PDF ---
 def generar_pdf_servicio(row: pd.Series) -> str:
     pdf = FPDF()
     pdf.add_page()
@@ -531,44 +566,10 @@ def generar_pdf_servicio(row: pd.Series) -> str:
             pdf.set_text_color(0, 0, 0)
         pdf.set_font("helvetica", "B", 9)
 
-    anexos = [
-        ("ANEXO: HABILITACIÓN MUNICIPAL", row.get("Enlace Habilitación", "")),
-        ("ANEXO: COMPROBANTE DE PAGO", row.get("Enlace Comprobante", "")),
-        ("ANEXO: CONTRATO DE ADICIONAL", row.get("Enlace Contrato", ""))
-    ]
-
-    if es_dos_dias:
-        anexos.append((f"ANEXO: PLANILLA ASISTENCIA DÍA 1 ({fechas_partes[0]})", asist_1))
-        anexos.append((f"ANEXO: PLANILLA ASISTENCIA DÍA 2 ({fechas_partes[1]})", asist_2))
-    else:
-        anexos.append(("ANEXO: PLANILLA DE ASISTENCIA", asist_1))
-
-    for titulo, url in anexos:
-        ruta_img = obtener_imagen_desde_drive(url)
-        if not ruta_img:
-            continue
-        try:
-            pdf.add_page()
-            pdf.set_font("helvetica", "B", 11)
-            pdf.set_text_color(0, 32, 96)
-            pdf.cell(0, 8, titulo, ln=True, align="center")
-            pdf.set_text_color(0, 0, 0)
-            pdf.ln(3)
-            with Image.open(ruta_img) as im:
-                w, h = im.size
-            ratio = min(170 / w, 220 / h)
-            pdf.image(ruta_img, x=20, y=28, w=w * ratio, h=h * ratio)
-        except Exception as e:
-            logger.warning(f"PDF: error al embeber {titulo}: {e}")
-        finally:
-            if os.path.exists(ruta_img):
-                os.unlink(ruta_img)
-
     tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-# --- PANEL DE DEPENDENCIA ---
 def _render_modulos(max_modulos: int, counter: int):
     labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)"]
     labels_ordenados = labels_base[:max_modulos][::-1]
@@ -605,7 +606,6 @@ def vista_dependencia():
     str_lit.markdown(f"### {saludo}")
     
     tab1, tab2, tab3 = str_lit.tabs(["🟢 Cargar Nuevo Servicio", "⏳ Pendientes de Asistencia", "📜 Historial de Servicios"])
-
     counter = str_lit.session_state.form_counter
 
     with tab1:
@@ -757,14 +757,13 @@ def vista_dependencia():
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
             str_lit.dataframe(df_dep, use_container_width=True)
 
-# --- PANEL DE ADMINISTRACIÓN (EXCLUSIVO PARA GENERAR Y ENVIAR ENLACES DIRECTOS A ENCARGADOS) ---
+# --- PANEL DE ADMINISTRACIÓN (GENERADOR DE ENLACES PARA ENCARGADOS) ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
 
     str_lit.sidebar.markdown(f"**{nombre_efectivo}** (ADMINISTRADOR)")
     
-    # Control de Modo Mantenimiento en la nube (Solapa Config)
     str_lit.sidebar.markdown("---")
     str_lit.sidebar.subheader("⚙️ Control de Sistema")
     modo_mant_actual = verificar_modo_mantenimiento()
@@ -791,16 +790,15 @@ def vista_admin():
     
     data = cargar_servicios_df()
     
-    # Alerta visual automática
     if not data.empty and "Estado Central" in data.columns:
         pendientes_revision = data[data["Estado Central"].astype(str).str.contains("Recibido", na=False)]
         if not pendientes_revision.empty:
-            str_lit.warning(f"🔔 **¡Atención Admin!** Hay **{len(pendientes_revision)}** servicio(s) con planillas de asistencia subidas por las dependencias pendientes de revisión y despacho.")
+            str_lit.warning(f"🔔 **¡Atención Admin!** Hay **{len(pendientes_revision)}** servicio(s) con planillas de asistencia subidas pendientes de revisión y despacho.")
 
     t_expedientes, t_asistencia_qr, t_depuracion = str_lit.tabs(["📄 Expedientes y Enlaces", "📱 Asistencias Digitales", "🧹 Mantenimiento / Depuración Mensual"])
     
     with t_expedientes:
-        str_lit.subheader("Gestión de Expedientes, Enlaces para Encargados y Constancias")
+        str_lit.subheader("Gestión de Expedientes y Enlaces Exclusivos para el Encargado")
         if not data.empty:
             col_f1, col_f2 = str_lit.columns([2, 2])
             with col_f1:
@@ -814,18 +812,18 @@ def vista_admin():
             
             opciones = [f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']})" for _, r in df_filtrado.iterrows()]
             if opciones:
-                elegido = str_lit.selectbox("Seleccionar servicio para extraer enlace o despachar", options=opciones)
+                elegido = str_lit.selectbox("Seleccionar servicio para generar enlace o despachar", options=opciones)
                 if elegido:
                     id_sel = elegido.split(" - ")[0]
                     row_data = data[data["ID Servicio"].astype(str) == id_sel].iloc[0]
 
-                    # --- SECCIÓN EXCLUSIVA ADMIN: ENLACE COMPLETO DINÁMICO PARA WHATSAPP ---
-                    link_directo_whatsapp = f"{URL_DOMINIO_APP}/?id_servicio={id_sel}"
+                    # --- ENLACE DIRECTO EXCLUSIVO PARA EL ENCARGADO ---
+                    link_fichaje_directo = f"{URL_DOMINIO_APP}/?id_servicio={id_sel}"
 
                     str_lit.markdown("---")
-                    str_lit.markdown("##### 📤 Enlace Directo de Asistencia para el Encargado del Evento:")
-                    str_lit.info("Copiá este enlace completo y envíaselo por WhatsApp al efectivo a cargo. Al hacerle clic en su teléfono, abrirá directamente la planilla de fichaje de este evento:")
-                    str_lit.code(link_directo_whatsapp, language="text")
+                    str_lit.markdown("##### 📱 Enlace de Asistencia Exclusiva para el Encargado del Evento:")
+                    str_lit.info("Copiá este enlace y envíaselo por WhatsApp al efectivo a cargo. Al abrirlo, verá únicamente la planilla de este evento:")
+                    str_lit.code(link_fichaje_directo, language="text")
                     str_lit.markdown("---")
 
                     c_pdf, c_excel, c_estado = str_lit.columns(3)
@@ -867,8 +865,6 @@ def vista_admin():
                                     str_lit.rerun()
                             except Exception as e:
                                 str_lit.error(f"Error al actualizar estado: {e}")
-            else:
-                str_lit.info("No hay expedientes en este filtro.")
 
     with t_asistencia_qr:
         str_lit.subheader("Listado Global de Asistencias Registradas")
