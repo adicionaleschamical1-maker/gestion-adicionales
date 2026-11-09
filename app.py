@@ -16,9 +16,9 @@ from PIL import Image
 from io import BytesIO
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-str_lit.set_page_config(page_title="URV V - Adicionales", layout="centered", page_icon="👮")
+str_lit.set_page_config(page_title="UR V - Adicionales", layout="centered", page_icon="👮")
 
-# --- PARÁMETROS VÍA URL PARA EL FICHAJE ---
+# --- PARÁMETROS VÍA URL PARA EL FICHAJE DIRECTO ---
 query_params = str_lit.query_params
 pin_servicio_qr = query_params.get("id_servicio", None)
 
@@ -113,10 +113,16 @@ HORAS_POR_MODULO = 4
 MAX_MODULOS_PERMITIDOS = 3
 TIMEOUT_HTTP = 30
 
+# URL pública por defecto o desde los secrets
 try:
     URL_APPS_SCRIPT = str_lit.secrets["URL_APPS_SCRIPT"]
 except (KeyError, FileNotFoundError):
     URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxqVp5T0fVGtPncuwkocbXbU5TSHLgPqgmD0A5pQ6CmuEU3C-UrGx2eZHxg2HTLUjU1/exec"
+
+try:
+    URL_DOMINIO_APP = str_lit.secrets["URL_DOMINIO_APP"]
+except (KeyError, FileNotFoundError):
+    URL_DOMINIO_APP = "https://tu-aplicacion.streamlit.app"  # Reemplazar por la URL real en producción
 
 # --- CONEXIÓN A GOOGLE SHEETS ---
 @str_lit.cache_resource
@@ -153,7 +159,7 @@ def cargar_servicios_df() -> pd.DataFrame:
     try:
         hoja = abrir_hoja(HOJA_SERVICIOS)
         return pd.DataFrame(hoja.get_all_records())
-    except Exception as e:
+    except Exception:
         return pd.DataFrame()
 
 @str_lit.cache_data(ttl=60, show_spinner=False)
@@ -161,7 +167,7 @@ def cargar_usuarios_df() -> pd.DataFrame:
     try:
         hoja = abrir_hoja(HOJA_USUARIOS)
         return pd.DataFrame(hoja.get_all_records())
-    except Exception as e:
+    except Exception:
         return pd.DataFrame()
 
 @str_lit.cache_data(ttl=60, show_spinner=False)
@@ -169,7 +175,7 @@ def cargar_personal_base_df() -> pd.DataFrame:
     try:
         hoja = abrir_hoja(HOJA_PERSONAL)
         return pd.DataFrame(hoja.get_all_records())
-    except Exception as e:
+    except Exception:
         return pd.DataFrame()
 
 @str_lit.cache_data(ttl=30, show_spinner=False)
@@ -177,7 +183,7 @@ def cargar_asistencia_digital_df() -> pd.DataFrame:
     try:
         hoja = abrir_hoja(HOJA_ASISTENCIA)
         return pd.DataFrame(hoja.get_all_records())
-    except Exception as e:
+    except Exception:
         return pd.DataFrame()
 
 @str_lit.cache_data(ttl=5, show_spinner=False)
@@ -247,12 +253,12 @@ def _post_apps_script(payload: dict) -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# --- PANTALLA PÚBLICA DE FICHAJE (PARA EL ENCARGADO EN TERRENO - SIN LOGUEO) ---
+# --- PANTALLA PÚBLICA DE FICHAJE (DESDE LINK DE WHATSAPP SIN LOGUEO) ---
 def pantalla_fichaje_qr(id_servicio_defecto=None):
-    str_lit.subheader("📱 Registro de Asistencia en Terreno (Encargado de Servicio)")
-    str_lit.info("Ingrese el DNI del efectivo para autocompletar o registrar su presencia en el evento.")
+    str_lit.subheader("📱 Registro de Asistencia en Terreno (Encargado del Evento)")
+    str_lit.info("Ingrese el DNI del efectivo para autocompletar o registrar su presencia en el servicio.")
 
-    id_serv_input = str_lit.text_input("ID / PIN del Servicio", value=id_servicio_defecto or "")
+    id_serv_input = str_lit.text_input("ID / PIN del Servicio", value=id_servicio_defecto or "", disabled=bool(id_servicio_defecto))
     dni_input = str_lit.text_input("DNI del Efectivo")
 
     nombre_auto = ""
@@ -751,7 +757,7 @@ def vista_dependencia():
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
             str_lit.dataframe(df_dep, use_container_width=True)
 
-# --- PANEL DE ADMINISTRACIÓN (EXCLUSIVO PARA GESTIONAR Y ENVIAR ENLACES A ENCARGADOS) ---
+# --- PANEL DE ADMINISTRACIÓN (EXCLUSIVO PARA GENERAR Y ENVIAR ENLACES DIRECTOS A ENCARGADOS) ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
@@ -808,16 +814,18 @@ def vista_admin():
             
             opciones = [f"{r['ID Servicio']} - {r['Dependencia']} ({r['Fecha Evento']})" for _, r in df_filtrado.iterrows()]
             if opciones:
-                elegido = str_lit.selectbox("Seleccionar servicio para verificar / enviar enlace", options=opciones)
+                elegido = str_lit.selectbox("Seleccionar servicio para extraer enlace o despachar", options=opciones)
                 if elegido:
                     id_sel = elegido.split(" - ")[0]
                     row_data = data[data["ID Servicio"].astype(str) == id_sel].iloc[0]
 
-                    # --- SECCIÓN EXCLUSIVA ADMIN: ENLACE PARA EL ENCARGADO DEL EVENTO ---
+                    # --- SECCIÓN EXCLUSIVA ADMIN: ENLACE COMPLETO DINÁMICO PARA WHATSAPP ---
+                    link_directo_whatsapp = f"{URL_DOMINIO_APP}/?id_servicio={id_sel}"
+
                     str_lit.markdown("---")
-                    str_lit.markdown("##### 📤 Enlace de Asistencia para el Encargado del Evento:")
-                    str_lit.info("Copiá este enlace y envíaselo por WhatsApp al efectivo a cargo del servicio para que registre la asistencia en vivo desde su teléfono:")
-                    str_lit.code(f"/?id_servicio={id_sel}", language="text")
+                    str_lit.markdown("##### 📤 Enlace Directo de Asistencia para el Encargado del Evento:")
+                    str_lit.info("Copiá este enlace completo y envíaselo por WhatsApp al efectivo a cargo. Al hacerle clic en su teléfono, abrirá directamente la planilla de fichaje de este evento:")
+                    str_lit.code(link_directo_whatsapp, language="text")
                     str_lit.markdown("---")
 
                     c_pdf, c_excel, c_estado = str_lit.columns(3)
