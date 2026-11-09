@@ -105,6 +105,7 @@ HOJA_SERVICIOS = "Servicios"
 HOJA_USUARIOS = "Usuarios"
 HOJA_PERSONAL = "Personal_Base"
 HOJA_ASISTENCIA = "Asistencia_Digital_Global"
+HOJA_CONFIG = "Config"
 
 PRECIO_JEFE = 33000
 PRECIO_SUB = 28000
@@ -179,6 +180,18 @@ def cargar_asistencia_digital_df() -> pd.DataFrame:
     except Exception as e:
         return pd.DataFrame()
 
+@str_lit.cache_data(ttl=5, show_spinner=False)
+def verificar_modo_mantenimiento() -> bool:
+    try:
+        hoja = abrir_hoja(HOJA_CONFIG)
+        datos = hoja.get_all_records()
+        for row in datos:
+            if str(row.get("clave", "")).strip() == "modo_mantenimiento":
+                return str(row.get("valor", "")).strip().upper() == "ACTIVO"
+        return False
+    except Exception:
+        return False
+
 def boton_refrescar():
     if str_lit.sidebar.button("🔄 Refrescar datos"):
         str_lit.cache_data.clear()
@@ -193,7 +206,6 @@ _defaults = {
     "nombre_apellido": None,
     "cambio_clave_requerido": False,
     "form_counter": 0,
-    "modo_mantenimiento": False,
 }
 for k, v in _defaults.items():
     str_lit.session_state.setdefault(k, v)
@@ -749,21 +761,29 @@ def vista_dependencia():
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
             str_lit.dataframe(df_dep, use_container_width=True)
 
-# --- PANEL DE ADMINISTRACIÓN CON FILTROS POR ESTADO Y MARCA A CENTRAL ---
+# --- PANEL DE ADMINISTRACIÓN CON FILTROS POR ESTADO Y MODO MANTENIMIENTO NUBE ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
 
     str_lit.sidebar.markdown(f"**{nombre_efectivo}** (ADMINISTRADOR)")
     
-    # Control de Modo Mantenimiento en barra lateral
+    # Control de Modo Mantenimiento en la nube (Solapa Config)
     str_lit.sidebar.markdown("---")
     str_lit.sidebar.subheader("⚙️ Control de Sistema")
-    modo_mant_actual = str_lit.session_state.get("modo_mantenimiento", False)
-    nuevo_modo = str_lit.sidebar.toggle("🛠️ Modo Mantenimiento", value=modo_mant_actual)
-    if nuevo_modo != modo_mant_actual:
-        str_lit.session_state["modo_mantenimiento"] = nuevo_modo
-        str_lit.rerun()
+    modo_mant_actual = verificar_modo_mantenimiento()
+    nuevo_modo_toggle = str_lit.sidebar.toggle("🛠️ Modo Mantenimiento", value=modo_mant_actual)
+    
+    if nuevo_modo_toggle != modo_mant_actual:
+        estado_str = "ACTIVO" if nuevo_modo_toggle else "INACTIVO"
+        payload = {"action": "set_mantenimiento", "estado": estado_str}
+        res = _post_apps_script(payload)
+        if res.get("status") == "success":
+            str_lit.cache_data.clear()
+            str_lit.success(f"Modo mantenimiento cambiado a: {estado_str}")
+            str_lit.rerun()
+        else:
+            str_lit.error("No se pudo actualizar el mantenimiento en la nube.")
 
     boton_refrescar()
     if str_lit.sidebar.button("🚪 Cerrar Sesión"):
@@ -786,7 +806,6 @@ def vista_admin():
     with t_expedientes:
         str_lit.subheader("Gestión de Expedientes y Constancias")
         if not data.empty:
-            # --- FILTRO POR ESTADO PARA EL ADMINISTRADOR ---
             col_f1, col_f2 = str_lit.columns([2, 2])
             with col_f1:
                 filtro_estado = str_lit.selectbox("🔍 Filtrar expedientes por estado:", ["Todos", "🟡 Recibido - Requiere Revisión", "🟡 Pendiente", "🟢 Enviado a Central"])
@@ -877,6 +896,8 @@ def vista_admin():
                 str_lit.error(f"Error al depurar: {res.get('message')}")
 
 # --- ENRUTADOR PRINCIPAL ---
+modo_mantenimiento_activo = verificar_modo_mantenimiento()
+
 if pin_servicio_qr:
     pantalla_fichaje_qr(id_servicio_defecto=pin_servicio_qr)
 elif str_lit.session_state.get("cambio_clave_requerido", False):
@@ -885,7 +906,7 @@ elif not str_lit.session_state.autenticado:
     login()
 elif str_lit.session_state.rol == "Administrador":
     vista_admin()
-elif str_lit.session_state.get("modo_mantenimiento", False):
+elif modo_mantenimiento_activo:
     str_lit.markdown("""
         <div style="text-align: center; padding: 4rem 2rem;">
             <h1>🛠️ SITIO EN MANTENIMIENTO</h1>
