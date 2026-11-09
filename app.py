@@ -18,10 +18,6 @@ from io import BytesIO
 # --- CONFIGURACIÓN DE PÁGINA ---
 str_lit.set_page_config(page_title="UR V - Adicionales", layout="centered", page_icon="👮")
 
-# --- PARÁMETROS VÍA URL PARA EL FICHAJE DIRECTO DEL EVENTO ---
-query_params = str_lit.query_params
-pin_servicio_qr = query_params.get("id_servicio", None)
-
 # --- ESTILOS VISUALES ---
 str_lit.markdown("""
     <style>
@@ -117,11 +113,6 @@ try:
     URL_APPS_SCRIPT = str_lit.secrets["URL_APPS_SCRIPT"]
 except (KeyError, FileNotFoundError):
     URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxqVp5T0fVGtPncuwkocbXbU5TSHLgPqgmD0A5pQ6CmuEU3C-UrGx2eZHxg2HTLUjU1/exec"
-
-try:
-    URL_DOMINIO_APP = str_lit.secrets["URL_DOMINIO_APP"]
-except (KeyError, FileNotFoundError):
-    URL_DOMINIO_APP = "https://gestion-adicionales.streamlit.app"
 
 # --- CONEXIÓN A GOOGLE SHEETS ---
 @str_lit.cache_resource
@@ -251,102 +242,6 @@ def _post_apps_script(payload: dict) -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# --- PANTALLA PÚBLICA EXCLUSIVA DE FICHAJE PARA EL ENCARGADO EN TERRENO ---
-def pantalla_fichaje_qr(id_servicio_defecto=None):
-    # Ocultar menú lateral y barras de Streamlit para que sea una planilla limpia
-    str_lit.markdown("""
-        <style>
-        [data-testid="stSidebar"] { display: none; }
-        header { visibility: hidden; }
-        footer { visibility: hidden; }
-        </style>
-    """, unsafe_allow_html=True)
-
-    df_servicios = cargar_servicios_df()
-    info_servicio = None
-    if not df_servicios.empty and "ID Servicio" in df_servicios.columns:
-        res = df_servicios[df_servicios["ID Servicio"].astype(str).str.strip() == str(id_servicio_defecto).strip()]
-        if not res.empty:
-            info_servicio = res.iloc[0]
-
-    if info_servicio is not None:
-        str_lit.subheader(f"📋 Planilla de Asistencia: {info_servicio.get('Tipo de Evento', 'Servicio Adicional')}")
-        str_lit.caption(f"📅 Fecha: {info_servicio.get('Fecha Evento', '')} | 🏛️ Dep: {info_servicio.get('Dependencia', '')} | 📌 ID: {id_servicio_defecto}")
-        
-        cant_jefes = int(info_servicio.get("Cant. Jefes", 0))
-        cant_subs = int(info_servicio.get("Cant. Subalternos", 0))
-        str_lit.info(f"👥 **Efectivos requeridos:** {cant_jefes} Jefe(s) / Encargado(s) y {cant_subs} Subalterno(s)")
-    else:
-        str_lit.subheader(f"📋 Planilla de Asistencia - Servicio: {id_servicio_defecto}")
-
-    str_lit.markdown("---")
-
-    # Mostrar efectivos ya registrados con tilde verde
-    df_asist = cargar_asistencia_digital_df()
-    fichados_ids = []
-    if not df_asist.empty and "ID Servicio" in df_asist.columns:
-        df_este_serv = df_asist[df_asist["ID Servicio"].astype(str).str.strip() == str(id_servicio_defecto).strip()]
-        if not df_este_serv.empty:
-            str_lit.markdown("##### 🟢 Efectivos Presentes Registrados:")
-            for _, r in df_este_serv.iterrows():
-                str_lit.success(f"✔️ **{r.get('Jerarquia', '')} {r.get('Nombre y Apellido', '')}** (DNI: {r.get('DNI', '')}) - {r.get('Fecha Hora Fichaje', '')}")
-                fichados_ids.append(str(r.get('DNI', '')).strip())
-            str_lit.markdown("---")
-
-    str_lit.markdown("##### ➕ Registrar Presencia de Efectivo")
-    dni_input = str_lit.text_input("Ingresar DNI del efectivo:", key="dni_fichaje_directo")
-
-    nombre_auto = ""
-    jerarquia_auto = ""
-    dep_auto = ""
-    encontrado = False
-
-    if dni_input.strip():
-        if dni_input.strip() in fichados_ids:
-            str_lit.warning("⚠️ Este DNI ya fue registrado como presente en este servicio.")
-        else:
-            df_personal = cargar_personal_base_df()
-            if not df_personal.empty and "DNI" in df_personal.columns:
-                res_p = df_personal[df_personal["DNI"].astype(str).str.strip() == dni_input.strip()]
-                if not res_p.empty:
-                    fila_p = res_p.iloc[0]
-                    nombre_auto = str(fila_p.get("Nombre y Apellido", ""))
-                    jerarquia_auto = str(fila_p.get("Jerarquia", ""))
-                    dep_auto = str(fila_p.get("Dependencia", ""))
-                    encontrado = True
-                    str_lit.success(f"🟢 En Padrón: **{jerarquia_auto} {nombre_auto}** ({dep_auto})")
-                else:
-                    str_lit.warning("⚠️ Efectivo no encontrado en el padrón. Complete los datos para incorporarlo automáticamente.")
-
-            with str_lit.form("form_fichaje_efectivo_directo"):
-                jerarquia_val = str_lit.text_input("Jerarquía / Rango", value=jerarquia_auto)
-                nombre_val = str_lit.text_input("Nombre y Apellido Completo", value=nombre_auto)
-                dep_val = str_lit.text_input("Dependencia de Origen", value=dep_auto)
-                
-                btn_fichar = str_lit.form_submit_button("✅ CONFIRMAR ASISTENCIA")
-                
-            if btn_fichar:
-                if not dni_input or not nombre_val:
-                    str_lit.error("Por favor complete los campos requeridos.")
-                else:
-                    payload = {
-                        "action": "fichaje_qr",
-                        "id_servicio": str(id_servicio_defecto).strip(),
-                        "dni": str(dni_input).strip(),
-                        "jerarquia": str(jerarquia_val).strip(),
-                        "nombre_apellido": str(nombre_val).strip(),
-                        "dependencia": str(dep_val).strip(),
-                        "es_nuevo": not encontrado
-                    }
-                    res = _post_apps_script(payload)
-                    if res.get("status") == "success":
-                        str_lit.balloons()
-                        str_lit.success("¡Asistencia guardada correctamente!")
-                        str_lit.cache_data.clear()
-                        str_lit.rerun()
-                    else:
-                        str_lit.error(f"Error al registrar: {res.get('message')}")
-
 # --- LOGIN Y CAMBIO DE CLAVE ---
 def pantalla_cambio_clave():
     str_lit.title("🔑 Definir Nueva Contraseña Personal")
@@ -424,39 +319,6 @@ def login():
                     str_lit.error("Contraseña incorrecta.")
         except Exception as e:
             str_lit.error(f"Error de conexión con la base de usuarios: {e}")
-
-def obtener_imagen_desde_drive(url_drive: str):
-    file_id = None
-    if url_drive:
-        s = str(url_drive)
-        if "id=" in s:
-            file_id = s.split("id=")[1].split("&")[0]
-        elif "/d/" in s:
-            file_id = s.split("/d/")[1].split("/")[0]
-
-    if not file_id:
-        return None
-
-    tmp_path = None
-    try:
-        _, drive = conectar_google()
-        content = drive.files().get_media(fileId=file_id).execute()
-        if len(content) < 1000:
-            return None
-
-        image = Image.open(BytesIO(content))
-        if image.mode in ("RGBA", "P"):
-            image = image.convert("RGB")
-
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-        tmp_path = tmp.name
-        image.save(tmp_path, "JPEG")
-        return tmp_path
-    except Exception as e:
-        logger.warning(f"Error descargando imagen Drive {file_id}: {e}")
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        return None
 
 def generar_pdf_servicio(row: pd.Series) -> str:
     pdf = FPDF()
@@ -757,7 +619,7 @@ def vista_dependencia():
             df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
             str_lit.dataframe(df_dep, use_container_width=True)
 
-# --- PANEL DE ADMINISTRACIÓN (GENERADOR DE ENLACES PARA ENCARGADOS) ---
+# --- PANEL DE ADMINISTRACIÓN (GENERADOR DE ENLACES PARA EL FORMULARIO WEB DEL ENCARGADO) ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
@@ -798,7 +660,7 @@ def vista_admin():
     t_expedientes, t_asistencia_qr, t_depuracion = str_lit.tabs(["📄 Expedientes y Enlaces", "📱 Asistencias Digitales", "🧹 Mantenimiento / Depuración Mensual"])
     
     with t_expedientes:
-        str_lit.subheader("Gestión de Expedientes y Enlaces Exclusivos para el Encargado")
+        str_lit.subheader("Gestión de Expedientes y Enlaces al Formulario del Encargado")
         if not data.empty:
             col_f1, col_f2 = str_lit.columns([2, 2])
             with col_f1:
@@ -817,13 +679,13 @@ def vista_admin():
                     id_sel = elegido.split(" - ")[0]
                     row_data = data[data["ID Servicio"].astype(str) == id_sel].iloc[0]
 
-                    # --- ENLACE DIRECTO EXCLUSIVO PARA EL ENCARGADO ---
-                    link_fichaje_directo = f"{URL_DOMINIO_APP}/?id_servicio={id_sel}"
+                    # --- ENLACE DIRECTO AL FORMULARIO WEB DE APPS SCRIPT (SIN PASAR POR STREAMLIT) ---
+                    link_formulario_limpio = f"{URL_APPS_SCRIPT}?id_servicio={id_sel}"
 
                     str_lit.markdown("---")
-                    str_lit.markdown("##### 📱 Enlace de Asistencia Exclusiva para el Encargado del Evento:")
-                    str_lit.info("Copiá este enlace y envíaselo por WhatsApp al efectivo a cargo. Al abrirlo, verá únicamente la planilla de este evento:")
-                    str_lit.code(link_fichaje_directo, language="text")
+                    str_lit.markdown("##### 📤 Enlace del Formulario de Asistencia para el Encargado:")
+                    str_lit.info("Copiá este enlace y envíaselo por WhatsApp. Al abrirlo, el encargado verá solamente el formulario para cargar la asistencia de este evento:")
+                    str_lit.code(link_formulario_limpio, language="text")
                     str_lit.markdown("---")
 
                     c_pdf, c_excel, c_estado = str_lit.columns(3)
@@ -899,9 +761,7 @@ def vista_admin():
 # --- ENRUTADOR PRINCIPAL ---
 modo_mantenimiento_activo = verificar_modo_mantenimiento()
 
-if pin_servicio_qr:
-    pantalla_fichaje_qr(id_servicio_defecto=pin_servicio_qr)
-elif str_lit.session_state.get("cambio_clave_requerido", False):
+if str_lit.session_state.get("cambio_clave_requerido", False):
     pantalla_cambio_clave()
 elif not str_lit.session_state.autenticado:
     login()
