@@ -825,10 +825,12 @@ def vista_admin():
             columnas_agrupar = [c for c in ["Tipo de Evento", "Fecha del Evento", "Ubicación / Predio", "Dependencia Solicitante"] if c in df_asist.columns]
             
             if columnas_agrupar:
+                # Agrupamos ESTRICTAMENTE por el evento para que muestre 1 sola fila por servicio
                 df_resumen = df_asist.groupby(columnas_agrupar, as_index=False).agg(
-                    Efectivos_Cargados=("DNI", "count"),
-                    Ultimo_Fichaje=("Fecha Hora Fichaje", "max")
+                    Efectivos_Cargados=("DNI", "count")
                 )
+                
+                # Limpiamos la columna de ID para que no se muestre en la tabla (ya está en otra pestaña)
                 str_lit.dataframe(df_resumen, use_container_width=True)
                 
                 str_lit.markdown("---")
