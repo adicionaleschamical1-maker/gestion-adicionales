@@ -432,6 +432,84 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
+# --- NUEVA FUNCIÓN: GENERAR PDF DE ASISTENCIA ---
+def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str) -> str:
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    pdf.set_fill_color(0, 32, 96)
+    pdf.rect(0, 0, 210, 20, 'F')
+    
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("helvetica", "B", 10)
+    pdf.set_xy(5, 6)
+    pdf.cell(200, 6, "POLICÍA DE LA PROVINCIA DE LA RIOJA - UNIDAD REGIONAL QUINTA - CHAMICAL", ln=True, align="center")
+    
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(12)
+
+    pdf.set_font("helvetica", "B", 14)
+    pdf.cell(0, 7, "PLANILLA DE ASISTENCIA - SERVICIO ADICIONAL", ln=True, align="center")
+    pdf.set_font("helvetica", "I", 9)
+    pdf.set_text_color(90, 90, 90)
+    pdf.cell(0, 5, f"ID de Servicio: {id_servicio}", ln=True, align="center")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(5)
+
+    # Info del evento
+    pdf.set_font("helvetica", "B", 9)
+    pdf.set_fill_color(245, 247, 250)
+    pdf.cell(45, 6, " Evento:", 1, 0, 'L', True)
+    pdf.set_font("helvetica", "", 9)
+    pdf.cell(145, 6, f" {tipo_evento}", 1, 1, 'L')
+
+    pdf.set_font("helvetica", "B", 9)
+    pdf.set_fill_color(245, 247, 250)
+    pdf.cell(45, 6, " Fecha:", 1, 0, 'L', True)
+    pdf.set_font("helvetica", "", 9)
+    pdf.cell(145, 6, f" {fecha_evento}", 1, 1, 'L')
+    pdf.ln(5)
+
+    # Tabla de asistentes
+    pdf.set_font("helvetica", "B", 9)
+    pdf.set_fill_color(0, 32, 96)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(20, 7, " Puesto", 1, 0, 'L', True)
+    pdf.cell(35, 7, " DNI", 1, 0, 'L', True)
+    pdf.cell(45, 7, " Jerarquía", 1, 0, 'L', True)
+    pdf.cell(90, 7, " Nombre y Apellido", 1, 1, 'L', True)
+    pdf.set_text_color(0, 0, 0)
+
+    # Filas
+    for _, row in df_asistentes.iterrows():
+        puesto = str(row.get('Puesto Asignado', ''))
+        dni = str(row.get('DNI', ''))
+        jerarquia = str(row.get('Jerarquía', ''))
+        nombre = str(row.get('Nombre y Apellido', ''))
+
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(20, 6, f" {puesto}", 1, 0, 'L')
+        
+        # DNI en monoespaciado para copiar fácil
+        pdf.set_font("courier", "B", 10) 
+        pdf.cell(35, 6, f" {dni}", 1, 0, 'L')
+        
+        pdf.set_font("helvetica", "", 9)
+        pdf.cell(45, 6, f" {jerarquia}", 1, 0, 'L')
+        pdf.cell(90, 6, f" {nombre}", 1, 1, 'L')
+
+    # Pie de página
+    pdf.ln(10)
+    pdf.set_font("helvetica", "I", 8)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 5, f"Documento generado automáticamente el {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="center")
+    pdf.cell(0, 5, f"Total de efectivos: {len(df_asistentes)}", ln=True, align="center")
+
+    tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    pdf.output(tmp_pdf.name)
+    return tmp_pdf.name
+
 def _render_modulos(max_modulos: int, counter: int):
     labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)"]
     labels_ordenados = labels_base[:max_modulos][::-1]
@@ -716,7 +794,7 @@ def vista_admin():
                         str_lit.code(link_formulario_limpio, language="text")
                     str_lit.markdown("---")
 
-                    c_pdf, c_excel, c_estado = str_lit.columns(3)
+                    c_pdf, c_estado = str_lit.columns(2)
                     with c_pdf:
                         if str_lit.button("🚀 Generar PDF con Constancias"):
                             pdf_path = generar_pdf_servicio(row_data)
@@ -724,24 +802,6 @@ def vista_admin():
                                 pdf_bytes = f.read()
                             os.unlink(pdf_path)
                             str_lit.download_button("📥 Descargar PDF Final", data=pdf_bytes, file_name=f"{id_sel}.pdf", mime="application/pdf")
-                    
-                    with c_excel:
-                        df_asist = cargar_asistencia_digital_df()
-                        if not df_asist.empty and "ID Servicio" in df_asist.columns:
-                            df_exp = df_asist[df_asist["ID Servicio"].astype(str) == str(id_sel)]
-                            if not df_exp.empty:
-                                output = BytesIO()
-                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                                    df_exp.to_excel(writer, index=False, sheet_name='Asistentes')
-                                excel_data = output.getvalue()
-                                str_lit.download_button(
-                                    label="📊 Descargar Asistentes (Excel)",
-                                    data=excel_data,
-                                    file_name=f"Asistentes_{id_sel}.xlsx",
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                )
-                            else:
-                                str_lit.info("Sin registros de asistencia digital.")
 
                     with c_estado:
                         if str_lit.button("✅ Marcar como Enviado a Central"):
@@ -782,7 +842,7 @@ def vista_admin():
                     ubi_ev = str(r.get("Ubicación / Predio", ""))
                     opciones_eventos.append(f"{tipo_ev} - {fec_ev} ({ubi_ev})")
                 
-                evento_elegido = str_lit.selectbox("Seleccioná el evento que querés descargar en Excel:", options=opciones_eventos)
+                evento_elegido = str_lit.selectbox("Seleccioná el evento que querés descargar en PDF:", options=opciones_eventos)
                 
                 if evento_elegido:
                     tipo_sel = evento_elegido.split(" - ")[0]
@@ -793,17 +853,23 @@ def vista_admin():
                         (df_asist["Fecha del Evento"].astype(str) == fec_sel)
                     ]
                     
-                    output_evento = BytesIO()
-                    with pd.ExcelWriter(output_evento, engine='openpyxl') as writer:
-                        df_filtrado_evento.to_excel(writer, index=False, sheet_name='Asistencia_Evento')
-                    
-                    nombre_archivo_limpio = f"Asistencia_{tipo_sel}_{fec_sel}.xlsx".replace(" ", "_").replace("/", "-")
-                    str_lit.download_button(
-                        label=f"📊 Descargar Excel de: {tipo_sel} ({fec_sel})",
-                        data=output_evento.getvalue(),
-                        file_name=nombre_archivo_limpio,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+                    # Generar PDF de Asistencia
+                    if str_lit.button("📄 Generar PDF de Asistencia"):
+                        # Necesitamos el ID del servicio para el PDF, lo buscamos en la fila
+                        id_serv_asist = df_filtrado_evento["ID Servicio"].iloc[0] if "ID Servicio" in df_filtrado_evento.columns else "N/A"
+                        
+                        pdf_path_asist = generar_pdf_asistencia(df_filtrado_evento, id_serv_asist, tipo_sel, fec_sel)
+                        with open(pdf_path_asist, "rb") as f:
+                            pdf_bytes_asist = f.read()
+                        os.unlink(pdf_path_asist)
+                        
+                        nombre_archivo_limpio = f"Asistencia_{tipo_sel}_{fec_sel}.pdf".replace(" ", "_").replace("/", "-")
+                        str_lit.download_button(
+                            label=f"📥 Descargar PDF de: {tipo_sel} ({fec_sel})",
+                            data=pdf_bytes_asist,
+                            file_name=nombre_archivo_limpio,
+                            mime="application/pdf"
+                        )
             else:
                 str_lit.dataframe(df_asist, use_container_width=True)
         else:
