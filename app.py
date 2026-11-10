@@ -11,6 +11,7 @@ import tempfile
 import logging
 import requests
 import base64
+import unicodedata
 from fpdf import FPDF
 from PIL import Image
 from io import BytesIO
@@ -432,8 +433,17 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
+# --- FUNCIÓN PARA LIMPIAR NOMBRE DE ARCHIVO ---
+def limpiar_texto_archivo(texto):
+    # Quita tildes y caracteres especiales
+    texto = unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('utf-8')
+    # Deja solo letras, números y espacios
+    texto = re.sub(r'[^a-zA-Z0-9\s]', '', texto)
+    # Saca espacios extra
+    return " ".join(texto.split()).strip()
+
 # --- NUEVA FUNCIÓN: GENERAR PDF DE ASISTENCIA ---
-def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str) -> str:
+def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str, horario_evento: str = "") -> str:
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -457,7 +467,7 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.set_text_color(0, 0, 0)
     pdf.ln(5)
 
-    # Info del evento
+    # Info del evento (AGREGAMOS EL HORARIO ACÁ)
     pdf.set_font("helvetica", "B", 9)
     pdf.set_fill_color(245, 247, 250)
     pdf.cell(45, 6, " Evento:", 1, 0, 'L', True)
@@ -469,6 +479,13 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.cell(45, 6, " Fecha:", 1, 0, 'L', True)
     pdf.set_font("helvetica", "", 9)
     pdf.cell(145, 6, f" {fecha_evento}", 1, 1, 'L')
+
+    pdf.set_font("helvetica", "B", 9)
+    pdf.set_fill_color(245, 247, 250)
+    pdf.cell(45, 6, " Horario:", 1, 0, 'L', True)
+    pdf.set_font("helvetica", "", 9)
+    pdf.cell(145, 6, f" {horario_evento}", 1, 1, 'L')
+    
     pdf.ln(5)
 
     # Tabla de asistentes
@@ -829,11 +846,10 @@ def vista_admin():
                 Efectivos_Cargados=("DNI", "count")
             ).reset_index()
             
-            # 2. Cruzamos con la tabla de Servicios para traer la info real del evento
-            # (Así nos aseguramos de mostrar el Tipo, Fecha y Ubicación correctos)
+            # 2. Cruzamos con la tabla de Servicios (INCLUIMOS "Horario" Y "Ubicación Predio")
             df_resumen = pd.merge(
                 df_agrupado, 
-                df_servicios[["ID Servicio", "Tipo de Evento", "Fecha Evento", "Ubicación Predio"]], 
+                df_servicios[["ID Servicio", "Tipo de Evento", "Fecha Evento", "Ubicación Predio", "Horario"]], 
                 on="ID Servicio", 
                 how="left"
             )
@@ -847,7 +863,7 @@ def vista_admin():
             str_lit.markdown("---")
             str_lit.subheader("📥 Descargar Planilla Específica de un Evento")
             
-            # 3. Creamos las opciones para el desplegable usando el ID como referencia principal
+            # 3. Creamos las opciones para el desplegable
             opciones_eventos = []
             for _, r in df_resumen.iterrows():
                 id_ev = str(r["ID Servicio"])
@@ -869,19 +885,39 @@ def vista_admin():
                 row_serv = df_resumen[df_resumen["ID Servicio"].astype(str) == id_sel].iloc[0]
                 tipo_sel = str(row_serv.get("Tipo de Evento", ""))
                 fec_sel = str(row_serv.get("Fecha del Evento", ""))
+                horario_sel = str(row_serv.get("Horario", ""))
                 
                 # Generar PDF de Asistencia
                 if str_lit.button("📄 Generar PDF de Asistencia"):
-                    pdf_path_asist = generar_pdf_asistencia(df_filtrado_evento, id_sel, tipo_sel, fec_sel)
+                    pdf_path_asist = generar_pdf_asistencia(df_filtrado_evento, id_sel, tipo_sel, fec_sel, horario_sel)
                     with open(pdf_path_asist, "rb") as f:
                         pdf_bytes_asist = f.read()
                     os.unlink(pdf_path_asist)
                     
-                    nombre_archivo_limpio = f"Asistencia_{id_sel}_{fec_sel}.pdf".replace(" ", "_").replace("/", "-")
+                    # 5. Armamos el nombre del archivo exactamente como pediste
+                    nombre_ev = limpiar_texto_archivo(tipo_sel)
+                    ubi_ev = limpiar_texto_archivo(row_serv.get("Ubicación / Predio", ""))
+                    
+                    # Formateamos la fecha de DD/MM/YYYY a DDMMAA (Ej: 07/11/2026 -> 071126)
+                    try:
+                        partes_fecha = fec_sel.split("/")
+                        if len(partes_fecha) == 3:
+                            dia, mes, anio = partes_fecha
+                            fecha_formateada = f"{dia.zfill(2)}{mes.zfill(2)}{anio[-2:]}"
+                        else:
+                            fecha_formateada = fec_sel.replace("/", "")
+                    except Exception:
+                        fecha_formateada = fec_sel.replace("/", "")
+                    
+                    # Armamos el nombre final: "asistencia Futbol Infantil predio La Gloria 041126"
+                    nombre_final_pdf = f"asistencia {nombre_ev} predio {ubi_ev} {fecha_formateada}.pdf"
+                    # Reemplazamos espacios por guiones bajos para evitar problemas al descargar
+                    nombre_final_pdf = nombre_final_pdf.replace(" ", "_")
+                    
                     str_lit.download_button(
-                        label=f"📥 Descargar PDF de: {id_sel}",
+                        label=f"📥 Descargar {nombre_final_pdf}",
                         data=pdf_bytes_asist,
-                        file_name=nombre_archivo_limpio,
+                        file_name=nombre_final_pdf,
                         mime="application/pdf"
                     )
         else:
