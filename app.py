@@ -18,6 +18,17 @@ from io import BytesIO
 # --- CONFIGURACIÓN DE PÁGINA ---
 str_lit.set_page_config(page_title="UR V - Adicionales", layout="centered", page_icon="👮")
 
+# --- CONSTANTES DE COLUMNAS ---
+COL_ID_SERV = "ID Servicio"
+COL_TIPO_EV = "Tipo de Evento"
+COL_FECHA = "Fecha Evento"
+COL_UBI = "Ubicación Predio"
+COL_HORARIO = "Horario"
+COL_DEP = "Dependencia"
+COL_ESTADO_CENTRAL = "Estado Central"
+COL_ESTADO_ASIST = "Estado Asistencia"
+COL_ENLACE_ASIST = "Enlace Asistencia"
+
 # --- ESTILOS VISUALES ---
 str_lit.markdown("""
     <style>
@@ -108,8 +119,27 @@ def abrir_hoja(nombre: str):
 
 @str_lit.cache_data(ttl=15, show_spinner=False)
 def cargar_servicios_df() -> pd.DataFrame:
-    try: return pd.DataFrame(abrir_hoja(HOJA_SERVICIOS).get_all_records())
-    except Exception as e: logger.error(f"Error servicios: {e}"); return pd.DataFrame()
+    try: 
+        hoja = abrir_hoja(HOJA_SERVICIOS)
+        datos = hoja.get_all_values()
+        if not datos: return pd.DataFrame()
+        
+        cabecera = datos[0]
+        nuevas_cabeceras = []
+        vistos = {}
+        for col in cabecera:
+            col_limpia = str(col).strip()
+            if col_limpia in vistos:
+                vistos[col_limpia] += 1
+                nuevas_cabeceras.append(f"{col_limpia}_{vistos[col_limpia]}")
+            else:
+                vistos[col_limpia] = 1
+                nuevas_cabeceras.append(col_limpia)
+                
+        return pd.DataFrame(datos[1:], columns=nuevas_cabeceras)
+    except Exception as e: 
+        logger.error(f"Error servicios: {e}")
+        return pd.DataFrame()
 
 @str_lit.cache_data(ttl=60, show_spinner=False)
 def cargar_usuarios_df() -> pd.DataFrame:
@@ -251,7 +281,7 @@ def _cabecera_pdf(pdf, titulo, subtitulo):
 
 def generar_pdf_servicio(row: pd.Series) -> str:
     pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
-    _cabecera_pdf(pdf, "INFORME DE SERVICIO ADICIONAL", f"ID de Solicitud: {row.get('ID Servicio', '')}")
+    _cabecera_pdf(pdf, "INFORME DE SERVICIO ADICIONAL", f"ID de Solicitud: {row.get(COL_ID_SERV, '')}")
     
     def fila_tabla(lbl1, val1, lbl2, val2, w1=35, w2=60, w3=35, w4=60):
         pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
@@ -272,10 +302,10 @@ def generar_pdf_servicio(row: pd.Series) -> str:
         pdf.set_text_color(0, 0, 0)
 
     seccion_titulo("1. DATOS GENERALES DEL EVENTO")
-    fecha_ev_str = str(row.get('Fecha Evento', ''))
-    fila_tabla("Dependencia", str(row.get('Dependencia', '')), "Fecha(s)", fecha_ev_str)
-    fila_tabla("Tipo de Evento", str(row.get('Tipo de Evento', '')), "Horario", str(row.get('Horario', '')))
-    fila_completa("Ubicación / Predio", str(row.get('Ubicación Predio', '')))
+    fecha_ev_str = str(row.get(COL_FECHA, ''))
+    fila_tabla("Dependencia", str(row.get(COL_DEP, '')), "Fecha(s)", fecha_ev_str)
+    fila_tabla("Tipo de Evento", str(row.get(COL_TIPO_EV, '')), "Horario", str(row.get(COL_HORARIO, '')))
+    fila_completa("Ubicación / Predio", str(row.get(COL_UBI, '')))
     fila_completa("Organizador", str(row.get('Organizador', '')))
 
     seccion_titulo("2. RECURSOS Y MÓDULOS ASIGNADOS")
@@ -430,15 +460,15 @@ def vista_dependencia():
     with tab2:
         str_lit.header("Servicios Pendientes de Planilla de Asistencia")
         data = cargar_servicios_df()
-        if not data.empty and "Dependencia" in data.columns:
-            df_dep = data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)]
+        if not data.empty and COL_DEP in data.columns:
+            df_dep = data[data[COL_DEP].astype(str) == str(str_lit.session_state.dependencia)]
             col_a1 = next((c for c in df_dep.columns if "asistencia día 1" in str(c).lower() or "asistencia 1" in str(c).lower()), None)
             col_a2 = next((c for c in df_dep.columns if "asistencia día 2" in str(c).lower() or "asistencia 2" in str(c).lower()), None)
             col_gen = next((c for c in df_dep.columns if "enlace asistencia" in str(c).lower()), None)
 
             def esta_pendiente(r):
                 if not col_a1 and not col_gen: return False
-                fec = str(r.get('Fecha Evento', ""))
+                fec = str(r.get(COL_FECHA, ""))
                 a1_val = str(r.get(col_a1, r.get(col_gen, ""))).strip()
                 a2_val = str(r.get(col_a2, "")).strip()
                 return (a1_val == "" or a2_val == "") if " y " in fec else (a1_val == "")
@@ -447,8 +477,8 @@ def vista_dependencia():
             if df_pend.empty: str_lit.success("🎉 ¡Sin pendientes!")
             else:
                 for _, row in df_pend.iterrows():
-                    id_serv = row.get('ID Servicio') or row.get('id_servicio') or row.iloc[0]
-                    fec_ev = str(row.get('Fecha Evento') or '')
+                    id_serv = row.get(COL_ID_SERV) or row.get('id_servicio') or row.iloc[0]
+                    fec_ev = str(row.get(COL_FECHA) or '')
                     with str_lit.expander(f"📁 EXPEDIENTE: {id_serv} | 📅 {fec_ev}"):
                         with str_lit.form(f"form_asist_1_{id_serv}"):
                             file_a1 = str_lit.file_uploader("Planilla Asistencia (Escaneada / Foto)", type=["png", "jpg", "jpeg", "pdf"], key=f"f1_{id_serv}")
@@ -467,8 +497,8 @@ def vista_dependencia():
     with tab3:
         str_lit.header("Historial General")
         data = cargar_servicios_df()
-        if not data.empty and "Dependencia" in data.columns:
-            str_lit.dataframe(data[data["Dependencia"].astype(str) == str(str_lit.session_state.dependencia)], use_container_width=True)
+        if not data.empty and COL_DEP in data.columns:
+            str_lit.dataframe(data[data[COL_DEP].astype(str) == str(str_lit.session_state.dependencia)], use_container_width=True)
 
 # --- PANEL DE ADMINISTRACIÓN ---
 def vista_admin():
@@ -496,8 +526,8 @@ def vista_admin():
     str_lit.title("📋 Control General y Despacho a Central")
     data = cargar_servicios_df()
     
-    if not data.empty and "Estado Central" in data.columns:
-        pendientes = data[data["Estado Central"].astype(str).str.contains("Recibido", na=False)]
+    if not data.empty and COL_ESTADO_CENTRAL in data.columns:
+        pendientes = data[data[COL_ESTADO_CENTRAL].astype(str).str.contains("Recibido", na=False)]
         if not pendientes.empty: str_lit.warning(f"🔔 Hay **{len(pendientes)}** servicio(s) pendientes de revisión y despacho.")
 
     # SEPARAMOS EN 4 PESTAÑAS
@@ -515,19 +545,19 @@ def vista_admin():
             filtro_estado = str_lit.radio("Filtrar expedientes:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_exp")
             
             df_filtrado = data.copy()
-            if filtro_estado == "Pendientes" and "Estado Central" in df_filtrado.columns:
-                df_filtrado = df_filtrado[~df_filtrado["Estado Central"].astype(str).str.contains("Enviado", na=False)]
-            elif filtro_estado == "Enviadas" and "Estado Central" in df_filtrado.columns:
-                df_filtrado = df_filtrado[df_filtrado["Estado Central"].astype(str).str.contains("Enviado", na=False)]
+            if filtro_estado == "Pendientes" and COL_ESTADO_CENTRAL in df_filtrado.columns:
+                df_filtrado = df_filtrado[~df_filtrado[COL_ESTADO_CENTRAL].astype(str).str.contains("Enviado", na=False)]
+            elif filtro_estado == "Enviadas" and COL_ESTADO_CENTRAL in df_filtrado.columns:
+                df_filtrado = df_filtrado[df_filtrado[COL_ESTADO_CENTRAL].astype(str).str.contains("Enviado", na=False)]
 
             str_lit.dataframe(df_filtrado, use_container_width=True)
             
-            opciones = [f"{r.get('ID Servicio', '')} - {r.get('Dependencia', '')} ({r.get('Fecha Evento', '')})" for _, r in df_filtrado.iterrows()]
+            opciones = [f"{r.get(COL_ID_SERV, '')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado.iterrows()]
             if opciones:
                 elegido = str_lit.selectbox("Seleccionar servicio para despachar", options=opciones, key="sel_exp")
                 if elegido:
                     id_sel = elegido.split(" - ")[0]
-                    row_data = data[data['ID Servicio'].astype(str) == id_sel].iloc[0]
+                    row_data = data[data[COL_ID_SERV].astype(str) == id_sel].iloc[0]
                     
                     str_lit.markdown("---")
                     c_pdf, c_estado = str_lit.columns(2)
@@ -558,25 +588,25 @@ def vista_admin():
             
             df_filtrado_env = data.copy()
             # Usamos la columna 'Enlace Asistencia' como indicador de si fue enviado
-            if filtro_estado_env == "Pendientes" and 'Enlace Asistencia' in df_filtrado_env.columns:
-                df_filtrado_env = df_filtrado_env[df_filtrado_env['Enlace Asistencia'].astype(str).str.strip() == ""]
-            elif filtro_estado_env == "Enviadas" and 'Enlace Asistencia' in df_filtrado_env.columns:
-                df_filtrado_env = df_filtrado_env[df_filtrado_env['Enlace Asistencia'].astype(str).str.strip() != ""]
+            if filtro_estado_env == "Pendientes" and COL_ENLACE_ASIST in df_filtrado_env.columns:
+                df_filtrado_env = df_filtrado_env[df_filtrado_env[COL_ENLACE_ASIST].astype(str).str.strip() == ""]
+            elif filtro_estado_env == "Enviadas" and COL_ENLACE_ASIST in df_filtrado_env.columns:
+                df_filtrado_env = df_filtrado_env[df_filtrado_env[COL_ENLACE_ASIST].astype(str).str.strip() != ""]
 
-            str_lit.dataframe(df_filtrado_env[['ID Servicio', 'Tipo de Evento', 'Fecha Evento', 'Enlace Asistencia']], use_container_width=True)
+            str_lit.dataframe(df_filtrado_env[[COL_ID_SERV, COL_TIPO_EV, COL_FECHA, COL_ENLACE_ASIST]], use_container_width=True)
             
-            opciones_env = [f"{r.get('ID Servicio', '')} - {r.get('Dependencia', '')} ({r.get('Fecha Evento', '')})" for _, r in df_filtrado_env.iterrows()]
+            opciones_env = [f"{r.get(COL_ID_SERV, '')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado_env.iterrows()]
             if opciones_env:
                 elegido_env = str_lit.selectbox("Seleccionar servicio para enviar enlace", options=opciones_env, key="sel_env")
                 if elegido_env:
                     id_sel_env = elegido_env.split(" - ")[0]
-                    row_data_env = data[data['ID Servicio'].astype(str) == id_sel_env].iloc[0]
+                    row_data_env = data[data[COL_ID_SERV].astype(str) == id_sel_env].iloc[0]
                     
                     link_formulario_limpio = f"{URL_APPS_SCRIPT}?id_servicio={id_sel_env}"
                     
                     str_lit.markdown("---")
                     str_lit.markdown("##### 📤 Enviar Planilla al Encargado del Evento")
-                    mensaje_wa = f"Hola, te envío el enlace para cargar la planilla de asistencia del servicio *{id_sel_env}* ({row_data_env.get('Tipo de Evento', '')}):\n\n{link_formulario_limpio}"
+                    mensaje_wa = f"Hola, te envío el enlace para cargar la planilla de asistencia del servicio *{id_sel_env}* ({row_data_env.get(COL_TIPO_EV, '')}):\n\n{link_formulario_limpio}"
                     url_wa_directo = f"https://api.whatsapp.com/send?text={requests.utils.quote(mensaje_wa)}"
                     
                     str_lit.markdown(f'<a href="{url_wa_directo}" target="_blank" style="text-decoration:none;"><button style="background-color: #25D366; color: white; border: none; padding: 12px 20px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 10px;">📲 Enviar Formulario por WhatsApp</button></a>', unsafe_allow_html=True)
@@ -601,59 +631,59 @@ def vista_admin():
         
         df_asist = cargar_asistencia_digital_df()
         
-        if not df_asist.empty and 'ID Servicio' in df_asist.columns:
+        if not df_asist.empty and COL_ID_SERV in df_asist.columns:
             # 1. Agrupamos por ID
-            df_agrupado = df_asist.groupby('ID Servicio').agg(Efectivos_Cargados=("DNI", "count")).reset_index()
+            df_agrupado = df_asist.groupby(COL_ID_SERV).agg(Efectivos_Cargados=("DNI", "count")).reset_index()
             
             # 2. Cruzamos con Servicios (USAMOS 'on' SOLO SI EXISTE LA COLUMNA)
-            if 'ID Servicio' in data.columns:
-                df_resumen = pd.merge(df_agrupado, data, on='ID Servicio', how="left")
+            if COL_ID_SERV in data.columns:
+                df_resumen = pd.merge(df_agrupado, data, on=COL_ID_SERV, how="left")
             else:
                 df_resumen = df_agrupado # Si no existe la columna en Servicios, evitamos el error
-                df_resumen['Tipo de Evento'] = "Evento Desconocido"
-                df_resumen['Fecha Evento'] = ""
-                df_resumen['Ubicación Predio'] = ""
+                df_resumen[COL_TIPO_EV] = "Evento Desconocido"
+                df_resumen[COL_FECHA] = ""
+                df_resumen[COL_UBI] = ""
 
             # 3. Filtro
-            if 'Estado Asistencia' not in df_resumen.columns:
-                df_resumen['Estado Asistencia'] = ""
+            if COL_ESTADO_ASIST not in df_resumen.columns:
+                df_resumen[COL_ESTADO_ASIST] = ""
                 
             filtro_asist = str_lit.radio("Filtrar por estado de envío:", ["Todas", "Pendientes", "Enviadas a Central"], horizontal=True, key="filtro_asist")
             
             if filtro_asist == "Pendientes":
-                df_mostrar = df_resumen[~df_resumen['Estado Asistencia'].astype(str).str.contains("Enviada", na=False)]
+                df_mostrar = df_resumen[~df_resumen[COL_ESTADO_ASIST].astype(str).str.contains("Enviada", na=False)]
             elif filtro_asist == "Enviadas a Central":
-                df_mostrar = df_resumen[df_resumen['Estado Asistencia'].astype(str).str.contains("Enviada", na=False)]
+                df_mostrar = df_resumen[df_resumen[COL_ESTADO_ASIST].astype(str).str.contains("Enviada", na=False)]
             else:
                 df_mostrar = df_resumen
 
             # Mostramos tabla
-            cols_a_mostrar = ['ID Servicio', 'Tipo de Evento', 'Fecha Evento', "Efectivos_Cargados"]
-            if 'Estado Asistencia' in df_mostrar.columns: cols_a_mostrar.append('Estado Asistencia')
+            cols_a_mostrar = [COL_ID_SERV, COL_TIPO_EV, COL_FECHA, "Efectivos_Cargados"]
+            if COL_ESTADO_ASIST in df_mostrar.columns: cols_a_mostrar.append(COL_ESTADO_ASIST)
             str_lit.dataframe(df_mostrar[cols_a_mostrar], use_container_width=True)
             
             str_lit.markdown("---")
-            opciones_eventos = [f"{r.get('ID Servicio', '')} | {r.get('Tipo de Evento', 'Evento')} - {r.get('Fecha Evento', '')} ({r.get('Ubicación Predio', '')})" for _, r in df_mostrar.iterrows()]
+            opciones_eventos = [f"{r.get(COL_ID_SERV, '')} | {r.get(COL_TIPO_EV, 'Evento')} - {r.get(COL_FECHA, '')} ({r.get(COL_UBI, '')})" for _, r in df_mostrar.iterrows()]
             evento_elegido = str_lit.selectbox("Seleccioná el evento:", options=opciones_eventos, key="sel_asist")
             
             if evento_elegido:
                 id_sel_asist = evento_elegido.split(" | ")[0]
-                df_filtrado_evento = df_asist[df_asist['ID Servicio'].astype(str) == id_sel_asist]
-                row_serv_asist = df_resumen[df_resumen['ID Servicio'].astype(str) == id_sel_asist].iloc[0]
+                df_filtrado_evento = df_asist[df_asist[COL_ID_SERV].astype(str) == id_sel_asist]
+                row_serv_asist = df_resumen[df_resumen[COL_ID_SERV].astype(str) == id_sel_asist].iloc[0]
                 
                 c_btn_pdf, c_btn_marcar = str_lit.columns(2)
                 
                 with c_btn_pdf:
                     if str_lit.button("📄 Generar PDF de Asistencia"):
                         with str_lit.spinner("Generando PDF..."):
-                            pdf_path_asist = generar_pdf_asistencia(df_filtrado_evento, id_sel_asist, str(row_serv_asist.get('Tipo de Evento', "")), str(row_serv_asist.get('Fecha Evento', "")), str(row_serv_asist.get('Horario', "")))
+                            pdf_path_asist = generar_pdf_asistencia(df_filtrado_evento, id_sel_asist, str(row_serv_asist.get(COL_TIPO_EV, "")), str(row_serv_asist.get(COL_FECHA, "")), str(row_serv_asist.get(COL_HORARIO, "")))
                             with open(pdf_path_asist, "rb") as f: pdf_bytes_asist = f.read()
                             os.unlink(pdf_path_asist)
                             
                             # Nombre del archivo
-                            nombre_ev = limpiar_texto_archivo(row_serv_asist.get('Tipo de Evento', ""))
-                            ubi_ev = limpiar_texto_archivo(row_serv_asist.get('Ubicación Predio', ""))
-                            fec_sel = str(row_serv_asist.get('Fecha Evento', ""))
+                            nombre_ev = limpiar_texto_archivo(row_serv_asist.get(COL_TIPO_EV, ""))
+                            ubi_ev = limpiar_texto_archivo(row_serv_asist.get(COL_UBI, ""))
+                            fec_sel = str(row_serv_asist.get(COL_FECHA, ""))
                             try:
                                 partes_fecha = fec_sel.split("/")
                                 fecha_formateada = f"{partes_fecha[0].zfill(2)}{partes_fecha[1].zfill(2)}{partes_fecha[2][-2:]}" if len(partes_fecha) == 3 else fec_sel.replace("/", "")
@@ -663,7 +693,7 @@ def vista_admin():
                             str_lit.download_button(label=f"📥 Descargar {nombre_final_pdf}", data=pdf_bytes_asist, file_name=nombre_final_pdf, mime="application/pdf")
 
                 with c_btn_marcar:
-                    if not str(row_serv_asist.get('Estado Asistencia', "")).startswith("🟢"):
+                    if not str(row_serv_asist.get(COL_ESTADO_ASIST, "")).startswith("🟢"):
                         if str_lit.button("✅ Marcar Asistencia como Enviada"):
                             with str_lit.spinner("Actualizando..."):
                                 res = _post_apps_script({"action": "marcar_asistencia_enviada", "id_servicio": id_sel_asist})
