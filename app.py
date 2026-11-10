@@ -27,6 +27,7 @@ COL_HORARIO = "Horario"
 COL_DEP = "Dependencia"
 COL_ESTADO_CENTRAL = "Estado Central"
 COL_ESTADO_ASIST = "Estado Asistencia"
+COL_ENLACE_ASIST = "Enlace Asistencia"
 
 # --- ESTILOS VISUALES ---
 str_lit.markdown("""
@@ -126,7 +127,7 @@ def cargar_usuarios_df() -> pd.DataFrame:
     try: return pd.DataFrame(abrir_hoja(HOJA_USUARIOS).get_all_records())
     except Exception as e: logger.error(f"Error usuarios: {e}"); return pd.DataFrame()
 
-@str_lit.cache_data(ttl=5, show_spinner=False) # Reducido para ver cambios casi en tiempo real
+@str_lit.cache_data(ttl=5, show_spinner=False)
 def cargar_asistencia_digital_df() -> pd.DataFrame:
     try: return pd.DataFrame(abrir_hoja(HOJA_ASISTENCIA).get_all_records())
     except Exception as e: logger.error(f"Error asistencia: {e}"); return pd.DataFrame()
@@ -447,7 +448,7 @@ def vista_dependencia():
             col_gen = next((c for c in df_dep.columns if "enlace asistencia" in str(c).lower()), None)
 
             def esta_pendiente(r):
-                if not col_a1 and not col_gen: return False # Si no hay columnas, asumimos que no está pendiente para evitar falsos positivos
+                if not col_a1 and not col_gen: return False
                 fec = str(r.get(COL_FECHA, ""))
                 a1_val = str(r.get(col_a1, r.get(col_gen, ""))).strip()
                 a2_val = str(r.get(col_a2, "")).strip()
@@ -510,36 +511,36 @@ def vista_admin():
         pendientes = data[data[COL_ESTADO_CENTRAL].astype(str).str.contains("Recibido", na=False)]
         if not pendientes.empty: str_lit.warning(f"🔔 Hay **{len(pendientes)}** servicio(s) pendientes de revisión y despacho.")
 
-    t_expedientes, t_asistencia_qr, t_depuracion = str_lit.tabs(["📄 Expedientes y Enlaces", "📱 Asistencias Digitales", "🧹 Mantenimiento"])
+    # SEPARAMOS EN 4 PESTAÑAS
+    tab_exp, tab_enlaces, tab_asist, tab_depuracion = str_lit.tabs([
+        "📄 Expedientes", 
+        "📲 Enlaces (Asistencia)", 
+        "📊 Asistencias Digitales", 
+        "🧹 Mantenimiento"
+    ])
 
-    with t_expedientes:
-        str_lit.subheader("Gestión de Expedientes")
+    # --- PESTAÑA 1: EXPEDIENTES ---
+    with tab_exp:
+        str_lit.subheader("Gestión de Expedientes (Central)")
         if not data.empty:
-            filtro_estado = str_lit.selectbox("🔍 Filtrar expedientes por estado:", ["Todos", "🟡 Recibido - Requiere Revisión", "🟡 Pendiente", "🟢 Enviado a Central"])
-            df_filtrado = data.copy()
-            if filtro_estado != "Todos" and COL_ESTADO_CENTRAL in df_filtrado.columns:
-                df_filtrado = df_filtrado[df_filtrado[COL_ESTADO_CENTRAL].astype(str).str.contains(filtro_estado, na=False)]
+            filtro_estado = str_lit.radio("Filtrar expedientes:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_exp")
             
+            df_filtrado = data.copy()
+            if filtro_estado == "Pendientes" and COL_ESTADO_CENTRAL in df_filtrado.columns:
+                df_filtrado = df_filtrado[~df_filtrado[COL_ESTADO_CENTRAL].astype(str).str.contains("Enviado", na=False)]
+            elif filtro_estado == "Enviadas" and COL_ESTADO_CENTRAL in df_filtrado.columns:
+                df_filtrado = df_filtrado[df_filtrado[COL_ESTADO_CENTRAL].astype(str).str.contains("Enviado", na=False)]
+
             str_lit.dataframe(df_filtrado, use_container_width=True)
             
             opciones = [f"{r[COL_ID_SERV]} - {r[COL_DEP]} ({r[COL_FECHA]})" for _, r in df_filtrado.iterrows()]
             if opciones:
-                elegido = str_lit.selectbox("Seleccionar servicio para generar enlace o despachar", options=opciones)
+                elegido = str_lit.selectbox("Seleccionar servicio para despachar", options=opciones, key="sel_exp")
                 if elegido:
                     id_sel = elegido.split(" - ")[0]
                     row_data = data[data[COL_ID_SERV].astype(str) == id_sel].iloc[0]
-                    link_formulario_limpio = f"{URL_APPS_SCRIPT}?id_servicio={id_sel}"
                     
                     str_lit.markdown("---")
-                    str_lit.markdown("##### 📤 Enviar Planilla al Encargado del Evento")
-                    mensaje_wa = f"Hola, te envío el enlace para cargar la planilla de asistencia del servicio *{id_sel}* ({row_data.get(COL_TIPO_EV, '')}):\n\n{link_formulario_limpio}"
-                    url_wa_directo = f"https://api.whatsapp.com/send?text={requests.utils.quote(mensaje_wa)}"
-                    
-                    str_lit.markdown(f'<a href="{url_wa_directo}" target="_blank" style="text-decoration:none;"><button style="background-color: #25D366; color: white; border: none; padding: 12px 20px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 10px;">📲 Enviar Formulario por WhatsApp</button></a>', unsafe_allow_html=True)
-                    
-                    with str_lit.expander("Ver enlace en texto"): str_lit.code(link_formulario_limpio, language="text")
-                    str_lit.markdown("---")
-
                     c_pdf, c_estado = str_lit.columns(2)
                     with c_pdf:
                         if str_lit.button("🚀 Generar PDF con Constancias"):
@@ -560,63 +561,92 @@ def vista_admin():
                                     str_lit.cache_data.clear(); str_lit.rerun()
                             except Exception as e: str_lit.error(f"Error: {e}")
 
-    with t_asistencia_qr:
+    # --- PESTAÑA 2: ENLACES ---
+    with tab_enlaces:
+        str_lit.subheader("Enviar Enlace de Asistencia al Encargado")
+        if not data.empty:
+            filtro_estado_env = str_lit.radio("Filtrar eventos:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_env")
+            
+            # Filtramos aquellos a los que ya se les envió el enlace (si tienen la columna)
+            df_filtrado_env = data.copy()
+            if filtro_estado_env == "Pendientes" and COL_ENLACE_ASIST in df_filtrado_env.columns:
+                df_filtrado_env = df_filtrado_env[df_filtrado_env[COL_ENLACE_ASIST].astype(str).str.strip() == ""]
+            elif filtro_estado_env == "Enviadas" and COL_ENLACE_ASIST in df_filtrado_env.columns:
+                df_filtrado_env = df_filtrado_env[df_filtrado_env[COL_ENLACE_ASIST].astype(str).str.strip() != ""]
+
+            str_lit.dataframe(df_filtrado_env[['ID Servicio', 'Tipo de Evento', 'Fecha Evento', 'Enlace Asistencia']], use_container_width=True)
+            
+            opciones_env = [f"{r[COL_ID_SERV]} - {r[COL_DEP]} ({r[COL_FECHA]})" for _, r in df_filtrado_env.iterrows()]
+            if opciones_env:
+                elegido_env = str_lit.selectbox("Seleccionar servicio para enviar enlace", options=opciones_env, key="sel_env")
+                if elegido_env:
+                    id_sel_env = elegido_env.split(" - ")[0]
+                    row_data_env = data[data[COL_ID_SERV].astype(str) == id_sel_env].iloc[0]
+                    
+                    link_formulario_limpio = f"{URL_APPS_SCRIPT}?id_servicio={id_sel_env}"
+                    
+                    str_lit.markdown("---")
+                    str_lit.markdown("##### 📤 Enviar Planilla al Encargado del Evento")
+                    mensaje_wa = f"Hola, te envío el enlace para cargar la planilla de asistencia del servicio *{id_sel_env}* ({row_data_env.get(COL_TIPO_EV, '')}):\n\n{link_formulario_limpio}"
+                    url_wa_directo = f"https://api.whatsapp.com/send?text={requests.utils.quote(mensaje_wa)}"
+                    
+                    str_lit.markdown(f'<a href="{url_wa_directo}" target="_blank" style="text-decoration:none;"><button style="background-color: #25D366; color: white; border: none; padding: 12px 20px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 10px;">📲 Enviar Formulario por WhatsApp</button></a>', unsafe_allow_html=True)
+                    
+                    with str_lit.expander("Ver enlace en texto"): str_lit.code(link_formulario_limpio, language="text")
+
+    # --- PESTAÑA 3: ASISTENCIAS DIGITALES ---
+    with tab_asist:
         str_lit.subheader("Listado y Descarga de Asistencias")
         
-        # Recargamos los datos siempre para tener el estado más fresco
         df_asist = cargar_asistencia_digital_df()
-        df_servicios = cargar_servicios_df()
         
         if not df_asist.empty and COL_ID_SERV in df_asist.columns:
             # 1. Agrupamos por ID
             df_agrupado = df_asist.groupby(COL_ID_SERV).agg(Efectivos_Cargados=("DNI", "count")).reset_index()
             
             # 2. Cruzamos con Servicios
-            df_resumen = pd.merge(df_agrupado, df_servicios, on=COL_ID_SERV, how="left")
+            df_resumen = pd.merge(df_agrupado, data, on=COL_ID_SERV, how="left")
             
-            # 3. Filtro de estado (Pendientes / Enviados)
+            # 3. Filtro
             if COL_ESTADO_ASIST not in df_resumen.columns:
-                df_resumen[COL_ESTADO_ASIST] = "" # Si no existe la columna, la creamos vacía
+                df_resumen[COL_ESTADO_ASIST] = ""
                 
-            filtro_asist = str_lit.radio("Filtrar por estado de envío:", ["Todas", "Pendientes de envío", "Ya enviadas a Central"], horizontal=True)
+            filtro_asist = str_lit.radio("Filtrar por estado de envío:", ["Todas", "Pendientes", "Enviadas a Central"], horizontal=True, key="filtro_asist")
             
-            if filtro_asist == "Pendientes de envío":
+            if filtro_asist == "Pendientes":
                 df_mostrar = df_resumen[~df_resumen[COL_ESTADO_ASIST].astype(str).str.contains("Enviada", na=False)]
-            elif filtro_asist == "Ya enviadas a Central":
+            elif filtro_asist == "Enviadas a Central":
                 df_mostrar = df_resumen[df_resumen[COL_ESTADO_ASIST].astype(str).str.contains("Enviada", na=False)]
             else:
                 df_mostrar = df_resumen
 
-            # Mostramos la tabla
-            cols_a_mostrar = [COL_ID_SERV, COL_TIPO_EV, COL_FECHA, COL_UBI, "Efectivos_Cargados"]
+            # Mostramos tabla
+            cols_a_mostrar = [COL_ID_SERV, COL_TIPO_EV, COL_FECHA, "Efectivos_Cargados"]
             if COL_ESTADO_ASIST in df_mostrar.columns: cols_a_mostrar.append(COL_ESTADO_ASIST)
             str_lit.dataframe(df_mostrar[cols_a_mostrar], use_container_width=True)
             
             str_lit.markdown("---")
-            str_lit.subheader("📥 Descargar Planilla de un Evento")
-            
-            # Desplegable
             opciones_eventos = [f"{r[COL_ID_SERV]} | {r.get(COL_TIPO_EV, 'Evento')} - {r.get(COL_FECHA, '')} ({r.get(COL_UBI, '')})" for _, r in df_mostrar.iterrows()]
-            evento_elegido = str_lit.selectbox("Seleccioná el evento:", options=opciones_eventos)
+            evento_elegido = str_lit.selectbox("Seleccioná el evento:", options=opciones_eventos, key="sel_asist")
             
             if evento_elegido:
-                id_sel = evento_elegido.split(" | ")[0]
-                df_filtrado_evento = df_asist[df_asist[COL_ID_SERV].astype(str) == id_sel]
-                row_serv = df_resumen[df_resumen[COL_ID_SERV].astype(str) == id_sel].iloc[0]
+                id_sel_asist = evento_elegido.split(" | ")[0]
+                df_filtrado_evento = df_asist[df_asist[COL_ID_SERV].astype(str) == id_sel_asist]
+                row_serv_asist = df_resumen[df_resumen[COL_ID_SERV].astype(str) == id_sel_asist].iloc[0]
                 
                 c_btn_pdf, c_btn_marcar = str_lit.columns(2)
                 
                 with c_btn_pdf:
                     if str_lit.button("📄 Generar PDF de Asistencia"):
                         with str_lit.spinner("Generando PDF..."):
-                            pdf_path_asist = generar_pdf_asistencia(df_filtrado_evento, id_sel, str(row_serv.get(COL_TIPO_EV, "")), str(row_serv.get(COL_FECHA, "")), str(row_serv.get(COL_HORARIO, "")))
+                            pdf_path_asist = generar_pdf_asistencia(df_filtrado_evento, id_sel_asist, str(row_serv_asist.get(COL_TIPO_EV, "")), str(row_serv_asist.get(COL_FECHA, "")), str(row_serv_asist.get(COL_HORARIO, "")))
                             with open(pdf_path_asist, "rb") as f: pdf_bytes_asist = f.read()
                             os.unlink(pdf_path_asist)
                             
                             # Nombre del archivo
-                            nombre_ev = limpiar_texto_archivo(row_serv.get(COL_TIPO_EV, ""))
-                            ubi_ev = limpiar_texto_archivo(row_serv.get(COL_UBI, ""))
-                            fec_sel = str(row_serv.get(COL_FECHA, ""))
+                            nombre_ev = limpiar_texto_archivo(row_serv_asist.get(COL_TIPO_EV, ""))
+                            ubi_ev = limpiar_texto_archivo(row_serv_asist.get(COL_UBI, ""))
+                            fec_sel = str(row_serv_asist.get(COL_FECHA, ""))
                             try:
                                 partes_fecha = fec_sel.split("/")
                                 fecha_formateada = f"{partes_fecha[0].zfill(2)}{partes_fecha[1].zfill(2)}{partes_fecha[2][-2:]}" if len(partes_fecha) == 3 else fec_sel.replace("/", "")
@@ -626,24 +656,23 @@ def vista_admin():
                             str_lit.download_button(label=f"📥 Descargar {nombre_final_pdf}", data=pdf_bytes_asist, file_name=nombre_final_pdf, mime="application/pdf")
 
                 with c_btn_marcar:
-                    # Si no está enviada, mostramos el botón para marcarla
-                    if not str(row_serv.get(COL_ESTADO_ASIST, "")).startswith("🟢"):
-                        if str_lit.button("✅ Marcar Asistencia como Enviada a Central"):
+                    if not str(row_serv_asist.get(COL_ESTADO_ASIST, "")).startswith("🟢"):
+                        if str_lit.button("✅ Marcar Asistencia como Enviada"):
                             with str_lit.spinner("Actualizando..."):
-                                res = _post_apps_script({"action": "marcar_asistencia_enviada", "id_servicio": id_sel})
+                                res = _post_apps_script({"action": "marcar_asistencia_enviada", "id_servicio": id_sel_asist})
                                 if res.get("status") == "success":
-                                    str_lit.success("¡Planilla marcada como enviada!")
+                                    str_lit.success("¡Planilla de asistencia marcada como enviada!")
                                     str_lit.cache_data.clear()
                                     str_lit.rerun()
                                 else:
                                     str_lit.error(f"Error: {res.get('message')}")
                     else:
                         str_lit.success("✅ Esta planilla ya fue marcada como enviada a Central.")
-
         else:
             str_lit.info("Aún no hay registros de asistencia o falta la columna 'ID Servicio'.")
 
-    with t_depuracion:
+    # --- PESTAÑA 4: MANTENIMIENTO ---
+    with tab_depuracion:
         str_lit.subheader("🧹 Depuración y Archivado Mensual")
         str_lit.warning("Esta acción moverá los registros a una solapa histórica.")
         periodo_inp = str_lit.text_input("Periodo del Histórico", value=datetime.date.today().strftime("%Y_%m"))
