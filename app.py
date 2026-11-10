@@ -567,14 +567,14 @@ def vista_admin():
         if not data.empty:
             filtro_estado_env = str_lit.radio("Filtrar eventos:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_env")
             
-            # Filtramos aquellos a los que ya se les envió el enlace (si tienen la columna)
             df_filtrado_env = data.copy()
+            # Usamos la columna 'Enlace Asistencia' como indicador de si fue enviado
             if filtro_estado_env == "Pendientes" and COL_ENLACE_ASIST in df_filtrado_env.columns:
                 df_filtrado_env = df_filtrado_env[df_filtrado_env[COL_ENLACE_ASIST].astype(str).str.strip() == ""]
             elif filtro_estado_env == "Enviadas" and COL_ENLACE_ASIST in df_filtrado_env.columns:
                 df_filtrado_env = df_filtrado_env[df_filtrado_env[COL_ENLACE_ASIST].astype(str).str.strip() != ""]
 
-            str_lit.dataframe(df_filtrado_env[['ID Servicio', 'Tipo de Evento', 'Fecha Evento', 'Enlace Asistencia']], use_container_width=True)
+            str_lit.dataframe(df_filtrado_env[['ID Servicio', 'Tipo de Evento', 'Fecha Evento', COL_ENLACE_ASIST]], use_container_width=True)
             
             opciones_env = [f"{r[COL_ID_SERV]} - {r[COL_DEP]} ({r[COL_FECHA]})" for _, r in df_filtrado_env.iterrows()]
             if opciones_env:
@@ -593,6 +593,18 @@ def vista_admin():
                     str_lit.markdown(f'<a href="{url_wa_directo}" target="_blank" style="text-decoration:none;"><button style="background-color: #25D366; color: white; border: none; padding: 12px 20px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 10px;">📲 Enviar Formulario por WhatsApp</button></a>', unsafe_allow_html=True)
                     
                     with str_lit.expander("Ver enlace en texto"): str_lit.code(link_formulario_limpio, language="text")
+                    
+                    # BOTÓN PARA MARCAR COMO ENVIADO EN COLUMNA AA
+                    if str_lit.button("✅ Marcar Enlace como Enviado"):
+                        try:
+                            hoja_serv = abrir_hoja(HOJA_SERVICIOS)
+                            cell = hoja_serv.find(str(id_sel_env))
+                            if cell:
+                                # Guardamos el enlace en la columna 27 (AA) para marcar que ya fue enviado
+                                hoja_serv.update_cell(cell.row, 27, "🟢 Enviado")
+                                str_lit.success("¡Enlace marcado como enviado!")
+                                str_lit.cache_data.clear(); str_lit.rerun()
+                        except Exception as e: str_lit.error(f"Error: {e}")
 
     # --- PESTAÑA 3: ASISTENCIAS DIGITALES ---
     with tab_asist:
