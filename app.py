@@ -821,61 +821,71 @@ def vista_admin():
         str_lit.info("Visualizá el resumen de los eventos registrados y seleccioná cuál querés descargar de forma individual.")
         
         df_asist = cargar_asistencia_digital_df()
-        if not df_asist.empty:
-            columnas_agrupar = [c for c in ["Tipo de Evento", "Fecha del Evento", "Ubicación / Predio", "Dependencia Solicitante"] if c in df_asist.columns]
+        df_servicios = cargar_servicios_df()
+        
+        if not df_asist.empty and "ID Servicio" in df_asist.columns:
+            # 1. Agrupamos ESTRICTAMENTE por el ID de Servicio
+            df_agrupado = df_asist.groupby("ID Servicio").agg(
+                Efectivos_Cargados=("DNI", "count")
+            ).reset_index()
             
-            if columnas_agrupar:
-                # Agrupamos ESTRICTAMENTE por el evento para que muestre 1 sola fila por servicio
-                df_resumen = df_asist.groupby(columnas_agrupar, as_index=False).agg(
-                    Efectivos_Cargados=("DNI", "count")
-                )
+            # 2. Cruzamos con la tabla de Servicios para traer la info real del evento
+            # (Así nos aseguramos de mostrar el Tipo, Fecha y Ubicación correctos)
+            df_resumen = pd.merge(
+                df_agrupado, 
+                df_servicios[["ID Servicio", "Tipo de Evento", "Fecha Evento", "Ubicación Predio"]], 
+                on="ID Servicio", 
+                how="left"
+            )
+            
+            # Limpiamos los nombres de columnas para que se vean lindos
+            df_resumen = df_resumen.rename(columns={"Fecha Evento": "Fecha del Evento", "Ubicación Predio": "Ubicación / Predio"})
+            
+            # Mostramos la tabla (1 fila por evento)
+            str_lit.dataframe(df_resumen[["Tipo de Evento", "Fecha del Evento", "Ubicación / Predio", "Efectivos_Cargados"]], use_container_width=True)
+            
+            str_lit.markdown("---")
+            str_lit.subheader("📥 Descargar Planilla Específica de un Evento")
+            
+            # 3. Creamos las opciones para el desplegable usando el ID como referencia principal
+            opciones_eventos = []
+            for _, r in df_resumen.iterrows():
+                id_ev = str(r["ID Servicio"])
+                tipo_ev = str(r.get("Tipo de Evento", "Evento"))
+                fec_ev = str(r.get("Fecha del Evento", ""))
+                ubi_ev = str(r.get("Ubicación / Predio", ""))
+                opciones_eventos.append(f"{id_ev} | {tipo_ev} - {fec_ev} ({ubi_ev})")
+            
+            evento_elegido = str_lit.selectbox("Seleccioná el evento que querés descargar en PDF:", options=opciones_eventos)
+            
+            if evento_elegido:
+                # Extraemos el ID del string seleccionado (lo que está antes del '|')
+                id_sel = evento_elegido.split(" | ")[0]
                 
-                # Limpiamos la columna de ID para que no se muestre en la tabla (ya está en otra pestaña)
-                str_lit.dataframe(df_resumen, use_container_width=True)
+                # 4. Filtramos los asistentes usando EXCLUSIVAMENTE ese ID
+                df_filtrado_evento = df_asist[df_asist["ID Servicio"].astype(str) == id_sel]
                 
-                str_lit.markdown("---")
-                str_lit.subheader("📥 Descargar Planilla Específica de un Evento")
+                # Sacamos los datos del evento para el encabezado del PDF
+                row_serv = df_resumen[df_resumen["ID Servicio"].astype(str) == id_sel].iloc[0]
+                tipo_sel = str(row_serv.get("Tipo de Evento", ""))
+                fec_sel = str(row_serv.get("Fecha del Evento", ""))
                 
-                # Crear lista desplegable con eventos únicos
-                opciones_eventos = []
-                for _, r in df_resumen.iterrows():
-                    tipo_ev = str(r.get("Tipo de Evento", "Evento"))
-                    fec_ev = str(r.get("Fecha del Evento", ""))
-                    ubi_ev = str(r.get("Ubicación / Predio", ""))
-                    opciones_eventos.append(f"{tipo_ev} - {fec_ev} ({ubi_ev})")
-                
-                evento_elegido = str_lit.selectbox("Seleccioná el evento que querés descargar en PDF:", options=opciones_eventos)
-                
-                if evento_elegido:
-                    tipo_sel = evento_elegido.split(" - ")[0]
-                    fec_sel = evento_elegido.split(" - ")[1].split(" (")[0]
+                # Generar PDF de Asistencia
+                if str_lit.button("📄 Generar PDF de Asistencia"):
+                    pdf_path_asist = generar_pdf_asistencia(df_filtrado_evento, id_sel, tipo_sel, fec_sel)
+                    with open(pdf_path_asist, "rb") as f:
+                        pdf_bytes_asist = f.read()
+                    os.unlink(pdf_path_asist)
                     
-                    df_filtrado_evento = df_asist[
-                        (df_asist["Tipo de Evento"].astype(str) == tipo_sel) & 
-                        (df_asist["Fecha del Evento"].astype(str) == fec_sel)
-                    ]
-                    
-                    # Generar PDF de Asistencia
-                    if str_lit.button("📄 Generar PDF de Asistencia"):
-                        # Necesitamos el ID del servicio para el PDF, lo buscamos en la fila
-                        id_serv_asist = df_filtrado_evento["ID Servicio"].iloc[0] if "ID Servicio" in df_filtrado_evento.columns else "N/A"
-                        
-                        pdf_path_asist = generar_pdf_asistencia(df_filtrado_evento, id_serv_asist, tipo_sel, fec_sel)
-                        with open(pdf_path_asist, "rb") as f:
-                            pdf_bytes_asist = f.read()
-                        os.unlink(pdf_path_asist)
-                        
-                        nombre_archivo_limpio = f"Asistencia_{tipo_sel}_{fec_sel}.pdf".replace(" ", "_").replace("/", "-")
-                        str_lit.download_button(
-                            label=f"📥 Descargar PDF de: {tipo_sel} ({fec_sel})",
-                            data=pdf_bytes_asist,
-                            file_name=nombre_archivo_limpio,
-                            mime="application/pdf"
-                        )
-            else:
-                str_lit.dataframe(df_asist, use_container_width=True)
+                    nombre_archivo_limpio = f"Asistencia_{id_sel}_{fec_sel}.pdf".replace(" ", "_").replace("/", "-")
+                    str_lit.download_button(
+                        label=f"📥 Descargar PDF de: {id_sel}",
+                        data=pdf_bytes_asist,
+                        file_name=nombre_archivo_limpio,
+                        mime="application/pdf"
+                    )
         else:
-            str_lit.info("Aún no hay registros de asistencia.")
+            str_lit.info("Aún no hay registros de asistencia o falta la columna 'ID Servicio'.")
 
     with t_depuracion:
         str_lit.subheader("🧹 Depuración y Archivado Mensual")
