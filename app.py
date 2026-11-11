@@ -435,7 +435,6 @@ def vista_dependencia():
                             total_subalternos = sum(subs_por_mod) * cant_dias
                             monto_total = calcular_monto_total(jefes_por_mod, subs_por_mod) * cant_dias
                             
-                            # VISTA PREVIA DEL MONTO
                             str_lit.markdown(f"""
                                 <div class="monto-box">
                                     <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 5px;">TOTAL ESTIMADO A PAGAR (aprox)</div>
@@ -445,7 +444,6 @@ def vista_dependencia():
                             """, unsafe_allow_html=True)
                             
                             with str_lit.form(f"form_envio_{counter}"):
-                                # --- ARCHIVOS (SOLO COMPROBANTE ES OBLIGATORIO) ---
                                 file_comp = str_lit.file_uploader("Comprobante de Pago (OBLIGATORIO)", type=["png", "jpg", "jpeg", "pdf"], key=f"comp_{counter}")
                                 file_hab = str_lit.file_uploader("Habilitación Municipal (Opcional)", type=["png", "jpg", "jpeg", "pdf"], key=f"hab_{counter}")
                                 file_cont = str_lit.file_uploader("Contrato (Opcional)", type=["png", "jpg", "jpeg", "pdf"], key=f"cont_{counter}")
@@ -461,7 +459,7 @@ def vista_dependencia():
                                 else:
                                     id_servicio = f"SERV-{int(datetime.datetime.now().timestamp())}"
                                     payload = {
-                                        "action": "crear_servicio", # <--- ACCIÓN AGREGADA
+                                        "action": "crear_servicio",
                                         "id_servicio": id_servicio, 
                                         "dependencia": str(str_lit.session_state.dependencia),
                                         "fecha_evento": fecha_texto, 
@@ -604,7 +602,18 @@ def vista_admin():
                                 pdf_path = generar_pdf_servicio(row_data)
                                 with open(pdf_path, "rb") as f: pdf_bytes = f.read()
                                 os.unlink(pdf_path)
-                                str_lit.download_button("📥 Descargar PDF Final", data=pdf_bytes, file_name=f"{id_sel}.pdf", mime="application/pdf")
+                                
+                                # --- NOMBRE DEL ARCHIVO CORREGIDO ---
+                                nombre_ev = limpiar_texto_archivo(row_data.get(COL_TIPO_EV, ""))
+                                fec_sel = str(row_data.get(COL_FECHA, ""))
+                                try:
+                                    partes_fecha = fec_sel.split("/")
+                                    fecha_formateada = f"{partes_fecha[0].zfill(2)}{partes_fecha[1].zfill(2)}{partes_fecha[2][-2:]}" if len(partes_fecha) == 3 else fec_sel.replace("/", "")
+                                except: fecha_formateada = fec_sel.replace("/", "")
+                                
+                                nombre_archivo = f"Constancia_{nombre_ev}_{fecha_formateada}.pdf".replace(" ", "_")
+                                
+                                str_lit.download_button(label=f"📥 Descargar {nombre_archivo}", data=pdf_bytes, file_name=nombre_archivo, mime="application/pdf")
                     with c_estado:
                         if str_lit.button("✅ Marcar como Enviado a Central"):
                             try:
