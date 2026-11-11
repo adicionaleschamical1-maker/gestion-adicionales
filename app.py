@@ -297,10 +297,16 @@ def descargar_imagen_drive(url):
         
         if not file_id: return None
         
-        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        download_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
         response = requests.get(download_url, stream=True, timeout=10)
+        
         if response.status_code == 200:
-            return BytesIO(response.content)
+            try:
+                img = Image.open(BytesIO(response.content))
+                img.verify() 
+                return BytesIO(response.content)
+            except:
+                return None
         return None
     except Exception as e:
         logger.error(f"Error descargando imagen: {e}")
@@ -467,12 +473,21 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.cell(50, 7, " Firma", 1, 1, 'L', True)
     pdf.set_text_color(0, 0, 0)
 
+    # Buscamos dinámicamente cuál es la columna que contiene el ID de la firma
+    col_firma = None
+    for c in df_asistentes.columns:
+        if "firma" in str(c).lower() or "enlace" in str(c).lower():
+            col_firma = c
+            break
+
     for _, row in df_asistentes.iterrows():
         puesto = str(row.get('Puesto Asignado', ''))
         dni = str(row.get('DNI', ''))
         jerarquia = str(row.get('Jerarquía', ''))
         nombre = str(row.get('Nombre y Apellido', ''))
-        url_firma = str(row.get('Enlace Firma', ''))
+        
+        # Extraemos el ID de la firma usando la columna encontrada
+        firma_valor = str(row.get(col_firma, '')) if col_firma else ""
 
         y_actual = pdf.get_y()
 
@@ -484,21 +499,25 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
         pdf.cell(40, 12, f" {jerarquia}", 1, 0, 'L')
         pdf.cell(50, 12, f" {nombre}", 1, 0, 'L')
         
-        if url_firma and url_firma.startswith("http"):
+        # Si hay un valor (ID o URL), intentamos descargar la imagen
+        if firma_valor and firma_valor.strip() != "":
             try:
-                img_data = descargar_imagen_drive(url_firma)
+                img_data = descargar_imagen_drive(firma_valor)
                 if img_data:
                     img = Image.open(img_data)
                     if img.mode in ("RGBA", "P"): img = img.convert("RGB")
                     tmp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
                     img.save(tmp_img.name, format="JPEG")
+                    
                     pdf.cell(50, 12, "", 1, 1, 'L')
+                    # Ajustamos la posición de la imagen dentro de la celda
                     pdf.image(tmp_img.name, x=pdf.get_x() - 45, y=y_actual + 2, w=40, h=8)
                     os.unlink(tmp_img.name)
                 else:
-                    pdf.cell(50, 12, " (Sin firma)", 1, 1, 'L')
-            except:
-                pdf.cell(50, 12, " (Sin firma)", 1, 1, 'L')
+                    pdf.cell(50, 12, " (Firma no encontrada)", 1, 1, 'L')
+            except Exception as e:
+                logger.error(f"Error incrustando firma: {e}")
+                pdf.cell(50, 12, " (Error al cargar firma)", 1, 1, 'L')
         else:
             pdf.cell(50, 12, " (Sin firma)", 1, 1, 'L')
 
