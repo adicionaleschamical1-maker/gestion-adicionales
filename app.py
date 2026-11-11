@@ -473,12 +473,14 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.cell(50, 7, " Firma", 1, 1, 'L', True)
     pdf.set_text_color(0, 0, 0)
 
-    # Buscamos dinámicamente cuál es la columna que contiene el ID de la firma
-    col_firma = None
-    for c in df_asistentes.columns:
-        if "firma" in str(c).lower() or "enlace" in str(c).lower():
-            col_firma = c
-            break
+    # Buscamos la última columna que debería ser la de la firma
+    col_firma = df_asistentes.columns[-1] if len(df_asistentes.columns) > 0 else None
+    
+    if col_firma and "firma" not in str(col_firma).lower() and "enlace" not in str(col_firma).lower():
+        for c in df_asistentes.columns:
+            if "firma" in str(c).lower() or "enlace" in str(c).lower():
+                col_firma = c
+                break
 
     for _, row in df_asistentes.iterrows():
         puesto = str(row.get('Puesto Asignado', ''))
@@ -486,7 +488,6 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
         jerarquia = str(row.get('Jerarquía', ''))
         nombre = str(row.get('Nombre y Apellido', ''))
         
-        # Extraemos el ID de la firma usando la columna encontrada
         firma_valor = str(row.get(col_firma, '')) if col_firma else ""
 
         y_actual = pdf.get_y()
@@ -499,7 +500,6 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
         pdf.cell(40, 12, f" {jerarquia}", 1, 0, 'L')
         pdf.cell(50, 12, f" {nombre}", 1, 0, 'L')
         
-        # Si hay un valor (ID o URL), intentamos descargar la imagen
         if firma_valor and firma_valor.strip() != "":
             try:
                 img_data = descargar_imagen_drive(firma_valor)
@@ -510,14 +510,14 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
                     img.save(tmp_img.name, format="JPEG")
                     
                     pdf.cell(50, 12, "", 1, 1, 'L')
-                    # Ajustamos la posición de la imagen dentro de la celda
+                    # Ajustamos la imagen para que entre bien en la celda
                     pdf.image(tmp_img.name, x=pdf.get_x() - 45, y=y_actual + 2, w=40, h=8)
                     os.unlink(tmp_img.name)
                 else:
-                    pdf.cell(50, 12, " (Firma no encontrada)", 1, 1, 'L')
+                    pdf.cell(50, 12, " (No se pudo descargar)", 1, 1, 'L')
             except Exception as e:
                 logger.error(f"Error incrustando firma: {e}")
-                pdf.cell(50, 12, " (Error al cargar firma)", 1, 1, 'L')
+                pdf.cell(50, 12, " (Error)", 1, 1, 'L')
         else:
             pdf.cell(50, 12, " (Sin firma)", 1, 1, 'L')
 
