@@ -290,7 +290,6 @@ def descargar_imagen_drive(url_or_id):
     try:
         file_id = str(url_or_id).strip()
         
-        # Si es un texto Base64 (lo que vamos a guardar ahora)
         if file_id.startswith("data:image"):
             try:
                 header, encoded = file_id.split(",", 1)
@@ -298,7 +297,6 @@ def descargar_imagen_drive(url_or_id):
             except:
                 return None
                 
-        # Si es un enlace de Drive viejo
         if file_id.startswith("http"):
             match = re.search(r'/d/([a-zA-Z0-9-_]+)', file_id)
             if match: file_id = match.group(1)
@@ -307,7 +305,6 @@ def descargar_imagen_drive(url_or_id):
                 if match: file_id = match.group(1)
                 else: return None
 
-        # Descargamos usando la API de miniatura que no bloquea
         download_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
         response = requests.get(download_url, stream=True, timeout=10)
         
