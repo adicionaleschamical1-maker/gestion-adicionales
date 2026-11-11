@@ -346,7 +346,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     js_triple = int(float(row.get('Jefes Triples', 0) or 0))
     subs_triple = int(float(row.get('Subalternos Triples', 0) or 0))
     
-    # DISEÑO CORREGIDO: TABLA DESGLOSADA
     pdf.set_font("helvetica", "B", 9)
     pdf.set_fill_color(245, 247, 250)
     pdf.cell(45, 6, " Módulo", 1, 0, 'L', True)
@@ -401,7 +400,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     link_pdf("Comprobante de Pago", url_comp)
     link_pdf("Contrato", url_cont)
 
-    # INCRUSTAR IMÁGENES
     def incrustar_imagen(titulo, url):
         if not url or not str(url).startswith("http"): return
         img_data = descargar_imagen_drive(url)
@@ -445,7 +443,8 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str, horario_evento: str = "") -> str:
+# --- CORRECCIÓN APLICADA ACÁ ---
+def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str, horario_evento: str = "", ubicacion_evento: str = "") -> str:
     pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
     _cabecera_pdf(pdf, "PLANILLA DE ASISTENCIA - SERVICIO ADICIONAL", f"ID de Servicio: {id_servicio}")
 
@@ -455,6 +454,12 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.cell(45, 6, " Fecha:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {fecha_evento}", 1, 1, 'L')
     pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
     pdf.cell(45, 6, " Horario:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {horario_evento}", 1, 1, 'L')
+    
+    # --- LÍNEA AGREGADA ACÁ ---
+    pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
+    pdf.cell(45, 6, " Ubicación:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {ubicacion_evento}", 1, 1, 'L')
+    # ----------------------------
+    
     pdf.ln(5)
 
     pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(0, 32, 96); pdf.set_text_color(255, 255, 255)
@@ -817,7 +822,15 @@ def vista_admin():
                 with c_btn_pdf:
                     if str_lit.button("📄 Generar PDF de Asistencia"):
                         with str_lit.spinner("Generando PDF..."):
-                            pdf_path_asist = generar_pdf_asistencia(df_filtrado_evento, id_sel_asist, str(row_serv_asist.get(COL_TIPO_EV, "")), str(row_serv_asist.get(COL_FECHA, "")), str(row_serv_asist.get(COL_HORARIO, "")))
+                            # --- ENVIAMOS LA UBICACIÓN ACÁ ---
+                            pdf_path_asist = generar_pdf_asistencia(
+                                df_filtrado_evento, 
+                                id_sel_asist, 
+                                str(row_serv_asist.get(COL_TIPO_EV, "")), 
+                                str(row_serv_asist.get(COL_FECHA, "")), 
+                                str(row_serv_asist.get(COL_HORARIO, "")),
+                                str(row_serv_asist.get(COL_UBI, "")) # <-- AGREGADO
+                            )
                             with open(pdf_path_asist, "rb") as f: pdf_bytes_asist = f.read()
                             os.unlink(pdf_path_asist)
                             
