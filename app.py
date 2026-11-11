@@ -123,7 +123,7 @@ def abrir_hoja(nombre: str):
     try: return ss.worksheet(nombre)
     except gspread.WorksheetNotFound: return ss.sheet1
 
-@str_lit.cache_data(ttl=15, show_spinner=False)
+@str_lit.cache_data(ttl=5, show_spinner=False)
 def cargar_servicios_df() -> pd.DataFrame:
     try: 
         hoja = abrir_hoja(HOJA_SERVICIOS)
@@ -553,7 +553,6 @@ def vista_dependencia():
                             
                             diferencia_horas, max_modulos = calcular_monto_y_modulos(hora_inicio, hora_fin)
                             
-                            # --- LÓGICA PARA 1 O 2 DÍAS ---
                             if cant_dias == 2:
                                 str_lit.markdown("---")
                                 str_lit.markdown("### 📅 Distribución de Efectivos para el Día 1")
@@ -593,7 +592,6 @@ def vista_dependencia():
                                 subs_doble = subs_d1[1]
                                 js_triple = jefes_d1[2]
                                 subs_triple = subs_d1[2]
-                            # -------------------------------
                             
                             str_lit.markdown(f"""
                                 <div class="monto-box">
