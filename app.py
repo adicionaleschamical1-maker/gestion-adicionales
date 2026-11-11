@@ -741,7 +741,6 @@ def vista_admin():
             filtro_estado = str_lit.radio("Filtrar expedientes:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_exp")
             df_filtrado = data.copy()
             
-            # Buscamos dinámicamente la columna de Estado Central
             col_estado_real = next((c for c in df_filtrado.columns if "Estado Central" in str(c)), "Estado Central")
             
             if filtro_estado == "Pendientes" and col_estado_real in df_filtrado.columns:
@@ -781,16 +780,15 @@ def vista_admin():
                                 hoja_serv = abrir_hoja(HOJA_SERVICIOS)
                                 cell = hoja_serv.find(str(id_sel))
                                 if cell:
-                                    # Buscamos en qué columna está el encabezado
                                     cabecera = hoja_serv.row_values(1)
-                                    col_estado_index = -1
+                                    col_index = -1
                                     for idx, val in enumerate(cabecera):
                                         if "Estado Central" in str(val):
-                                            col_estado_index = idx + 1
+                                            col_index = idx + 1
                                             break
                                     
-                                    if col_estado_index != -1:
-                                        hoja_serv.update_cell(cell.row, col_estado_index, "🟢 Enviado a Central")
+                                    if col_index != -1:
+                                        hoja_serv.update_cell(cell.row, col_index, "🟢 Enviado a Central")
                                         str_lit.success("¡Marcado como enviado a Central!")
                                         str_lit.cache_data.clear(); str_lit.rerun()
                                     else:
@@ -803,7 +801,6 @@ def vista_admin():
             filtro_estado_env = str_lit.radio("Filtrar eventos:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_env")
             df_filtrado_env = data.copy()
             
-            # Buscamos la columna de Enlace Asistencia
             col_enlace_real = next((c for c in df_filtrado_env.columns if "Enlace Asistencia" in str(c)), "Enlace Asistencia")
             
             if filtro_estado_env == "Pendientes" and col_enlace_real in df_filtrado_env.columns:
@@ -830,16 +827,15 @@ def vista_admin():
                             hoja_serv = abrir_hoja(HOJA_SERVICIOS)
                             cell = hoja_serv.find(str(id_sel_env))
                             if cell:
-                                # Buscamos en qué columna está el encabezado
                                 cabecera = hoja_serv.row_values(1)
-                                col_enlace_index = -1
+                                col_index = -1
                                 for idx, val in enumerate(cabecera):
                                     if "Enlace Asistencia" in str(val):
-                                        col_enlace_index = idx + 1
+                                        col_index = idx + 1
                                         break
                                 
-                                if col_enlace_index != -1:
-                                    hoja_serv.update_cell(cell.row, col_enlace_index, "🟢 Enviado")
+                                if col_index != -1:
+                                    hoja_serv.update_cell(cell.row, col_index, "🟢 Enviado")
                                     str_lit.success("¡Enlace marcado como enviado!")
                                     str_lit.cache_data.clear(); str_lit.rerun()
                                 else:
