@@ -443,7 +443,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-# --- CORRECCIÓN APLICADA ACÁ ---
 def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str, horario_evento: str = "", ubicacion_evento: str = "") -> str:
     pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
     _cabecera_pdf(pdf, "PLANILLA DE ASISTENCIA - SERVICIO ADICIONAL", f"ID de Servicio: {id_servicio}")
@@ -454,12 +453,8 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.cell(45, 6, " Fecha:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {fecha_evento}", 1, 1, 'L')
     pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
     pdf.cell(45, 6, " Horario:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {horario_evento}", 1, 1, 'L')
-    
-    # --- LÍNEA AGREGADA ACÁ ---
     pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
     pdf.cell(45, 6, " Ubicación:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {ubicacion_evento}", 1, 1, 'L')
-    # ----------------------------
-    
     pdf.ln(5)
 
     pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(0, 32, 96); pdf.set_text_color(255, 255, 255)
@@ -481,15 +476,19 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-def _render_modulos(max_modulos: int, counter: int):
+def _render_modulos(max_modulos: int, counter: int, dia_num: int = 1):
     labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)"]
     labels_ordenados = labels_base[:max_modulos][::-1]
     jefes_dict, subs_dict = {}, {}
+    
+    if dia_num > 1:
+        str_lit.markdown(f"##### 📅 Cantidades para el Día {dia_num}")
+        
     for label in labels_ordenados:
         str_lit.markdown(f"**Turno {label}**")
         c1, c2 = str_lit.columns(2)
-        with c1: j = str_lit.number_input(f"Jefes ({label})", 0, step=1, key=f"j_{label}_{counter}")
-        with c2: s = str_lit.number_input(f"Subalternos ({label})", 0, step=1, key=f"s_{label}_{counter}")
+        with c1: j = str_lit.number_input(f"Jefes ({label}) - Día {dia_num}", 0, step=1, key=f"j_{label}_{counter}_{dia_num}")
+        with c2: s = str_lit.number_input(f"Subalternos ({label}) - Día {dia_num}", 0, step=1, key=f"s_{label}_{counter}_{dia_num}")
         if "Simple" in label: jefes_dict[0] = int(j); subs_dict[0] = int(s)
         elif "Doble" in label: jefes_dict[1] = int(j); subs_dict[1] = int(s)
         elif "Triple" in label: jefes_dict[2] = int(j); subs_dict[2] = int(s)
@@ -526,6 +525,7 @@ def vista_dependencia():
             fecha_texto = f"{fec_inicio.strftime('%d/%m/%Y')}" if (tipo_cant_dias == "1 Día único" or fec_inicio == fec_fin) else f"{fec_inicio.strftime('%d/%m/%Y')} y {fec_fin.strftime('%d/%m/%Y')}"
             cant_dias = 1 if (tipo_cant_dias == "1 Día único" or fec_inicio == fec_fin) else 2
             tipo_evento = str_lit.text_input("Tipo de evento", key=f"tipo_{counter}")
+            
             if tipo_evento.strip():
                 col_org1, col_org2 = str_lit.columns(2)
                 with col_org1: nombre_organizador = str_lit.text_input("Nombre Organizador", key=f"nom_org_{counter}")
@@ -552,11 +552,48 @@ def vista_dependencia():
                             with col_h2: hora_fin = str_lit.time_input("Hora Fin", value=datetime.time(19, 0), key=f"h_fin_{counter}")
                             
                             diferencia_horas, max_modulos = calcular_monto_y_modulos(hora_inicio, hora_fin)
-                            jefes_por_mod, subs_por_mod = _render_modulos(max_modulos, counter)
                             
-                            total_jefes = sum(jefes_por_mod) * cant_dias
-                            total_subalternos = sum(subs_por_mod) * cant_dias
-                            monto_total = calcular_monto_total(jefes_por_mod, subs_por_mod) * cant_dias
+                            # --- LÓGICA PARA 1 O 2 DÍAS ---
+                            if cant_dias == 2:
+                                str_lit.markdown("---")
+                                str_lit.markdown("### 📅 Distribución de Efectivos para el Día 1")
+                                jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
+                                
+                                str_lit.markdown("---")
+                                str_lit.markdown("### 📅 Distribución de Efectivos para el Día 2")
+                                jefes_d2, subs_d2 = _render_modulos(max_modulos, counter, dia_num=2)
+                                
+                                total_jefes_d1 = sum(jefes_d1)
+                                total_subs_d1 = sum(subs_d1)
+                                monto_d1 = calcular_monto_total(jefes_d1, subs_d1)
+                                
+                                total_jefes_d2 = sum(jefes_d2)
+                                total_subs_d2 = sum(subs_d2)
+                                monto_d2 = calcular_monto_total(jefes_d2, subs_d2)
+                                
+                                total_jefes = total_jefes_d1 + total_jefes_d2
+                                total_subalternos = total_subs_d1 + total_subs_d2
+                                monto_total = monto_d1 + monto_d2
+                                
+                                js_simple = jefes_d1[0] + jefes_d2[0]
+                                subs_simple = subs_d1[0] + subs_d2[0]
+                                js_doble = jefes_d1[1] + jefes_d2[1]
+                                subs_doble = subs_d1[1] + subs_d2[1]
+                                js_triple = jefes_d1[2] + jefes_d2[2]
+                                subs_triple = subs_d1[2] + subs_d2[2]
+                            else:
+                                jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
+                                total_jefes = sum(jefes_d1)
+                                total_subalternos = sum(subs_d1)
+                                monto_total = calcular_monto_total(jefes_d1, subs_d1)
+                                
+                                js_simple = jefes_d1[0]
+                                subs_simple = subs_d1[0]
+                                js_doble = jefes_d1[1]
+                                subs_doble = subs_d1[1]
+                                js_triple = jefes_d1[2]
+                                subs_triple = subs_d1[2]
+                            # -------------------------------
                             
                             str_lit.markdown(f"""
                                 <div class="monto-box">
@@ -594,12 +631,12 @@ def vista_dependencia():
                                         "cant_subalternos": int(total_subalternos),
                                         "modulos": int(max_modulos), 
                                         "monto_total": float(monto_total),
-                                        "jefes_simples": int(jefes_por_mod[0]), 
-                                        "subalternos_simples": int(subs_por_mod[0]),
-                                        "jefes_dobles": int(jefes_por_mod[1]), 
-                                        "subalternos_dobles": int(subs_por_mod[1]),
-                                        "jefes_triples": int(jefes_por_mod[2]), 
-                                        "subalternos_triples": int(subs_por_mod[2]),
+                                        "jefes_simples": int(js_simple), 
+                                        "subalternos_simples": int(subs_simple),
+                                        "jefes_dobles": int(js_doble), 
+                                        "subalternos_dobles": int(subs_doble),
+                                        "jefes_triples": int(js_triple), 
+                                        "subalternos_triples": int(subs_triple),
                                         "pagado_por": str(pagado_por), 
                                         "cuil_pagado_por": str(cuil_pagado_por),
                                         "estado_central": "🟡 Pendiente",
@@ -822,14 +859,13 @@ def vista_admin():
                 with c_btn_pdf:
                     if str_lit.button("📄 Generar PDF de Asistencia"):
                         with str_lit.spinner("Generando PDF..."):
-                            # --- ENVIAMOS LA UBICACIÓN ACÁ ---
                             pdf_path_asist = generar_pdf_asistencia(
                                 df_filtrado_evento, 
                                 id_sel_asist, 
                                 str(row_serv_asist.get(COL_TIPO_EV, "")), 
                                 str(row_serv_asist.get(COL_FECHA, "")), 
                                 str(row_serv_asist.get(COL_HORARIO, "")),
-                                str(row_serv_asist.get(COL_UBI, "")) # <-- AGREGADO
+                                str(row_serv_asist.get(COL_UBI, ""))
                             )
                             with open(pdf_path_asist, "rb") as f: pdf_bytes_asist = f.read()
                             os.unlink(pdf_path_asist)
