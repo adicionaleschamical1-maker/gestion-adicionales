@@ -316,12 +316,61 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     seccion_titulo("2. RECURSOS Y MÓDULOS ASIGNADOS")
     monto_val = row.get('Monto Total', 0)
     monto_str = f"${float(monto_val):,.2f}" if monto_val else "$0.00"
-    fila_tabla("Total Jefes", str(row.get('Cant. Jefes', 0)), "Total Subalternos", str(row.get('Cant. Subalternos', 0)))
+    
+    # --- MEJORA: LEER EL DESGLOSE DE JEFES Y SUBALTERNOS ---
+    js_simple = int(float(row.get('Jefes Simples', 0) or 0))
+    subs_simple = int(float(row.get('Subalternos Simples', 0) or 0))
+    js_doble = int(float(row.get('Jefes Dobles', 0) or 0))
+    subs_doble = int(float(row.get('Subalternos Dobles', 0) or 0))
+    js_triple = int(float(row.get('Jefes Triples', 0) or 0))
+    subs_triple = int(float(row.get('Subalternos Triples', 0) or 0))
+    
+    detalle_jefes = []
+    if js_simple > 0: detalle_jefes.append(f"{js_simple} Simple(s)")
+    if js_doble > 0: detalle_jefes.append(f"{js_doble} Doble(s)")
+    if js_triple > 0: detalle_jefes.append(f"{js_triple} Triple(s)")
+    str_jefes = ", ".join(detalle_jefes) if detalle_jefes else "0"
+
+    detalle_subs = []
+    if subs_simple > 0: detalle_subs.append(f"{subs_simple} Simple(s)")
+    if subs_doble > 0: detalle_subs.append(f"{subs_doble} Doble(s)")
+    if subs_triple > 0: detalle_subs.append(f"{subs_triple} Triple(s)")
+    str_subs = ", ".join(detalle_subs) if detalle_subs else "0"
+    
+    fila_tabla("Jefes (Distribución)", str_jefes, "Subalternos (Distribución)", str_subs)
     fila_tabla("Módulos (Max)", str(row.get('Módulos', 1)), "Monto Total", monto_str)
 
     seccion_titulo("3. DATOS DE FACTURACIÓN Y PAGO")
     fila_completa("Pagado por", str(row.get('Pagador', '')))
     fila_completa("CUIL / CUIT Facturación", str(row.get('CUIL Pagador', '')))
+
+    # --- MEJORA: AGREGAR SECCIÓN DE ENLACES A ARCHIVOS ---
+    seccion_titulo("4. DOCUMENTACIÓN ADJUNTA (GOOGLE DRIVE)")
+    col_hab = next((c for c in row.index if "Enlace Habilitación" in str(c)), "Enlace Habilitación")
+    col_comp = next((c for c in row.index if "Enlace Comprobante" in str(c)), "Enlace Comprobante")
+    col_cont = next((c for c in row.index if "Enlace Contrato" in str(c)), "Enlace Contrato")
+    
+    url_hab = str(row.get(col_hab, ""))
+    url_comp = str(row.get(col_comp, ""))
+    url_cont = str(row.get(col_cont, ""))
+
+    def link_pdf(etiqueta, url):
+        pdf.set_fill_color(245, 247, 250)
+        pdf.set_font("helvetica", "B", 9)
+        pdf.cell(45, 6, f" {etiqueta}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 9)
+        if url.startswith("http"):
+            pdf.set_text_color(0, 102, 204)
+            pdf.cell(145, 6, " [ Ver Documento ]", 1, 1, 'L', link=url)
+            pdf.set_text_color(0, 0, 0)
+        else:
+            pdf.set_text_color(120, 120, 120)
+            pdf.cell(145, 6, " No adjuntado", 1, 1, 'L')
+            pdf.set_text_color(0, 0, 0)
+
+    link_pdf("Habilitación Municipal", url_hab)
+    link_pdf("Comprobante de Pago", url_comp)
+    link_pdf("Contrato", url_cont)
 
     tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(tmp_pdf.name)
@@ -603,7 +652,6 @@ def vista_admin():
                                 with open(pdf_path, "rb") as f: pdf_bytes = f.read()
                                 os.unlink(pdf_path)
                                 
-                                # --- NOMBRE DEL ARCHIVO CORREGIDO ---
                                 nombre_ev = limpiar_texto_archivo(row_data.get(COL_TIPO_EV, ""))
                                 fec_sel = str(row_data.get(COL_FECHA, ""))
                                 try:
