@@ -286,10 +286,8 @@ def _cabecera_pdf(pdf, titulo, subtitulo):
     pdf.ln(5)
 
 def descargar_imagen_drive(url):
-    """Descarga la imagen desde Google Drive para incrustarla en el PDF."""
     if not url or not str(url).startswith("http"): return None
     try:
-        # Extraer el ID del archivo de la URL de Drive
         file_id = None
         match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
         if match: file_id = match.group(1)
@@ -299,7 +297,6 @@ def descargar_imagen_drive(url):
         
         if not file_id: return None
         
-        # URL de descarga directa
         download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
         response = requests.get(download_url, stream=True, timeout=10)
         if response.status_code == 200:
@@ -349,19 +346,28 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     js_triple = int(float(row.get('Jefes Triples', 0) or 0))
     subs_triple = int(float(row.get('Subalternos Triples', 0) or 0))
     
-    detalle_jefes = []
-    if js_simple > 0: detalle_jefes.append(f"{js_simple} Simple(s)")
-    if js_doble > 0: detalle_jefes.append(f"{js_doble} Doble(s)")
-    if js_triple > 0: detalle_jefes.append(f"{js_triple} Triple(s)")
-    str_jefes = ", ".join(detalle_jefes) if detalle_jefes else "0"
-
-    detalle_subs = []
-    if subs_simple > 0: detalle_subs.append(f"{subs_simple} Simple(s)")
-    if subs_doble > 0: detalle_subs.append(f"{subs_doble} Doble(s)")
-    if subs_triple > 0: detalle_subs.append(f"{subs_triple} Triple(s)")
-    str_subs = ", ".join(detalle_subs) if detalle_subs else "0"
+    # DISEÑO CORREGIDO: TABLA DESGLOSADA
+    pdf.set_font("helvetica", "B", 9)
+    pdf.set_fill_color(245, 247, 250)
+    pdf.cell(45, 6, " Módulo", 1, 0, 'L', True)
+    pdf.cell(35, 6, " Jefes", 1, 0, 'L', True)
+    pdf.cell(35, 6, " Subalternos", 1, 1, 'L', True)
     
-    fila_tabla("Jefes (Distribución)", str_jefes, "Subalternos (Distribución)", str_subs)
+    pdf.set_font("helvetica", "", 9)
+    if js_simple > 0 or subs_simple > 0:
+        pdf.cell(45, 6, " Simple (4h)", 1, 0, 'L')
+        pdf.cell(35, 6, f" {js_simple}", 1, 0, 'L')
+        pdf.cell(35, 6, f" {subs_simple}", 1, 1, 'L')
+    if js_doble > 0 or subs_doble > 0:
+        pdf.cell(45, 6, " Doble (8h)", 1, 0, 'L')
+        pdf.cell(35, 6, f" {js_doble}", 1, 0, 'L')
+        pdf.cell(35, 6, f" {subs_doble}", 1, 1, 'L')
+    if js_triple > 0 or subs_triple > 0:
+        pdf.cell(45, 6, " Triple (12h)", 1, 0, 'L')
+        pdf.cell(35, 6, f" {js_triple}", 1, 0, 'L')
+        pdf.cell(35, 6, f" {subs_triple}", 1, 1, 'L')
+
+    pdf.ln(2)
     fila_tabla("Módulos (Max)", str(row.get('Módulos', 1)), "Monto Total", monto_str)
 
     seccion_titulo("3. DATOS DE FACTURACIÓN Y PAGO")
@@ -395,7 +401,7 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     link_pdf("Comprobante de Pago", url_comp)
     link_pdf("Contrato", url_cont)
 
-    # --- NUEVA SECCIÓN: INCRUSTAR IMÁGENES ---
+    # INCRUSTAR IMÁGENES
     def incrustar_imagen(titulo, url):
         if not url or not str(url).startswith("http"): return
         img_data = descargar_imagen_drive(url)
@@ -403,7 +409,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
         
         try:
             img = Image.open(img_data)
-            # Convertir a RGB para evitar errores con PNG transparentes
             if img.mode in ("RGBA", "P"): img = img.convert("RGB")
             
             pdf.add_page()
@@ -412,21 +417,16 @@ def generar_pdf_servicio(row: pd.Series) -> str:
             pdf.cell(0, 10, f"ANEXO: {titulo.upper()}", ln=True, align="center")
             pdf.ln(5)
             
-            # Calcular tamaño para que quepa en la hoja A4
             ancho_max = 190
             ancho_img, alto_img = img.size
             proporcion = alto_img / ancho_img
             alto_render = ancho_max * proporcion
             
-            # Si es muy alta, ajustar al alto máximo (aprox 250mm)
             if alto_render > 250:
                 alto_render = 250
                 ancho_max = alto_render / proporcion
 
-            # Centrar imagen
             x = (210 - ancho_max) / 2
-            
-            # Guardar imagen temporalmente para fpdf
             tmp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
             img.save(tmp_img.name, format="JPEG")
             
@@ -435,15 +435,11 @@ def generar_pdf_servicio(row: pd.Series) -> str:
         except Exception as e:
             logger.error(f"Error incrustando imagen: {e}")
             pdf.set_font("helvetica", "I", 10)
-            pdf.cell(0, 10, " [ No se pudo incrustar la imagen, use el link de la página anterior ] ", ln=True, align="center")
+            pdf.cell(0, 10, " [ No se pudo incrustar la imagen ] ", ln=True, align="center")
 
-    # Llamamos a la función para incrustar las imágenes
-    if url_comp.startswith("http"):
-        incrustar_imagen("Comprobante de Pago", url_comp)
-    if url_hab.startswith("http"):
-        incrustar_imagen("Habilitación Municipal", url_hab)
-    if url_cont.startswith("http"):
-        incrustar_imagen("Contrato", url_cont)
+    if url_comp.startswith("http"): incrustar_imagen("Comprobante de Pago", url_comp)
+    if url_hab.startswith("http"): incrustar_imagen("Habilitación Municipal", url_hab)
+    if url_cont.startswith("http"): incrustar_imagen("Contrato", url_cont)
 
     tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(tmp_pdf.name)
