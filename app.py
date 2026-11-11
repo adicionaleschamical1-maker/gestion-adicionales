@@ -99,7 +99,7 @@ TIMEOUT_HTTP = 30
 try:
     URL_APPS_SCRIPT = str_lit.secrets["URL_APPS_SCRIPT"]
 except (KeyError, FileNotFoundError):
-    URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxqVp5T0fVGtPncuwkocbXbU5TSHLgPqgmD0A5pQ6CmuEU3C-UrGx2eZHxg2HTLUjU1/exec"
+    URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbwh6t07cnZ5n2w1cBFRQo6ZIdIab3nYJ-iASS6VSia5J5ca18-SD11OJSzYnHm-NFTZ/exec"
 
 # --- CONEXIÓN A GOOGLE SHEETS ---
 @str_lit.cache_resource
@@ -285,18 +285,21 @@ def _cabecera_pdf(pdf, titulo, subtitulo):
     pdf.set_text_color(0, 0, 0)
     pdf.ln(5)
 
-def descargar_imagen_drive(url):
-    if not url or not str(url).startswith("http"): return None
+def descargar_imagen_drive(url_or_id):
+    if not url_or_id: return None
     try:
-        file_id = None
-        match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
-        if match: file_id = match.group(1)
-        else:
-            match = re.search(r'id=([a-zA-Z0-9-_]+)', url)
+        file_id = str(url_or_id).strip()
+        
+        # Si por casualidad es una URL vieja, extraemos el ID
+        if file_id.startswith("http"):
+            match = re.search(r'/d/([a-zA-Z0-9-_]+)', file_id)
             if match: file_id = match.group(1)
-        
-        if not file_id: return None
-        
+            else:
+                match = re.search(r'id=([a-zA-Z0-9-_]+)', file_id)
+                if match: file_id = match.group(1)
+                else: return None
+
+        # Descargamos usando la API de miniatura que no bloquea
         download_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
         response = requests.get(download_url, stream=True, timeout=10)
         
@@ -449,7 +452,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-# --- PDF ASISTENCIA (CON FIRMAS) ---
 def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str, horario_evento: str = "", ubicacion_evento: str = "") -> str:
     pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
     _cabecera_pdf(pdf, "PLANILLA DE ASISTENCIA - SERVICIO ADICIONAL", f"ID de Servicio: {id_servicio}")
@@ -464,7 +466,6 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.cell(45, 6, " Ubicación:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {ubicacion_evento}", 1, 1, 'L')
     pdf.ln(5)
 
-    # Cabecera de la tabla
     pdf.set_font("helvetica", "B", 8); pdf.set_fill_color(0, 32, 96); pdf.set_text_color(255, 255, 255)
     pdf.cell(20, 7, " Puesto", 1, 0, 'L', True)
     pdf.cell(30, 7, " DNI", 1, 0, 'L', True)
@@ -473,9 +474,7 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.cell(50, 7, " Firma", 1, 1, 'L', True)
     pdf.set_text_color(0, 0, 0)
 
-    # Buscamos la última columna que debería ser la de la firma
     col_firma = df_asistentes.columns[-1] if len(df_asistentes.columns) > 0 else None
-    
     if col_firma and "firma" not in str(col_firma).lower() and "enlace" not in str(col_firma).lower():
         for c in df_asistentes.columns:
             if "firma" in str(c).lower() or "enlace" in str(c).lower():
@@ -510,11 +509,10 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
                     img.save(tmp_img.name, format="JPEG")
                     
                     pdf.cell(50, 12, "", 1, 1, 'L')
-                    # Ajustamos la imagen para que entre bien en la celda
                     pdf.image(tmp_img.name, x=pdf.get_x() - 45, y=y_actual + 2, w=40, h=8)
                     os.unlink(tmp_img.name)
                 else:
-                    pdf.cell(50, 12, " (No se pudo descargar)", 1, 1, 'L')
+                    pdf.cell(50, 12, " (No descargada)", 1, 1, 'L')
             except Exception as e:
                 logger.error(f"Error incrustando firma: {e}")
                 pdf.cell(50, 12, " (Error)", 1, 1, 'L')
