@@ -294,7 +294,8 @@ def descargar_imagen_drive(url_or_id):
             try:
                 header, encoded = file_id.split(",", 1)
                 return BytesIO(base64.b64decode(encoded))
-            except:
+            except Exception as e:
+                str_lit.error(f"Error decodificando Base64: {e}")
                 return None
                 
         if file_id.startswith("http"):
@@ -303,7 +304,9 @@ def descargar_imagen_drive(url_or_id):
             else:
                 match = re.search(r'id=([a-zA-Z0-9-_]+)', file_id)
                 if match: file_id = match.group(1)
-                else: return None
+                else: 
+                    str_lit.warning(f"No se pudo extraer el ID de la URL: {file_id}")
+                    return None
 
         download_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
         response = requests.get(download_url, stream=True, timeout=10)
@@ -313,11 +316,14 @@ def descargar_imagen_drive(url_or_id):
                 img = Image.open(BytesIO(response.content))
                 img.verify() 
                 return BytesIO(response.content)
-            except:
+            except Exception as e:
+                str_lit.error(f"El archivo descargado no es una imagen válida: {e}")
                 return None
-        return None
+        else:
+            str_lit.error(f"Error de Google Drive (Status {response.status_code}). ID: {file_id}")
+            return None
     except Exception as e:
-        logger.error(f"Error descargando imagen: {e}")
+        str_lit.error(f"Error de conexión: {e}")
         return None
 
 def generar_pdf_servicio(row: pd.Series) -> str:
@@ -458,6 +464,12 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     return tmp_pdf.name
 
 def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str, horario_evento: str = "", ubicacion_evento: str = "") -> str:
+    
+    # --- DIAGNÓSTICO ---
+    str_lit.write("🔍 Columnas detectadas:", list(df_asistentes.columns))
+    str_lit.write("📄 Datos (primeras 2 filas):", df_asistentes.head(2).to_dict('records'))
+    # -------------------
+
     pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
     _cabecera_pdf(pdf, "PLANILLA DE ASISTENCIA - SERVICIO ADICIONAL", f"ID de Servicio: {id_servicio}")
 
