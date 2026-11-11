@@ -293,7 +293,11 @@ def descargar_imagen_drive(url_or_id):
         if file_id.startswith("data:image"):
             try:
                 header, encoded = file_id.split(",", 1)
-                return BytesIO(base64.b64decode(encoded))
+                img = Image.open(BytesIO(base64.b64decode(encoded)))
+                # Comprimimos a JPEG para que entre bien en el PDF
+                out = BytesIO()
+                img.convert("RGB").save(out, format="JPEG", quality=50)
+                return BytesIO(out.getvalue())
             except Exception as e:
                 str_lit.error(f"Error decodificando Base64: {e}")
                 return None
@@ -464,7 +468,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     return tmp_pdf.name
 
 def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str, horario_evento: str = "", ubicacion_evento: str = "") -> str:
-    
     # --- DIAGNÓSTICO ---
     str_lit.write("🔍 Columnas detectadas:", list(df_asistentes.columns))
     str_lit.write("📄 Datos (primeras 2 filas):", df_asistentes.head(2).to_dict('records'))
