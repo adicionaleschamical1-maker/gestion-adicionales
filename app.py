@@ -443,6 +443,7 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
+# --- PDF ASISTENCIA (CON FIRMAS) ---
 def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str, horario_evento: str = "", ubicacion_evento: str = "") -> str:
     pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
     _cabecera_pdf(pdf, "PLANILLA DE ASISTENCIA - SERVICIO ADICIONAL", f"ID de Servicio: {id_servicio}")
@@ -457,16 +458,49 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.cell(45, 6, " Ubicación:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {ubicacion_evento}", 1, 1, 'L')
     pdf.ln(5)
 
-    pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(0, 32, 96); pdf.set_text_color(255, 255, 255)
-    pdf.cell(20, 7, " Puesto", 1, 0, 'L', True); pdf.cell(35, 7, " DNI", 1, 0, 'L', True)
-    pdf.cell(45, 7, " Jerarquía", 1, 0, 'L', True); pdf.cell(90, 7, " Nombre y Apellido", 1, 1, 'L', True)
+    # Cabecera de la tabla
+    pdf.set_font("helvetica", "B", 8); pdf.set_fill_color(0, 32, 96); pdf.set_text_color(255, 255, 255)
+    pdf.cell(20, 7, " Puesto", 1, 0, 'L', True)
+    pdf.cell(30, 7, " DNI", 1, 0, 'L', True)
+    pdf.cell(40, 7, " Jerarquía", 1, 0, 'L', True)
+    pdf.cell(50, 7, " Nombre y Apellido", 1, 0, 'L', True)
+    pdf.cell(50, 7, " Firma", 1, 1, 'L', True)
     pdf.set_text_color(0, 0, 0)
 
     for _, row in df_asistentes.iterrows():
-        pdf.set_font("helvetica", "", 9); pdf.cell(20, 6, f" {str(row.get('Puesto Asignado', ''))}", 1, 0, 'L')
-        pdf.set_font("courier", "B", 10); pdf.cell(35, 6, f" {str(row.get('DNI', ''))}", 1, 0, 'L')
-        pdf.set_font("helvetica", "", 9); pdf.cell(45, 6, f" {str(row.get('Jerarquía', ''))}", 1, 0, 'L')
-        pdf.cell(90, 6, f" {str(row.get('Nombre y Apellido', ''))}", 1, 1, 'L')
+        puesto = str(row.get('Puesto Asignado', ''))
+        dni = str(row.get('DNI', ''))
+        jerarquia = str(row.get('Jerarquía', ''))
+        nombre = str(row.get('Nombre y Apellido', ''))
+        url_firma = str(row.get('Enlace Firma', ''))
+
+        y_actual = pdf.get_y()
+
+        pdf.set_font("helvetica", "", 8)
+        pdf.cell(20, 12, f" {puesto}", 1, 0, 'L')
+        pdf.set_font("courier", "B", 9)
+        pdf.cell(30, 12, f" {dni}", 1, 0, 'L')
+        pdf.set_font("helvetica", "", 8)
+        pdf.cell(40, 12, f" {jerarquia}", 1, 0, 'L')
+        pdf.cell(50, 12, f" {nombre}", 1, 0, 'L')
+        
+        if url_firma and url_firma.startswith("http"):
+            try:
+                img_data = descargar_imagen_drive(url_firma)
+                if img_data:
+                    img = Image.open(img_data)
+                    if img.mode in ("RGBA", "P"): img = img.convert("RGB")
+                    tmp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+                    img.save(tmp_img.name, format="JPEG")
+                    pdf.cell(50, 12, "", 1, 1, 'L')
+                    pdf.image(tmp_img.name, x=pdf.get_x() - 45, y=y_actual + 2, w=40, h=8)
+                    os.unlink(tmp_img.name)
+                else:
+                    pdf.cell(50, 12, " (Sin firma)", 1, 1, 'L')
+            except:
+                pdf.cell(50, 12, " (Sin firma)", 1, 1, 'L')
+        else:
+            pdf.cell(50, 12, " (Sin firma)", 1, 1, 'L')
 
     pdf.ln(10); pdf.set_font("helvetica", "I", 8); pdf.set_text_color(120, 120, 120)
     pdf.cell(0, 5, f"Documento generado el {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="center")
