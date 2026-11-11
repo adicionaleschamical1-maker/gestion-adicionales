@@ -290,7 +290,6 @@ def descargar_imagen_drive(url_or_id):
     try:
         file_id = str(url_or_id).strip()
         
-        # Si por casualidad es una URL vieja, extraemos el ID
         if file_id.startswith("http"):
             match = re.search(r'/d/([a-zA-Z0-9-_]+)', file_id)
             if match: file_id = match.group(1)
@@ -299,7 +298,6 @@ def descargar_imagen_drive(url_or_id):
                 if match: file_id = match.group(1)
                 else: return None
 
-        # Descargamos usando la API de miniatura que no bloquea
         download_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
         response = requests.get(download_url, stream=True, timeout=10)
         
@@ -453,6 +451,12 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     return tmp_pdf.name
 
 def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str, horario_evento: str = "", ubicacion_evento: str = "") -> str:
+    
+    # --- DEBUG VISUAL EN PANTALLA ---
+    str_lit.write("🔍 Columnas detectadas:", list(df_asistentes.columns))
+    str_lit.write("📄 Datos (primeras 2 filas):", df_asistentes.head(2).to_dict('records'))
+    # --------------------------------
+
     pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
     _cabecera_pdf(pdf, "PLANILLA DE ASISTENCIA - SERVICIO ADICIONAL", f"ID de Servicio: {id_servicio}")
 
@@ -474,12 +478,14 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
     pdf.cell(50, 7, " Firma", 1, 1, 'L', True)
     pdf.set_text_color(0, 0, 0)
 
-    col_firma = df_asistentes.columns[-1] if len(df_asistentes.columns) > 0 else None
-    if col_firma and "firma" not in str(col_firma).lower() and "enlace" not in str(col_firma).lower():
-        for c in df_asistentes.columns:
-            if "firma" in str(c).lower() or "enlace" in str(c).lower():
-                col_firma = c
-                break
+    col_firma = None
+    for c in df_asistentes.columns:
+        if "firma" in str(c).lower() or "enlace" in str(c).lower():
+            col_firma = c
+            break
+            
+    if not col_firma:
+        col_firma = df_asistentes.columns[-1] if len(df_asistentes.columns) > 0 else None
 
     for _, row in df_asistentes.iterrows():
         puesto = str(row.get('Puesto Asignado', ''))
@@ -512,12 +518,12 @@ def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_e
                     pdf.image(tmp_img.name, x=pdf.get_x() - 45, y=y_actual + 2, w=40, h=8)
                     os.unlink(tmp_img.name)
                 else:
-                    pdf.cell(50, 12, " (No descargada)", 1, 1, 'L')
+                    pdf.cell(50, 12, " (Fallo descarga)", 1, 1, 'L')
             except Exception as e:
                 logger.error(f"Error incrustando firma: {e}")
-                pdf.cell(50, 12, " (Error)", 1, 1, 'L')
+                pdf.cell(50, 12, " (Error imagen)", 1, 1, 'L')
         else:
-            pdf.cell(50, 12, " (Sin firma)", 1, 1, 'L')
+            pdf.cell(50, 12, " (Sin ID)", 1, 1, 'L')
 
     pdf.ln(10); pdf.set_font("helvetica", "I", 8); pdf.set_text_color(120, 120, 120)
     pdf.cell(0, 5, f"Documento generado el {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="center")
