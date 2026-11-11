@@ -409,7 +409,6 @@ def vista_dependencia():
                 with col_org2: dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
                 
                 if nombre_organizador.strip() and dni_organizador.strip():
-                    # --- LÓGICA RESTAURADA: ¿Organizador es el mismo que Paga? ---
                     es_mismo_pagador = str_lit.checkbox("El organizador es la misma persona que paga", value=True, key=f"mismo_pag_{counter}")
                     
                     if es_mismo_pagador:
@@ -462,6 +461,7 @@ def vista_dependencia():
                                 else:
                                     id_servicio = f"SERV-{int(datetime.datetime.now().timestamp())}"
                                     payload = {
+                                        "action": "crear_servicio", # <--- ACCIÓN AGREGADA
                                         "id_servicio": id_servicio, 
                                         "dependencia": str(str_lit.session_state.dependencia),
                                         "fecha_evento": fecha_texto, 
