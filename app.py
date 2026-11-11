@@ -740,10 +740,14 @@ def vista_admin():
         if not data.empty:
             filtro_estado = str_lit.radio("Filtrar expedientes:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_exp")
             df_filtrado = data.copy()
-            if filtro_estado == "Pendientes" and COL_ESTADO_CENTRAL in df_filtrado.columns:
-                df_filtrado = df_filtrado[~df_filtrado[COL_ESTADO_CENTRAL].astype(str).str.contains("Enviado", na=False)]
-            elif filtro_estado == "Enviadas" and COL_ESTADO_CENTRAL in df_filtrado.columns:
-                df_filtrado = df_filtrado[df_filtrado[COL_ESTADO_CENTRAL].astype(str).str.contains("Enviado", na=False)]
+            
+            # Buscamos dinámicamente la columna de Estado Central
+            col_estado_real = next((c for c in df_filtrado.columns if "Estado Central" in str(c)), "Estado Central")
+            
+            if filtro_estado == "Pendientes" and col_estado_real in df_filtrado.columns:
+                df_filtrado = df_filtrado[~df_filtrado[col_estado_real].astype(str).str.contains("Enviado", na=False)]
+            elif filtro_estado == "Enviadas" and col_estado_real in df_filtrado.columns:
+                df_filtrado = df_filtrado[df_filtrado[col_estado_real].astype(str).str.contains("Enviado", na=False)]
 
             str_lit.dataframe(df_filtrado, use_container_width=True)
             opciones = [f"{r.get(COL_ID_SERV, '')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado.iterrows()]
@@ -777,9 +781,20 @@ def vista_admin():
                                 hoja_serv = abrir_hoja(HOJA_SERVICIOS)
                                 cell = hoja_serv.find(str(id_sel))
                                 if cell:
-                                    hoja_serv.update_cell(cell.row, 25, "🟢 Enviado a Central")
-                                    str_lit.success("¡Marcado como enviado a Central!")
-                                    str_lit.cache_data.clear(); str_lit.rerun()
+                                    # Buscamos en qué columna está el encabezado
+                                    cabecera = hoja_serv.row_values(1)
+                                    col_estado_index = -1
+                                    for idx, val in enumerate(cabecera):
+                                        if "Estado Central" in str(val):
+                                            col_estado_index = idx + 1
+                                            break
+                                    
+                                    if col_estado_index != -1:
+                                        hoja_serv.update_cell(cell.row, col_estado_index, "🟢 Enviado a Central")
+                                        str_lit.success("¡Marcado como enviado a Central!")
+                                        str_lit.cache_data.clear(); str_lit.rerun()
+                                    else:
+                                        str_lit.error("No se encontró la columna 'Estado Central' en la hoja.")
                             except Exception as e: str_lit.error(f"Error: {e}")
 
     with tab_enlaces:
@@ -787,12 +802,16 @@ def vista_admin():
         if not data.empty:
             filtro_estado_env = str_lit.radio("Filtrar eventos:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_env")
             df_filtrado_env = data.copy()
-            if filtro_estado_env == "Pendientes" and COL_ENLACE_ASIST in df_filtrado_env.columns:
-                df_filtrado_env = df_filtrado_env[df_filtrado_env[COL_ENLACE_ASIST].astype(str).str.strip() == ""]
-            elif filtro_estado_env == "Enviadas" and COL_ENLACE_ASIST in df_filtrado_env.columns:
-                df_filtrado_env = df_filtrado_env[df_filtrado_env[COL_ENLACE_ASIST].astype(str).str.strip() != ""]
+            
+            # Buscamos la columna de Enlace Asistencia
+            col_enlace_real = next((c for c in df_filtrado_env.columns if "Enlace Asistencia" in str(c)), "Enlace Asistencia")
+            
+            if filtro_estado_env == "Pendientes" and col_enlace_real in df_filtrado_env.columns:
+                df_filtrado_env = df_filtrado_env[df_filtrado_env[col_enlace_real].astype(str).str.strip() == ""]
+            elif filtro_estado_env == "Enviadas" and col_enlace_real in df_filtrado_env.columns:
+                df_filtrado_env = df_filtrado_env[df_filtrado_env[col_enlace_real].astype(str).str.strip() != ""]
 
-            str_lit.dataframe(df_filtrado_env[[COL_ID_SERV, COL_TIPO_EV, COL_FECHA, COL_ENLACE_ASIST]], use_container_width=True)
+            str_lit.dataframe(df_filtrado_env[[COL_ID_SERV, COL_TIPO_EV, COL_FECHA, col_enlace_real]], use_container_width=True)
             opciones_env = [f"{r.get(COL_ID_SERV, '')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado_env.iterrows()]
             if opciones_env:
                 elegido_env = str_lit.selectbox("Seleccionar servicio para enviar enlace", options=opciones_env, key="sel_env")
@@ -811,9 +830,20 @@ def vista_admin():
                             hoja_serv = abrir_hoja(HOJA_SERVICIOS)
                             cell = hoja_serv.find(str(id_sel_env))
                             if cell:
-                                hoja_serv.update_cell(cell.row, 27, "🟢 Enviado")
-                                str_lit.success("¡Enlace marcado como enviado!")
-                                str_lit.cache_data.clear(); str_lit.rerun()
+                                # Buscamos en qué columna está el encabezado
+                                cabecera = hoja_serv.row_values(1)
+                                col_enlace_index = -1
+                                for idx, val in enumerate(cabecera):
+                                    if "Enlace Asistencia" in str(val):
+                                        col_enlace_index = idx + 1
+                                        break
+                                
+                                if col_enlace_index != -1:
+                                    hoja_serv.update_cell(cell.row, col_enlace_index, "🟢 Enviado")
+                                    str_lit.success("¡Enlace marcado como enviado!")
+                                    str_lit.cache_data.clear(); str_lit.rerun()
+                                else:
+                                    str_lit.error("No se encontró la columna 'Enlace Asistencia' en la hoja.")
                         except Exception as e: str_lit.error(f"Error: {e}")
 
     with tab_asist:
