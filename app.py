@@ -15,6 +15,7 @@ import unicodedata
 from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
+import streamlit.components.v1 as components
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 str_lit.set_page_config(page_title="UR V - Adicionales", layout="centered", page_icon="👮")
@@ -267,7 +268,7 @@ def login():
                 else: str_lit.rerun()
             else: str_lit.error(msg)
 
-# --- GENERADORES DE PDF ---
+# --- GENERADORES DE PDF Y HTML ---
 def _cabecera_pdf(pdf, titulo, subtitulo):
     pdf.set_fill_color(0, 32, 96)
     pdf.rect(0, 0, 210, 20, 'F')
@@ -294,12 +295,10 @@ def descargar_imagen_drive(url_or_id):
             try:
                 header, encoded = file_id.split(",", 1)
                 img = Image.open(BytesIO(base64.b64decode(encoded)))
-                # Comprimimos a JPEG para que entre bien en el PDF
                 out = BytesIO()
                 img.convert("RGB").save(out, format="JPEG", quality=50)
                 return BytesIO(out.getvalue())
             except Exception as e:
-                str_lit.error(f"Error decodificando Base64: {e}")
                 return None
                 
         if file_id.startswith("http"):
@@ -308,9 +307,7 @@ def descargar_imagen_drive(url_or_id):
             else:
                 match = re.search(r'id=([a-zA-Z0-9-_]+)', file_id)
                 if match: file_id = match.group(1)
-                else: 
-                    str_lit.warning(f"No se pudo extraer el ID de la URL: {file_id}")
-                    return None
+                else: return None
 
         download_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
         response = requests.get(download_url, stream=True, timeout=10)
@@ -321,13 +318,10 @@ def descargar_imagen_drive(url_or_id):
                 img.verify() 
                 return BytesIO(response.content)
             except Exception as e:
-                str_lit.error(f"El archivo descargado no es una imagen válida: {e}")
                 return None
         else:
-            str_lit.error(f"Error de Google Drive (Status {response.status_code}). ID: {file_id}")
             return None
     except Exception as e:
-        str_lit.error(f"Error de conexión: {e}")
         return None
 
 def generar_pdf_servicio(row: pd.Series) -> str:
@@ -467,87 +461,62 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-def generar_pdf_asistencia(df_asistentes: pd.DataFrame, id_servicio: str, tipo_evento: str, fecha_evento: str, horario_evento: str = "", ubicacion_evento: str = "") -> str:
-    # --- DIAGNÓSTICO ---
-    str_lit.write("🔍 Columnas detectadas:", list(df_asistentes.columns))
-    str_lit.write("📄 Datos (primeras 2 filas):", df_asistentes.head(2).to_dict('records'))
-    # -------------------
+def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, horario_evento, ubicacion_evento):
+    html = "<html><head><meta charset='utf-8'>"
+    html += "<style>"
+    html += "body { font-family: Arial, sans-serif; padding: 20px; background: #F5F5F5; }"
+    html += ".card { background: white; padding: 20px; border-radius: 10px; max-width: 800px; margin: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }"
+    html += ".header { text-align: center; border-bottom: 2px solid #002060; padding-bottom: 10px; margin-bottom: 20px; }"
+    html += ".header h1 { color: #002060; font-size: 18px; margin: 0; }"
+    html += ".header h2 { color: #8B1E1E; font-size: 14px; margin: 5px 0; }"
+    html += ".info { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #002060; font-size: 14px; }"
+    html += "table { width: 100%; border-collapse: collapse; margin-top: 15px; }"
+    html += "th { background: #002060; color: white; padding: 10px; text-align: left; font-size: 13px; }"
+    html += "td { padding: 10px; border-bottom: 1px solid #ddd; font-size: 13px; vertical-align: middle; }"
+    html += ".dni { font-family: monospace; font-weight: bold; font-size: 15px; background: #e9ecef; padding: 4px 8px; border-radius: 4px; user-select: all; color: #8B1E1E; }"
+    html += ".firma { max-width: 100px; max-height: 50px; }"
+    html += "@media print { body { background: white; padding: 0; } .card { box-shadow: none; } button { display: none; } }"
+    html += "</style></head><body>"
 
-    pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
-    _cabecera_pdf(pdf, "PLANILLA DE ASISTENCIA - SERVICIO ADICIONAL", f"ID de Servicio: {id_servicio}")
+    html += "<div class='card'>"
+    html += "<div style='text-align: right;'><button onclick='window.print()' style='padding: 8px 16px; background: #002060; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;'>🖨️ Imprimir / Guardar PDF</button></div>"
 
-    pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
-    pdf.cell(45, 6, " Evento:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {tipo_evento}", 1, 1, 'L')
-    pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
-    pdf.cell(45, 6, " Fecha:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {fecha_evento}", 1, 1, 'L')
-    pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
-    pdf.cell(45, 6, " Horario:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {horario_evento}", 1, 1, 'L')
-    pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
-    pdf.cell(45, 6, " Ubicación:", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9); pdf.cell(145, 6, f" {ubicacion_evento}", 1, 1, 'L')
-    pdf.ln(5)
+    html += "<div class='header'>"
+    html += "<h1>POLICÍA DE LA PROVINCIA DE LA RIOJA</h1>"
+    html += "<h2>UNIDAD REGIONAL QUINTA - CHAMICAL</h2>"
+    html += "<p>Planilla de Asistencia - Servicio Adicional</p>"
+    html += "</div>"
 
-    pdf.set_font("helvetica", "B", 8); pdf.set_fill_color(0, 32, 96); pdf.set_text_color(255, 255, 255)
-    pdf.cell(20, 7, " Puesto", 1, 0, 'L', True)
-    pdf.cell(30, 7, " DNI", 1, 0, 'L', True)
-    pdf.cell(40, 7, " Jerarquía", 1, 0, 'L', True)
-    pdf.cell(50, 7, " Nombre y Apellido", 1, 0, 'L', True)
-    pdf.cell(50, 7, " Firma", 1, 1, 'L', True)
-    pdf.set_text_color(0, 0, 0)
+    html += "<div class='info'>"
+    html += f"<b>Evento:</b> {tipo_evento} &nbsp; | &nbsp; <b>Fecha:</b> {fecha_evento} &nbsp; | &nbsp; <b>Horario:</b> {horario_evento}<br>"
+    html += f"<b>Ubicación:</b> {ubicacion_evento} &nbsp; | &nbsp; <b>ID Servicio:</b> {id_servicio}"
+    html += "</div>"
 
-    col_firma = None
-    for c in df_asistentes.columns:
-        if "firma" in str(c).lower() or "enlace" in str(c).lower():
-            col_firma = c
-            break
-            
-    if not col_firma:
-        col_firma = df_asistentes.columns[-1] if len(df_asistentes.columns) > 0 else None
+    html += "<table>"
+    html += "<tr><th>Puesto</th><th>DNI</th><th>Jerarquía</th><th>Nombre y Apellido</th><th>Firma</th></tr>"
 
     for _, row in df_asistentes.iterrows():
-        puesto = str(row.get('Puesto Asignado', ''))
-        dni = str(row.get('DNI', ''))
-        jerarquia = str(row.get('Jerarquía', ''))
-        nombre = str(row.get('Nombre y Apellido', ''))
+        html += "<tr>"
+        html += f"<td>{row.get('Puesto Asignado', '')}</td>"
+        html += f"<td><span class='dni'>{row.get('DNI', '')}</span></td>"
+        html += f"<td>{row.get('Jerarquía', '')}</td>"
+        html += f"<td>{row.get('Nombre y Apellido', '')}</td>"
         
-        firma_valor = str(row.get(col_firma, '')) if col_firma else ""
-
-        y_actual = pdf.get_y()
-
-        pdf.set_font("helvetica", "", 8)
-        pdf.cell(20, 12, f" {puesto}", 1, 0, 'L')
-        pdf.set_font("courier", "B", 9)
-        pdf.cell(30, 12, f" {dni}", 1, 0, 'L')
-        pdf.set_font("helvetica", "", 8)
-        pdf.cell(40, 12, f" {jerarquia}", 1, 0, 'L')
-        pdf.cell(50, 12, f" {nombre}", 1, 0, 'L')
+        firma_url = ""
+        for col in df_asistentes.columns:
+            if "firma" in str(col).lower() or "enlace" in str(col).lower():
+                firma_url = str(row.get(col, ""))
+                break
         
-        if firma_valor and firma_valor.strip() != "":
-            try:
-                img_data = descargar_imagen_drive(firma_valor)
-                if img_data:
-                    img = Image.open(img_data)
-                    if img.mode in ("RGBA", "P"): img = img.convert("RGB")
-                    tmp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-                    img.save(tmp_img.name, format="JPEG")
-                    
-                    pdf.cell(50, 12, "", 1, 1, 'L')
-                    pdf.image(tmp_img.name, x=pdf.get_x() - 45, y=y_actual + 2, w=40, h=8)
-                    os.unlink(tmp_img.name)
-                else:
-                    pdf.cell(50, 12, " (Fallo descarga)", 1, 1, 'L')
-            except Exception as e:
-                logger.error(f"Error incrustando firma: {e}")
-                pdf.cell(50, 12, " (Error imagen)", 1, 1, 'L')
+        if firma_url and firma_url.startswith("http"):
+            html += f"<td><img src='{firma_url}' class='firma' alt='Firma'></td>"
         else:
-            pdf.cell(50, 12, " (Sin ID)", 1, 1, 'L')
+            html += "<td>(Sin firma)</td>"
+        
+        html += "</tr>"
 
-    pdf.ln(10); pdf.set_font("helvetica", "I", 8); pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, f"Documento generado el {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="center")
-    pdf.cell(0, 5, f"Total de efectivos: {len(df_asistentes)}", ln=True, align="center")
-
-    tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    pdf.output(tmp_pdf.name)
-    return tmp_pdf.name
+    html += "</table></div></body></html>"
+    return html
 
 def _render_modulos(max_modulos: int, counter: int, dia_num: int = 1):
     labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)"]
@@ -953,10 +922,11 @@ def vista_admin():
                 row_serv_asist = df_resumen[df_resumen[COL_ID_SERV].astype(str) == id_sel_asist].iloc[0]
                 
                 c_btn_pdf, c_btn_marcar = str_lit.columns(2)
+                
                 with c_btn_pdf:
-                    if str_lit.button("📄 Generar PDF de Asistencia"):
-                        with str_lit.spinner("Generando PDF..."):
-                            pdf_path_asist = generar_pdf_asistencia(
+                    if str_lit.button("📄 Generar Reporte Web (HTML)"):
+                        with str_lit.spinner("Generando reporte..."):
+                            html_content = generar_reporte_html(
                                 df_filtrado_evento, 
                                 id_sel_asist, 
                                 str(row_serv_asist.get(COL_TIPO_EV, "")), 
@@ -964,19 +934,18 @@ def vista_admin():
                                 str(row_serv_asist.get(COL_HORARIO, "")),
                                 str(row_serv_asist.get(COL_UBI, ""))
                             )
-                            with open(pdf_path_asist, "rb") as f: pdf_bytes_asist = f.read()
-                            os.unlink(pdf_path_asist)
                             
                             nombre_ev = limpiar_texto_archivo(row_serv_asist.get(COL_TIPO_EV, ""))
-                            ubi_ev = limpiar_texto_archivo(row_serv_asist.get(COL_UBI, ""))
                             fec_sel = str(row_serv_asist.get(COL_FECHA, ""))
-                            try:
-                                partes_fecha = fec_sel.split("/")
-                                fecha_formateada = f"{partes_fecha[0].zfill(2)}{partes_fecha[1].zfill(2)}{partes_fecha[2][-2:]}" if len(partes_fecha) == 3 else fec_sel.replace("/", "")
-                            except: fecha_formateada = fec_sel.replace("/", "")
+                            nombre_archivo = f"Asistencia_{nombre_ev}_{fec_sel.replace('/','-')}.html"
                             
-                            nombre_final_pdf = f"asistencia {nombre_ev} predio {ubi_ev} {fecha_formateada}.pdf".replace(" ", "_")
-                            str_lit.download_button(label=f"📥 Descargar {nombre_final_pdf}", data=pdf_bytes_asist, file_name=nombre_final_pdf, mime="application/pdf")
+                            str_lit.download_button(
+                                label=f"📥 Descargar {nombre_archivo}",
+                                data=html_content,
+                                file_name=nombre_archivo,
+                                mime="text/html",
+                                help="Descargá este archivo y envialo por WhatsApp. Se abre como una página web."
+                            )
 
                 with c_btn_marcar:
                     if not str(row_serv_asist.get(COL_ESTADO_ASIST, "")).startswith("🟢"):
