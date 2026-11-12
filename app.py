@@ -508,7 +508,8 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
                 firma_url = str(row.get(col, ""))
                 break
         
-        if firma_url and firma_url.startswith("http"):
+        # ACEPTA BASE64 O ENLACES HTTP
+        if firma_url and (firma_url.startswith("http") or firma_url.startswith("data:image")):
             html += f"<td><img src='{firma_url}' class='firma' alt='Firma'></td>"
         else:
             html += "<td>(Sin firma)</td>"
