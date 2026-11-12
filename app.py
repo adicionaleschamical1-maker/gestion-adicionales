@@ -474,7 +474,7 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
     html += "th { background: #002060; color: white; padding: 10px; text-align: left; font-size: 13px; }"
     html += "td { padding: 10px; border-bottom: 1px solid #ddd; font-size: 13px; vertical-align: middle; }"
     html += ".dni { font-family: monospace; font-weight: bold; font-size: 15px; background: #e9ecef; padding: 4px 8px; border-radius: 4px; user-select: all; color: #8B1E1E; }"
-    html += ".firma { max-width: 100px; max-height: 50px; }"
+    html += ".firma { max-width: 150px; max-height: 70px; }"
     html += "@media print { body { background: white; padding: 0; } .card { box-shadow: none; } button { display: none; } }"
     html += "</style></head><body>"
 
@@ -508,7 +508,6 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
                 firma_url = str(row.get(col, ""))
                 break
         
-        # ACEPTA BASE64 O ENLACES HTTP
         if firma_url and (firma_url.startswith("http") or firma_url.startswith("data:image")):
             html += f"<td><img src='{firma_url}' class='firma' alt='Firma'></td>"
         else:
