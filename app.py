@@ -461,7 +461,7 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-# --- AQUÍ ESTÁ LA FUNCIÓN MODIFICADA ---
+# --- AQUÍ ESTÁ LA FUNCIÓN MODIFICADA CON LOS TURNOS ---
 def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, horario_evento, ubicacion_evento):
     html = "<html><head><meta charset='utf-8'>"
     html += "<style>"
@@ -901,11 +901,16 @@ def vista_admin():
                 df_filtrado_env = df_filtrado_env[df_filtrado_env[col_enlace_real].astype(str).str.strip() != ""]
 
             str_lit.dataframe(df_filtrado_env[[COL_ID_SERV, COL_TIPO_EV, COL_FECHA, col_enlace_real]], use_container_width=True)
-            opciones_env = [f"{r.get(COL_ID_SERV, '')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado_env.iterrows()]
+            
+            # --- AQUÍ ESTÁ EL CAMBIO PARA MOSTRAR EL TIPO DE EVENTO ---
+            opciones_env = [f"{r.get(COL_ID_SERV, '')} | {r.get(COL_TIPO_EV, 'Evento')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado_env.iterrows()]
+            
             if opciones_env:
                 elegido_env = str_lit.selectbox("Seleccionar servicio para enviar enlace", options=opciones_env, key="sel_env")
                 if elegido_env:
-                    id_sel_env = elegido_env.split(" - ")[0]
+                    # --- LEEMOS EL ID USANDO EL NUEVO SEPARADOR " | " ---
+                    id_sel_env = elegido_env.split(" | ")[0]
+                    
                     row_data_env = data[data[COL_ID_SERV].astype(str) == id_sel_env].iloc[0]
                     link_formulario_limpio = f"{URL_APPS_SCRIPT}?id_servicio={id_sel_env}"
                     str_lit.markdown("---")
