@@ -461,6 +461,7 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
+# --- AQUÍ ESTÁ LA FUNCIÓN MODIFICADA ---
 def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, horario_evento, ubicacion_evento):
     html = "<html><head><meta charset='utf-8'>"
     html += "<style>"
@@ -470,7 +471,19 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
     html += ".header h1 { color: #002060; font-size: 18px; margin: 0; }"
     html += ".header h2 { color: #8B1E1E; font-size: 14px; margin: 5px 0; }"
     html += ".info { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #002060; font-size: 14px; }"
-    html += "table { width: 100%; border-collapse: collapse; margin-top: 15px; }"
+    
+    # --- NUEVOS ESTILOS PARA LOS CUADROS DE TURNOS ---
+    html += ".seccion-box { border: 2px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 20px; }"
+    html += ".seccion-triple { border-color: #5e35b1; }"
+    html += ".seccion-doble { border-color: #1565c0; }"
+    html += ".seccion-simple { border-color: #2e7d32; }"
+    html += ".seccion-titulo { color: white; padding: 8px; border-radius: 5px; font-weight: bold; margin-bottom: 10px; font-size: 14px; }"
+    html += ".bg-triple { background: #5e35b1; }"
+    html += ".bg-doble { background: #1565c0; }"
+    html += ".bg-simple { background: #2e7d32; }"
+    # ---------------------------------------------------
+
+    html += "table { width: 100%; border-collapse: collapse; }"
     html += "th { background: #002060; color: white; padding: 10px; text-align: left; font-size: 13px; }"
     html += "td { padding: 10px; border-bottom: 1px solid #ddd; font-size: 13px; vertical-align: middle; }"
     html += ".dni { font-family: monospace; font-weight: bold; font-size: 15px; background: #e9ecef; padding: 4px 8px; border-radius: 4px; user-select: all; color: #8B1E1E; }"
@@ -492,30 +505,67 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
     html += f"<b>Ubicación:</b> {ubicacion_evento} &nbsp; | &nbsp; <b>ID Servicio:</b> {id_servicio}"
     html += "</div>"
 
-    html += "<table>"
-    html += "<tr><th>Puesto</th><th>DNI</th><th>Jerarquía</th><th>Nombre y Apellido</th><th>Firma</th></tr>"
+    # --- LÓGICA PARA SEPARAR POR TURNOS ---
+    df_triples = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Triple", case=False, na=False)]
+    df_dobles = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Doble", case=False, na=False)]
+    df_simples = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Simple", case=False, na=False)]
+    
+    df_otros = df_asistentes[
+        ~df_asistentes['Puesto Asignado'].astype(str).str.contains("Triple", case=False, na=False) &
+        ~df_asistentes['Puesto Asignado'].astype(str).str.contains("Doble", case=False, na=False) &
+        ~df_asistentes['Puesto Asignado'].astype(str).str.contains("Simple", case=False, na=False)
+    ]
 
-    for _, row in df_asistentes.iterrows():
-        html += "<tr>"
-        html += f"<td>{row.get('Puesto Asignado', '')}</td>"
-        html += f"<td><span class='dni'>{row.get('DNI', '')}</span></td>"
-        html += f"<td>{row.get('Jerarquía', '')}</td>"
-        html += f"<td>{row.get('Nombre y Apellido', '')}</td>"
-        
-        firma_url = ""
-        for col in df_asistentes.columns:
-            if "firma" in str(col).lower() or "enlace" in str(col).lower():
-                firma_url = str(row.get(col, ""))
-                break
-        
-        if firma_url and (firma_url.startswith("http") or firma_url.startswith("data:image")):
-            html += f"<td><img src='{firma_url}' class='firma' alt='Firma'></td>"
-        else:
-            html += "<td>(Sin firma)</td>"
-        
-        html += "</tr>"
+    def armar_tabla(df_seccion):
+        tabla = "<table>"
+        tabla += "<tr><th>Puesto</th><th>DNI</th><th>Jerarquía</th><th>Nombre y Apellido</th><th>Firma</th></tr>"
+        for _, row in df_seccion.iterrows():
+            tabla += "<tr>"
+            tabla += f"<td>{row.get('Puesto Asignado', '')}</td>"
+            tabla += f"<td><span class='dni'>{row.get('DNI', '')}</span></td>"
+            tabla += f"<td>{row.get('Jerarquía', '')}</td>"
+            tabla += f"<td>{row.get('Nombre y Apellido', '')}</td>"
+            
+            firma_url = ""
+            for col in df_seccion.columns:
+                if "firma" in str(col).lower() or "enlace" in str(col).lower():
+                    firma_url = str(row.get(col, ""))
+                    break
+            
+            if firma_url and (firma_url.startswith("http") or firma_url.startswith("data:image")):
+                tabla += f"<td><img src='{firma_url}' class='firma' alt='Firma'></td>"
+            else:
+                tabla += "<td>(Sin firma)</td>"
+            tabla += "</tr>"
+        tabla += "</table>"
+        return tabla
 
-    html += "</table></div></body></html>"
+    if not df_triples.empty:
+        html += "<div class='seccion-box seccion-triple'>"
+        html += "<div class='seccion-titulo bg-triple'>⏱️ TURNO TRIPLE (12h)</div>"
+        html += armar_tabla(df_triples)
+        html += "</div>"
+
+    if not df_dobles.empty:
+        html += "<div class='seccion-box seccion-doble'>"
+        html += "<div class='seccion-titulo bg-doble'>⏱️ TURNO DOBLE (8h)</div>"
+        html += armar_tabla(df_dobles)
+        html += "</div>"
+
+    if not df_simples.empty:
+        html += "<div class='seccion-box seccion-simple'>"
+        html += "<div class='seccion-titulo bg-simple'>⏱️ TURNO SIMPLE (4h)</div>"
+        html += armar_tabla(df_simples)
+        html += "</div>"
+
+    if not df_otros.empty:
+        html += "<div class='seccion-box'>"
+        html += "<div class='seccion-titulo' style='background: #666;'>OTROS PUESTOS</div>"
+        html += armar_tabla(df_otros)
+        html += "</div>"
+    # --------------------------------------
+
+    html += "</div></body></html>"
     return html
 
 def _render_modulos(max_modulos: int, counter: int, dia_num: int = 1):
