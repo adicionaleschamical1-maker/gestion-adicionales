@@ -461,7 +461,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-# --- AQUÍ ESTÁ LA FUNCIÓN MODIFICADA CON LOS TURNOS Y LA FIRMA ---
 def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, horario_evento, ubicacion_evento):
     html = "<html><head><meta charset='utf-8'>"
     html += "<style>"
@@ -517,15 +516,33 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
         tabla = "<table>"
         tabla += "<tr><th>Puesto</th><th>DNI</th><th>Jerarquía</th><th>Nombre y Apellido</th><th>Firma</th></tr>"
         for _, row in df_seccion.iterrows():
+            jerarquia_raw = str(row.get('Jerarquía', '')).strip()
+            nombre_raw = str(row.get('Nombre y Apellido', '')).strip()
+            
+            # LÓGICA INTELIGENTE PARA SEPARAR
+            if nombre_raw == "(Ver Jerarquía)":
+                partes = jerarquia_raw.split()
+                if len(partes) > 4:
+                    jerarquia_final = " ".join(partes[:-2])
+                    nombre_final = " ".join(partes[-2:])
+                elif len(partes) == 4:
+                    jerarquia_final = " ".join(partes[:-2])
+                    nombre_final = " ".join(partes[-2:])
+                else:
+                    jerarquia_final = jerarquia_raw
+                    nombre_final = nombre_raw
+            else:
+                jerarquia_final = jerarquia_raw
+                nombre_final = nombre_raw
+
             tabla += "<tr>"
             tabla += f"<td>{row.get('Puesto Asignado', '')}</td>"
             tabla += f"<td><span class='dni'>{row.get('DNI', '')}</span></td>"
-            tabla += f"<td>{row.get('Jerarquía', '')}</td>"
-            tabla += f"<td>{row.get('Nombre y Apellido', '')}</td>"
+            tabla += f"<td>{jerarquia_final}</td>"
+            tabla += f"<td>{nombre_final}</td>"
             
-            # BUSCAMOS LA FIRMA EN LA COLUMNA CORRECTA
+            # Firma
             firma_val = str(row.get("Enlace Firma", ""))
-            
             if firma_val.startswith("data:image"):
                 tabla += f"<td><img src='{firma_val}' class='firma' alt='Firma'></td>"
             elif firma_val.startswith("http"):
