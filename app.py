@@ -461,7 +461,7 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-# --- FUNCIÓN HTML CON MODO DIAGNÓSTICO ---
+# --- AQUÍ ESTÁ LA FUNCIÓN MODIFICADA CON LOS TURNOS Y LA FIRMA ---
 def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, horario_evento, ubicacion_evento):
     html = "<html><head><meta charset='utf-8'>"
     html += "<style>"
@@ -523,21 +523,13 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
             tabla += f"<td>{row.get('Jerarquía', '')}</td>"
             tabla += f"<td>{row.get('Nombre y Apellido', '')}</td>"
             
-            # --- DIAGNÓSTICO EN PANTALLA ---
-            import streamlit as st
-            st.write("### 🔍 Diagnóstico de Firma")
-            st.write("Columnas:", df_seccion.columns.tolist())
-            st.write("Datos fila 1:", row.to_dict())
-            # --------------------------------
-
-            firma_url = ""
-            for col in df_seccion.columns:
-                if "firma" in str(col).lower() or "enlace" in str(col).lower():
-                    firma_url = str(row.get(col, ""))
-                    break
+            # BUSCAMOS LA FIRMA EN LA COLUMNA CORRECTA
+            firma_val = str(row.get("Enlace Firma", ""))
             
-            if firma_url and (firma_url.startswith("http") or firma_url.startswith("data:image")):
-                tabla += f"<td><img src='{firma_url}' class='firma' alt='Firma'></td>"
+            if firma_val.startswith("data:image"):
+                tabla += f"<td><img src='{firma_val}' class='firma' alt='Firma'></td>"
+            elif firma_val.startswith("http"):
+                tabla += f"<td><a href='{firma_val}' target='_blank'>Ver Firma</a></td>"
             else:
                 tabla += "<td>(Sin firma)</td>"
             tabla += "</tr>"
