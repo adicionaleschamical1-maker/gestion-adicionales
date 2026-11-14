@@ -461,7 +461,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
-# --- AQUÍ ESTÁ LA FUNCIÓN MODIFICADA CON LOS TURNOS ---
 def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, horario_evento, ubicacion_evento):
     html = "<html><head><meta charset='utf-8'>"
     html += "<style>"
@@ -707,48 +706,64 @@ def vista_dependencia():
                                 elif not validar_cuil(cuil_pagado_por): 
                                     str_lit.error("El CUIL / CUIT ingresado es inválido (deben ser 11 números).")
                                 else:
-                                    id_servicio = f"SERV-{int(datetime.datetime.now().timestamp())}"
-                                    payload = {
-                                        "action": "crear_servicio",
-                                        "id_servicio": id_servicio, 
-                                        "dependencia": str(str_lit.session_state.dependencia),
-                                        "fecha_evento": fecha_texto, 
-                                        "tipo_evento": str(tipo_evento),
-                                        "organizador": f"{nombre_organizador} (DNI: {dni_organizador})", 
-                                        "ubicacion": str(ubicacion_predio),
-                                        "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
-                                        "cant_jefes": int(total_jefes), 
-                                        "cant_subalternos": int(total_subalternos),
-                                        "modulos": int(max_modulos), 
-                                        "monto_total": float(monto_total),
-                                        "jefes_simples": int(js_simple), 
-                                        "subalternos_simples": int(subs_simple),
-                                        "jefes_dobles": int(js_doble), 
-                                        "subalternos_dobles": int(subs_doble),
-                                        "jefes_triples": int(js_triple), 
-                                        "subalternos_triples": int(subs_triple),
-                                        "pagado_por": str(pagado_por), 
-                                        "cuil_pagado_por": str(cuil_pagado_por),
-                                        "estado_central": "🟡 Pendiente",
-                                        "file_comp_base64": base64.b64encode(file_comp.getvalue()).decode("utf-8"),
-                                        "name_comp": f"{id_servicio}_comprobante.{file_comp.name.split('.')[-1]}", 
-                                        "type_comp": file_comp.type,
-                                        "file_hab_base64": base64.b64encode(file_hab.getvalue()).decode("utf-8") if file_hab else "",
-                                        "name_hab": f"{id_servicio}_habilitacion.{file_hab.name.split('.')[-1]}" if file_hab else "", 
-                                        "type_hab": file_hab.type if file_hab else "",
-                                        "file_cont_base64": base64.b64encode(file_cont.getvalue()).decode("utf-8") if file_cont else "",
-                                        "name_cont": f"{id_servicio}_contrato.{file_cont.name.split('.')[-1]}" if file_cont else "", 
-                                        "type_cont": file_cont.type if file_cont else "",
-                                    }
+                                    base_id = f"SERV-{int(datetime.datetime.now().timestamp())}"
+                                    
+                                    def enviar_payload(id_para_enviar, fecha_para_enviar):
+                                        payload = {
+                                            "action": "crear_servicio",
+                                            "id_servicio": id_para_enviar, 
+                                            "dependencia": str(str_lit.session_state.dependencia),
+                                            "fecha_evento": fecha_para_enviar, 
+                                            "tipo_evento": str(tipo_evento),
+                                            "organizador": f"{nombre_organizador} (DNI: {dni_organizador})", 
+                                            "ubicacion": str(ubicacion_predio),
+                                            "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
+                                            "cant_jefes": int(total_jefes), 
+                                            "cant_subalternos": int(total_subalternos),
+                                            "modulos": int(max_modulos), 
+                                            "monto_total": float(monto_total),
+                                            "jefes_simples": int(js_simple), 
+                                            "subalternos_simples": int(subs_simple),
+                                            "jefes_dobles": int(js_doble), 
+                                            "subalternos_dobles": int(subs_doble),
+                                            "jefes_triples": int(js_triple), 
+                                            "subalternos_triples": int(subs_triple),
+                                            "pagado_por": str(pagado_por), 
+                                            "cuil_pagado_por": str(cuil_pagado_por),
+                                            "estado_central": "🟡 Pendiente",
+                                            "file_comp_base64": base64.b64encode(file_comp.getvalue()).decode("utf-8"),
+                                            "name_comp": f"{id_para_enviar}_comprobante.{file_comp.name.split('.')[-1]}", 
+                                            "type_comp": file_comp.type,
+                                            "file_hab_base64": base64.b64encode(file_hab.getvalue()).decode("utf-8") if file_hab else "",
+                                            "name_hab": f"{id_para_enviar}_habilitacion.{file_hab.name.split('.')[-1]}" if file_hab else "", 
+                                            "type_hab": file_hab.type if file_hab else "",
+                                            "file_cont_base64": base64.b64encode(file_cont.getvalue()).decode("utf-8") if file_cont else "",
+                                            "name_cont": f"{id_para_enviar}_contrato.{file_cont.name.split('.')[-1]}" if file_cont else "", 
+                                            "type_cont": file_cont.type if file_cont else "",
+                                        }
+                                        return _post_apps_script(payload)
+
                                     with str_lit.spinner("Enviando solicitud a la nube..."):
-                                        res = _post_apps_script(payload)
-                                        if res.get("status") == "success":
-                                            str_lit.success("¡Solicitud registrada con éxito!")
-                                            str_lit.session_state[f"fecha_elegida_{counter}"] = False
-                                            str_lit.session_state.form_counter += 1
-                                            str_lit.cache_data.clear(); str_lit.rerun()
-                                        else: 
-                                            str_lit.error(f"Error al enviar: {res.get('message')}")
+                                        if cant_dias == 2:
+                                            res1 = enviar_payload(f"{base_id}_D1", fec_inicio.strftime('%d/%m/%Y'))
+                                            res2 = enviar_payload(f"{base_id}_D2", fec_fin.strftime('%d/%m/%Y'))
+                                            
+                                            if res1.get("status") == "success" and res2.get("status") == "success":
+                                                str_lit.success("¡Solicitudes para ambos días registradas con éxito!")
+                                                str_lit.session_state[f"fecha_elegida_{counter}"] = False
+                                                str_lit.session_state.form_counter += 1
+                                                str_lit.cache_data.clear(); str_lit.rerun()
+                                            else:
+                                                str_lit.error("Hubo un error al guardar uno de los días. Revisá la planilla.")
+                                        else:
+                                            res = enviar_payload(base_id, fec_inicio.strftime('%d/%m/%Y'))
+                                            if res.get("status") == "success":
+                                                str_lit.success("¡Solicitud registrada con éxito!")
+                                                str_lit.session_state[f"fecha_elegida_{counter}"] = False
+                                                str_lit.session_state.form_counter += 1
+                                                str_lit.cache_data.clear(); str_lit.rerun()
+                                            else: 
+                                                str_lit.error(f"Error al enviar: {res.get('message')}")
 
     with tab2:
         str_lit.header("Servicios Pendientes de Planilla de Asistencia")
@@ -902,13 +917,11 @@ def vista_admin():
 
             str_lit.dataframe(df_filtrado_env[[COL_ID_SERV, COL_TIPO_EV, COL_FECHA, col_enlace_real]], use_container_width=True)
             
-            # --- AQUÍ ESTÁ EL CAMBIO PARA MOSTRAR EL TIPO DE EVENTO ---
             opciones_env = [f"{r.get(COL_ID_SERV, '')} | {r.get(COL_TIPO_EV, 'Evento')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado_env.iterrows()]
             
             if opciones_env:
                 elegido_env = str_lit.selectbox("Seleccionar servicio para enviar enlace", options=opciones_env, key="sel_env")
                 if elegido_env:
-                    # --- LEEMOS EL ID USANDO EL NUEVO SEPARADOR " | " ---
                     id_sel_env = elegido_env.split(" | ")[0]
                     
                     row_data_env = data[data[COL_ID_SERV].astype(str) == id_sel_env].iloc[0]
