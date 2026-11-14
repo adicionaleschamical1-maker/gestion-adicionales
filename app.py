@@ -168,28 +168,6 @@ def verificar_modo_mantenimiento() -> bool:
         return False
     except Exception: return False
 
-# --- NUEVAS FUNCIONES DE MEMORIA ---
-@str_lit.cache_data(ttl=5, show_spinner=False)
-def cargar_organizadores_df() -> pd.DataFrame:
-    try: 
-        df = pd.DataFrame(abrir_hoja("Organizadores").get_all_records())
-        if not df.empty: df.columns = [str(c).strip().lower() for c in df.columns]
-        return df
-    except Exception as e: 
-        logger.error(f"Error organizadores: {e}")
-        return pd.DataFrame()
-
-@str_lit.cache_data(ttl=5, show_spinner=False)
-def cargar_pagadores_df() -> pd.DataFrame:
-    try: 
-        df = pd.DataFrame(abrir_hoja("Pagadores").get_all_records())
-        if not df.empty: df.columns = [str(c).strip().lower() for c in df.columns]
-        return df
-    except Exception as e: 
-        logger.error(f"Error pagadores: {e}")
-        return pd.DataFrame()
-# ------------------------------------
-
 def boton_refrescar():
     if str_lit.sidebar.button("🔄 Refrescar datos"):
         str_lit.cache_data.clear(); str_lit.rerun()
@@ -483,6 +461,7 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
 
+# --- FUNCIÓN HTML CON MODO DIAGNÓSTICO ---
 def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, horario_evento, ubicacion_evento):
     html = "<html><head><meta charset='utf-8'>"
     html += "<style>"
@@ -544,6 +523,13 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
             tabla += f"<td>{row.get('Jerarquía', '')}</td>"
             tabla += f"<td>{row.get('Nombre y Apellido', '')}</td>"
             
+            # --- DIAGNÓSTICO EN PANTALLA ---
+            import streamlit as st
+            st.write("### 🔍 Diagnóstico de Firma")
+            st.write("Columnas:", df_seccion.columns.tolist())
+            st.write("Datos fila 1:", row.to_dict())
+            # --------------------------------
+
             firma_url = ""
             for col in df_seccion.columns:
                 if "firma" in str(col).lower() or "enlace" in str(col).lower():
@@ -636,56 +622,21 @@ def vista_dependencia():
             tipo_evento = str_lit.text_input("Tipo de evento", key=f"tipo_{counter}")
             
             if tipo_evento.strip():
-                
-                # --- MEMORIA DE ORGANIZADORES ---
-                df_orgs = cargar_organizadores_df()
                 col_org1, col_org2 = str_lit.columns(2)
-                with col_org2: 
-                    dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
-                
-                nombre_default = ""
-                cuil_default_org = ""
-                
-                if not df_orgs.empty and dni_organizador.strip():
-                    match = df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()]
-                    if not match.empty:
-                        nombre_default = str(match.iloc[0].get("nombre", ""))
-                        cuil_default_org = str(match.iloc[0].get("cuil", ""))
-                        str_lit.info(f"💡 Organizador reconocido: {nombre_default}")
-
-                with col_org1: 
-                    nombre_organizador = str_lit.text_input("Nombre Organizador", value=nombre_default, key=f"nom_org_{counter}")
+                with col_org1: nombre_organizador = str_lit.text_input("Nombre Organizador", key=f"nom_org_{counter}")
+                with col_org2: dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
                 
                 if nombre_organizador.strip() and dni_organizador.strip():
                     es_mismo_pagador = str_lit.checkbox("El organizador es la misma persona que paga", value=True, key=f"mismo_pag_{counter}")
                     
                     if es_mismo_pagador:
                         pagado_por = f"{nombre_organizador} (DNI: {dni_organizador})"
-                        cuil_pagado_por = str_lit.text_input("CUIL / CUIT del Organizador (11 dígitos)", value=cuil_default_org, key=f"cuil_org_{counter}")
-                        dni_pagador = dni_organizador # Para guardar en memoria
-                        nombre_pagador = nombre_organizador
+                        cuil_pagado_por = str_lit.text_input("CUIL / CUIT del Organizador (11 dígitos)", key=f"cuil_org_{counter}")
                     else:
-                        # --- MEMORIA DE PAGADORES ---
-                        df_pags = cargar_pagadores_df()
                         col_pag1, col_pag2, col_pag3 = str_lit.columns(3)
-                        with col_pag2: 
-                            dni_pagador = str_lit.text_input("DNI del Pagador", key=f"dni_pag_{counter}")
-                        
-                        nombre_pag_default = ""
-                        cuil_pag_default = ""
-                        
-                        if not df_pags.empty and dni_pagador.strip():
-                            match_pag = df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()]
-                            if not match_pag.empty:
-                                nombre_pag_default = str(match_pag.iloc[0].get("nombre", ""))
-                                cuil_pag_default = str(match_pag.iloc[0].get("cuil", ""))
-                                str_lit.info(f"💡 Pagador reconocido: {nombre_pag_default}")
-                        
-                        with col_pag1: 
-                            nombre_pagador = str_lit.text_input("Nombre del Pagador", value=nombre_pag_default, key=f"nom_pag_{counter}")
-                        with col_pag3: 
-                            cuil_pagado_por = str_lit.text_input("CUIL / CUIT a Facturar (11 dígitos)", value=cuil_pag_default, key=f"cuil_pag_{counter}")
-                        
+                        with col_pag1: nombre_pagador = str_lit.text_input("Nombre del Pagador", key=f"nom_pag_{counter}")
+                        with col_pag2: dni_pagador = str_lit.text_input("DNI del Pagador", key=f"dni_pag_{counter}")
+                        with col_pag3: cuil_pagado_por = str_lit.text_input("CUIL / CUIT a Facturar (11 dígitos)", key=f"cuil_pag_{counter}")
                         pagado_por = f"{nombre_pagador} (DNI: {dni_pagador})"
 
                     if pagado_por.strip() and cuil_pagado_por.strip():
@@ -759,22 +710,6 @@ def vista_dependencia():
                                 elif not validar_cuil(cuil_pagado_por): 
                                     str_lit.error("El CUIL / CUIT ingresado es inválido (deben ser 11 números).")
                                 else:
-                                    # --- GUARDAR EN MEMORIA ---
-                                    try:
-                                        # Guardar Organizador
-                                        if df_orgs.empty or df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()].empty:
-                                            abrir_hoja("Organizadores").append_row([dni_organizador.strip(), nombre_organizador.strip(), cuil_default_org])
-                                        
-                                        # Guardar Pagador (si es distinto)
-                                        if not es_mismo_pagador:
-                                            if df_pags.empty or df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()].empty:
-                                                abrir_hoja("Pagadores").append_row([dni_pagador.strip(), nombre_pagador.strip(), cuil_pagado_por.strip()])
-                                        
-                                        str_lit.cache_data.clear() # Refrescar memoria
-                                    except Exception as e:
-                                        logger.error(f"Error guardando memoria: {e}")
-                                    # --------------------------
-
                                     base_id = f"SERV-{int(datetime.datetime.now().timestamp())}"
                                     
                                     def enviar_payload(id_para_enviar, fecha_para_enviar):
