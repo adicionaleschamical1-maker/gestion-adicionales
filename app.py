@@ -168,6 +168,28 @@ def verificar_modo_mantenimiento() -> bool:
         return False
     except Exception: return False
 
+# --- FUNCIONES DE MEMORIA DE ORGANIZADORES Y PAGADORES ---
+@str_lit.cache_data(ttl=5, show_spinner=False)
+def cargar_organizadores_df() -> pd.DataFrame:
+    try: 
+        df = pd.DataFrame(abrir_hoja("Organizadores").get_all_records())
+        if not df.empty: df.columns = [str(c).strip().lower() for c in df.columns]
+        return df
+    except Exception as e: 
+        logger.error(f"Error organizadores: {e}")
+        return pd.DataFrame()
+
+@str_lit.cache_data(ttl=5, show_spinner=False)
+def cargar_pagadores_df() -> pd.DataFrame:
+    try: 
+        df = pd.DataFrame(abrir_hoja("Pagadores").get_all_records())
+        if not df.empty: df.columns = [str(c).strip().lower() for c in df.columns]
+        return df
+    except Exception as e: 
+        logger.error(f"Error pagadores: {e}")
+        return pd.DataFrame()
+# ---------------------------------------------------------
+
 def boton_refrescar():
     if str_lit.sidebar.button("🔄 Refrescar datos"):
         str_lit.cache_data.clear(); str_lit.rerun()
@@ -516,32 +538,12 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
         tabla = "<table>"
         tabla += "<tr><th>Puesto</th><th>DNI</th><th>Jerarquía</th><th>Nombre y Apellido</th><th>Firma</th></tr>"
         for _, row in df_seccion.iterrows():
-            jerarquia_raw = str(row.get('Jerarquía', '')).strip()
-            nombre_raw = str(row.get('Nombre y Apellido', '')).strip()
-            
-            # LÓGICA INTELIGENTE PARA SEPARAR
-            if nombre_raw == "(Ver Jerarquía)":
-                partes = jerarquia_raw.split()
-                if len(partes) > 4:
-                    jerarquia_final = " ".join(partes[:-2])
-                    nombre_final = " ".join(partes[-2:])
-                elif len(partes) == 4:
-                    jerarquia_final = " ".join(partes[:-2])
-                    nombre_final = " ".join(partes[-2:])
-                else:
-                    jerarquia_final = jerarquia_raw
-                    nombre_final = nombre_raw
-            else:
-                jerarquia_final = jerarquia_raw
-                nombre_final = nombre_raw
-
             tabla += "<tr>"
             tabla += f"<td>{row.get('Puesto Asignado', '')}</td>"
             tabla += f"<td><span class='dni'>{row.get('DNI', '')}</span></td>"
-            tabla += f"<td>{jerarquia_final}</td>"
-            tabla += f"<td>{nombre_final}</td>"
+            tabla += f"<td>{row.get('Jerarquía', '')}</td>"
+            tabla += f"<td>{row.get('Nombre y Apellido', '')}</td>"
             
-            # Firma
             firma_val = str(row.get("Enlace Firma", ""))
             if firma_val.startswith("data:image"):
                 tabla += f"<td><img src='{firma_val}' class='firma' alt='Firma'></td>"
@@ -631,152 +633,204 @@ def vista_dependencia():
             tipo_evento = str_lit.text_input("Tipo de evento", key=f"tipo_{counter}")
             
             if tipo_evento.strip():
+                
+                # --- MEMORIA DE ORGANIZADORES Y PAGADORES ---
+                df_orgs = cargar_organizadores_df()
+                
                 col_org1, col_org2 = str_lit.columns(2)
-                with col_org1: nombre_organizador = str_lit.text_input("Nombre Organizador", key=f"nom_org_{counter}")
-                with col_org2: dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
+                with col_org2: 
+                    dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
+                
+                nombre_default = ""
+                cuil_default_org = ""
+                
+                if not df_orgs.empty and dni_organizador.strip():
+                    match = df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()]
+                    if not match.empty:
+                        nombre_default = str(match.iloc[0].get("nombre", ""))
+                        cuil_default_org = str(match.iloc[0].get("cuil", ""))
+                        str_lit.info(f"💡 Organizador reconocido: {nombre_default}")
+
+                with col_org1: 
+                    nombre_organizador = str_lit.text_input("Nombre Organizador", value=nombre_default, key=f"nom_org_{counter}")
                 
                 if nombre_organizador.strip() and dni_organizador.strip():
                     es_mismo_pagador = str_lit.checkbox("El organizador es la misma persona que paga", value=True, key=f"mismo_pag_{counter}")
                     
                     if es_mismo_pagador:
                         pagado_por = f"{nombre_organizador} (DNI: {dni_organizador})"
-                        cuil_pagado_por = str_lit.text_input("CUIL / CUIT del Organizador (11 dígitos)", key=f"cuil_org_{counter}")
+                        cuil_pagado_por = str_lit.text_input("CUIL / CUIT del Organizador (11 dígitos)", value=cuil_default_org, key=f"cuil_org_{counter}")
+                        dni_pagador = dni_organizador
+                        nombre_pagador = nombre_organizador
+                        cuil_pagador = cuil_pagado_por
                     else:
+                        df_pags = cargar_pagadores_df()
                         col_pag1, col_pag2, col_pag3 = str_lit.columns(3)
-                        with col_pag1: nombre_pagador = str_lit.text_input("Nombre del Pagador", key=f"nom_pag_{counter}")
-                        with col_pag2: dni_pagador = str_lit.text_input("DNI del Pagador", key=f"dni_pag_{counter}")
-                        with col_pag3: cuil_pagado_por = str_lit.text_input("CUIL / CUIT a Facturar (11 dígitos)", key=f"cuil_pag_{counter}")
+                        with col_pag2: 
+                            dni_pagador = str_lit.text_input("DNI del Pagador", key=f"dni_pag_{counter}")
+                        
+                        nombre_pag_default = ""
+                        cuil_pag_default = ""
+                        
+                        if not df_pags.empty and dni_pagador.strip():
+                            match_pag = df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()]
+                            if not match_pag.empty:
+                                nombre_pag_default = str(match_pag.iloc[0].get("nombre", ""))
+                                cuil_pag_default = str(match_pag.iloc[0].get("cuil", ""))
+                                str_lit.info(f"💡 Pagador reconocido: {nombre_pag_default}")
+                        
+                        with col_pag1: 
+                            nombre_pagador = str_lit.text_input("Nombre del Pagador", value=nombre_pag_default, key=f"nom_pag_{counter}")
+                        with col_pag3: 
+                            cuil_pagado_por = str_lit.text_input("CUIL / CUIT a Facturar (11 dígitos)", value=cuil_pag_default, key=f"cuil_pag_{counter}")
+                        
                         pagado_por = f"{nombre_pagador} (DNI: {dni_pagador})"
+                        cuil_pagador = cuil_pagado_por
+                # --------------------------------------------
 
-                    if pagado_por.strip() and cuil_pagado_por.strip():
-                        ubicacion_predio = str_lit.text_input("Ubicación / Predio", key=f"ubi_{counter}")
-                        if ubicacion_predio.strip():
-                            col_h1, col_h2 = str_lit.columns(2)
-                            with col_h1: hora_inicio = str_lit.time_input("Hora Inicio", value=datetime.time(15, 0), key=f"h_ini_{counter}")
-                            with col_h2: hora_fin = str_lit.time_input("Hora Fin", value=datetime.time(19, 0), key=f"h_fin_{counter}")
+                if pagado_por.strip() and cuil_pagado_por.strip():
+                    ubicacion_predio = str_lit.text_input("Ubicación / Predio", key=f"ubi_{counter}")
+                    if ubicacion_predio.strip():
+                        col_h1, col_h2 = str_lit.columns(2)
+                        with col_h1: hora_inicio = str_lit.time_input("Hora Inicio", value=datetime.time(15, 0), key=f"h_ini_{counter}")
+                        with col_h2: hora_fin = str_lit.time_input("Hora Fin", value=datetime.time(19, 0), key=f"h_fin_{counter}")
+                        
+                        diferencia_horas, max_modulos = calcular_monto_y_modulos(hora_inicio, hora_fin)
+                        
+                        if cant_dias == 2:
+                            str_lit.markdown("---")
+                            str_lit.markdown("### 📅 Distribución de Efectivos para el Día 1")
+                            jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
                             
-                            diferencia_horas, max_modulos = calcular_monto_y_modulos(hora_inicio, hora_fin)
+                            str_lit.markdown("---")
+                            str_lit.markdown("### 📅 Distribución de Efectivos para el Día 2")
+                            jefes_d2, subs_d2 = _render_modulos(max_modulos, counter, dia_num=2)
                             
-                            if cant_dias == 2:
-                                str_lit.markdown("---")
-                                str_lit.markdown("### 📅 Distribución de Efectivos para el Día 1")
-                                jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
-                                
-                                str_lit.markdown("---")
-                                str_lit.markdown("### 📅 Distribución de Efectivos para el Día 2")
-                                jefes_d2, subs_d2 = _render_modulos(max_modulos, counter, dia_num=2)
-                                
-                                total_jefes_d1 = sum(jefes_d1)
-                                total_subs_d1 = sum(subs_d1)
-                                monto_d1 = calcular_monto_total(jefes_d1, subs_d1)
-                                
-                                total_jefes_d2 = sum(jefes_d2)
-                                total_subs_d2 = sum(subs_d2)
-                                monto_d2 = calcular_monto_total(jefes_d2, subs_d2)
-                                
-                                total_jefes = total_jefes_d1 + total_jefes_d2
-                                total_subalternos = total_subs_d1 + total_subs_d2
-                                monto_total = monto_d1 + monto_d2
-                                
-                                js_simple = jefes_d1[0] + jefes_d2[0]
-                                subs_simple = subs_d1[0] + subs_d2[0]
-                                js_doble = jefes_d1[1] + jefes_d2[1]
-                                subs_doble = subs_d1[1] + subs_d2[1]
-                                js_triple = jefes_d1[2] + jefes_d2[2]
-                                subs_triple = subs_d1[2] + subs_d2[2]
+                            total_jefes_d1 = sum(jefes_d1)
+                            total_subs_d1 = sum(subs_d1)
+                            monto_d1 = calcular_monto_total(jefes_d1, subs_d1)
+                            
+                            total_jefes_d2 = sum(jefes_d2)
+                            total_subs_d2 = sum(subs_d2)
+                            monto_d2 = calcular_monto_total(jefes_d2, subs_d2)
+                            
+                            total_jefes = total_jefes_d1 + total_jefes_d2
+                            total_subalternos = total_subs_d1 + total_subs_d2
+                            monto_total = monto_d1 + monto_d2
+                            
+                            js_simple = jefes_d1[0] + jefes_d2[0]
+                            subs_simple = subs_d1[0] + subs_d2[0]
+                            js_doble = jefes_d1[1] + jefes_d2[1]
+                            subs_doble = subs_d1[1] + subs_d2[1]
+                            js_triple = jefes_d1[2] + jefes_d2[2]
+                            subs_triple = subs_d1[2] + subs_d2[2]
+                        else:
+                            jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
+                            total_jefes = sum(jefes_d1)
+                            total_subalternos = sum(subs_d1)
+                            monto_total = calcular_monto_total(jefes_d1, subs_d1)
+                            
+                            js_simple = jefes_d1[0]
+                            subs_simple = subs_d1[0]
+                            js_doble = jefes_d1[1]
+                            subs_doble = subs_d1[1]
+                            js_triple = jefes_d1[2]
+                            subs_triple = subs_d1[2]
+                        
+                        str_lit.markdown(f"""
+                            <div class="monto-box">
+                                <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 5px;">TOTAL ESTIMADO A PAGAR (aprox)</div>
+                                <div class="monto-total">${monto_total:,.2f}</div>
+                                <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos} (Módulos: {max_modulos})</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        with str_lit.form(f"form_envio_{counter}"):
+                            file_comp = str_lit.file_uploader("Comprobante de Pago (OBLIGATORIO)", type=["png", "jpg", "jpeg", "pdf"], key=f"comp_{counter}")
+                            file_hab = str_lit.file_uploader("Habilitación Municipal (Opcional)", type=["png", "jpg", "jpeg", "pdf"], key=f"hab_{counter}")
+                            file_cont = str_lit.file_uploader("Contrato (Opcional)", type=["png", "jpg", "jpeg", "pdf"], key=f"cont_{counter}")
+                            submitted = str_lit.form_submit_button("🚀 Enviar Solicitud Definitiva")
+
+                        if submitted:
+                            if total_jefes == 0 and total_subalternos == 0: 
+                                str_lit.error("Asigne al menos un efectivo.")
+                            elif not file_comp: 
+                                str_lit.error("Debe subir el Comprobante de Pago obligatoriamente.")
+                            elif not validar_cuil(cuil_pagado_por): 
+                                str_lit.error("El CUIL / CUIT ingresado es inválido (deben ser 11 números).")
                             else:
-                                jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
-                                total_jefes = sum(jefes_d1)
-                                total_subalternos = sum(subs_d1)
-                                monto_total = calcular_monto_total(jefes_d1, subs_d1)
-                                
-                                js_simple = jefes_d1[0]
-                                subs_simple = subs_d1[0]
-                                js_doble = jefes_d1[1]
-                                subs_doble = subs_d1[1]
-                                js_triple = jefes_d1[2]
-                                subs_triple = subs_d1[2]
-                            
-                            str_lit.markdown(f"""
-                                <div class="monto-box">
-                                    <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 5px;">TOTAL ESTIMADO A PAGAR (aprox)</div>
-                                    <div class="monto-total">${monto_total:,.2f}</div>
-                                    <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos} (Módulos: {max_modulos})</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                            
-                            with str_lit.form(f"form_envio_{counter}"):
-                                file_comp = str_lit.file_uploader("Comprobante de Pago (OBLIGATORIO)", type=["png", "jpg", "jpeg", "pdf"], key=f"comp_{counter}")
-                                file_hab = str_lit.file_uploader("Habilitación Municipal (Opcional)", type=["png", "jpg", "jpeg", "pdf"], key=f"hab_{counter}")
-                                file_cont = str_lit.file_uploader("Contrato (Opcional)", type=["png", "jpg", "jpeg", "pdf"], key=f"cont_{counter}")
-                                submitted = str_lit.form_submit_button("🚀 Enviar Solicitud Definitiva")
-
-                            if submitted:
-                                if total_jefes == 0 and total_subalternos == 0: 
-                                    str_lit.error("Asigne al menos un efectivo.")
-                                elif not file_comp: 
-                                    str_lit.error("Debe subir el Comprobante de Pago obligatoriamente.")
-                                elif not validar_cuil(cuil_pagado_por): 
-                                    str_lit.error("El CUIL / CUIT ingresado es inválido (deben ser 11 números).")
-                                else:
-                                    base_id = f"SERV-{int(datetime.datetime.now().timestamp())}"
+                                # --- GUARDAR EN MEMORIA ---
+                                try:
+                                    if df_orgs.empty or df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()].empty:
+                                        abrir_hoja("Organizadores").append_row([dni_organizador.strip(), nombre_organizador.strip(), cuil_default_org])
                                     
-                                    def enviar_payload(id_para_enviar, fecha_para_enviar):
-                                        payload = {
-                                            "action": "crear_servicio",
-                                            "id_servicio": id_para_enviar, 
-                                            "dependencia": str(str_lit.session_state.dependencia),
-                                            "fecha_evento": fecha_para_enviar, 
-                                            "tipo_evento": str(tipo_evento),
-                                            "organizador": f"{nombre_organizador} (DNI: {dni_organizador})", 
-                                            "ubicacion": str(ubicacion_predio),
-                                            "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
-                                            "cant_jefes": int(total_jefes), 
-                                            "cant_subalternos": int(total_subalternos),
-                                            "modulos": int(max_modulos), 
-                                            "monto_total": float(monto_total),
-                                            "jefes_simples": int(js_simple), 
-                                            "subalternos_simples": int(subs_simple),
-                                            "jefes_dobles": int(js_doble), 
-                                            "subalternos_dobles": int(subs_doble),
-                                            "jefes_triples": int(js_triple), 
-                                            "subalternos_triples": int(subs_triple),
-                                            "pagado_por": str(pagado_por), 
-                                            "cuil_pagado_por": str(cuil_pagado_por),
-                                            "estado_central": "🟡 Pendiente",
-                                            "file_comp_base64": base64.b64encode(file_comp.getvalue()).decode("utf-8"),
-                                            "name_comp": f"{id_para_enviar}_comprobante.{file_comp.name.split('.')[-1]}", 
-                                            "type_comp": file_comp.type,
-                                            "file_hab_base64": base64.b64encode(file_hab.getvalue()).decode("utf-8") if file_hab else "",
-                                            "name_hab": f"{id_para_enviar}_habilitacion.{file_hab.name.split('.')[-1]}" if file_hab else "", 
-                                            "type_hab": file_hab.type if file_hab else "",
-                                            "file_cont_base64": base64.b64encode(file_cont.getvalue()).decode("utf-8") if file_cont else "",
-                                            "name_cont": f"{id_para_enviar}_contrato.{file_cont.name.split('.')[-1]}" if file_cont else "", 
-                                            "type_cont": file_cont.type if file_cont else "",
-                                        }
-                                        return _post_apps_script(payload)
+                                    if not es_mismo_pagador:
+                                        if df_pags.empty or df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()].empty:
+                                            abrir_hoja("Pagadores").append_row([dni_pagador.strip(), nombre_pagador.strip(), cuil_pagado_por.strip()])
+                                    
+                                    str_lit.cache_data.clear()
+                                except Exception as e:
+                                    logger.error(f"Error guardando memoria: {e}")
+                                # --------------------------
 
-                                    with str_lit.spinner("Enviando solicitud a la nube..."):
-                                        if cant_dias == 2:
-                                            res1 = enviar_payload(f"{base_id}_D1", fec_inicio.strftime('%d/%m/%Y'))
-                                            res2 = enviar_payload(f"{base_id}_D2", fec_fin.strftime('%d/%m/%Y'))
-                                            
-                                            if res1.get("status") == "success" and res2.get("status") == "success":
-                                                str_lit.success("¡Solicitudes para ambos días registradas con éxito!")
-                                                str_lit.session_state[f"fecha_elegida_{counter}"] = False
-                                                str_lit.session_state.form_counter += 1
-                                                str_lit.cache_data.clear(); str_lit.rerun()
-                                            else:
-                                                str_lit.error("Hubo un error al guardar uno de los días. Revisá la planilla.")
+                                base_id = f"SERV-{int(datetime.datetime.now().timestamp())}"
+                                
+                                def enviar_payload(id_para_enviar, fecha_para_enviar):
+                                    payload = {
+                                        "action": "crear_servicio",
+                                        "id_servicio": id_para_enviar, 
+                                        "dependencia": str(str_lit.session_state.dependencia),
+                                        "fecha_evento": fecha_para_enviar, 
+                                        "tipo_evento": str(tipo_evento),
+                                        "organizador": f"{nombre_organizador} (DNI: {dni_organizador})", 
+                                        "ubicacion": str(ubicacion_predio),
+                                        "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
+                                        "cant_jefes": int(total_jefes), 
+                                        "cant_subalternos": int(total_subalternos),
+                                        "modulos": int(max_modulos), 
+                                        "monto_total": float(monto_total),
+                                        "jefes_simples": int(js_simple), 
+                                        "subalternos_simples": int(subs_simple),
+                                        "jefes_dobles": int(js_doble), 
+                                        "subalternos_dobles": int(subs_doble),
+                                        "jefes_triples": int(js_triple), 
+                                        "subalternos_triples": int(subs_triple),
+                                        "pagado_por": str(pagado_por), 
+                                        "cuil_pagado_por": str(cuil_pagado_por),
+                                        "estado_central": "🟡 Pendiente",
+                                        "file_comp_base64": base64.b64encode(file_comp.getvalue()).decode("utf-8"),
+                                        "name_comp": f"{id_para_enviar}_comprobante.{file_comp.name.split('.')[-1]}", 
+                                        "type_comp": file_comp.type,
+                                        "file_hab_base64": base64.b64encode(file_hab.getvalue()).decode("utf-8") if file_hab else "",
+                                        "name_hab": f"{id_para_enviar}_habilitacion.{file_hab.name.split('.')[-1]}" if file_hab else "", 
+                                        "type_hab": file_hab.type if file_hab else "",
+                                        "file_cont_base64": base64.b64encode(file_cont.getvalue()).decode("utf-8") if file_cont else "",
+                                        "name_cont": f"{id_para_enviar}_contrato.{file_cont.name.split('.')[-1]}" if file_cont else "", 
+                                        "type_cont": file_cont.type if file_cont else "",
+                                    }
+                                    return _post_apps_script(payload)
+
+                                with str_lit.spinner("Enviando solicitud a la nube..."):
+                                    if cant_dias == 2:
+                                        res1 = enviar_payload(f"{base_id}_D1", fec_inicio.strftime('%d/%m/%Y'))
+                                        res2 = enviar_payload(f"{base_id}_D2", fec_fin.strftime('%d/%m/%Y'))
+                                        
+                                        if res1.get("status") == "success" and res2.get("status") == "success":
+                                            str_lit.success("¡Solicitudes para ambos días registradas con éxito!")
+                                            str_lit.session_state[f"fecha_elegida_{counter}"] = False
+                                            str_lit.session_state.form_counter += 1
+                                            str_lit.cache_data.clear(); str_lit.rerun()
                                         else:
-                                            res = enviar_payload(base_id, fec_inicio.strftime('%d/%m/%Y'))
-                                            if res.get("status") == "success":
-                                                str_lit.success("¡Solicitud registrada con éxito!")
-                                                str_lit.session_state[f"fecha_elegida_{counter}"] = False
-                                                str_lit.session_state.form_counter += 1
-                                                str_lit.cache_data.clear(); str_lit.rerun()
-                                            else: 
-                                                str_lit.error(f"Error al enviar: {res.get('message')}")
+                                            str_lit.error("Hubo un error al guardar uno de los días. Revisá la planilla.")
+                                    else:
+                                        res = enviar_payload(base_id, fec_inicio.strftime('%d/%m/%Y'))
+                                        if res.get("status") == "success":
+                                            str_lit.success("¡Solicitud registrada con éxito!")
+                                            str_lit.session_state[f"fecha_elegida_{counter}"] = False
+                                            str_lit.session_state.form_counter += 1
+                                            str_lit.cache_data.clear(); str_lit.rerun()
+                                        else: 
+                                            str_lit.error(f"Error al enviar: {res.get('message')}")
 
     with tab2:
         str_lit.header("Servicios Pendientes de Planilla de Asistencia")
