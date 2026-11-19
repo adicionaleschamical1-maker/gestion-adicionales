@@ -371,7 +371,8 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     seccion_titulo("1. DATOS GENERALES DEL EVENTO")
     fecha_ev_str = str(row.get(COL_FECHA, ''))
     fila_tabla("Dependencia", str(row.get(COL_DEP, '')), "Fecha(s)", fecha_ev_str)
-    fila_tabla("Tipo de Evento", str(row.get(COL_TIPO_EV, '')), "Horario", str(row.get(COL_HORARIO, '')))
+    # Le damos más ancho al Tipo de Evento (w2=70) y menos al Horario (w3=25)
+    fila_tabla("Tipo de Evento", str(row.get(COL_TIPO_EV, '')), "Horario", str(row.get(COL_HORARIO, '')), 35, 70, 25, 60)
     fila_completa("Ubicación / Predio", str(row.get(COL_UBI, '')))
     fila_completa("Organizador", str(row.get('Organizador', '')))
 
@@ -686,7 +687,11 @@ def vista_dependencia():
                         
                         pagado_por = f"{nombre_pagador} (DNI: {dni_pagador})"
                         cuil_pagador = cuil_pagado_por
-                # --------------------------------------------
+                
+                # ACÁ ESTÁ LA CORRECCIÓN: Inicializamos por defecto
+                else:
+                    pagado_por = ""
+                    cuil_pagado_por = ""
 
                 if pagado_por.strip() and cuil_pagado_por.strip():
                     ubicacion_predio = str_lit.text_input("Ubicación / Predio", key=f"ubi_{counter}")
@@ -945,7 +950,7 @@ def vista_admin():
                                     fecha_formateada = f"{partes_fecha[0].zfill(2)}{partes_fecha[1].zfill(2)}{partes_fecha[2][-2:]}" if len(partes_fecha) == 3 else fec_sel.replace("/", "")
                                 except: fecha_formateada = fec_sel.replace("/", "")
                                 
-                                nombre_archivo = f"Constancia_{nombre_ev}_{fecha_formateada}.pdf".replace(" ", "_")
+                                nombre_archivo = f"Contratacion_Servicio_Adicional_{nombre_ev}_{fecha_formateada}.pdf".replace(" ", "_")
                                 
                                 str_lit.download_button(label=f"📥 Descargar {nombre_archivo}", data=pdf_bytes, file_name=nombre_archivo, mime="application/pdf")
                     with c_estado:
