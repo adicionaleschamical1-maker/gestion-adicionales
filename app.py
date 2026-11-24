@@ -232,9 +232,7 @@ def limpiar_texto_archivo(texto):
 
 # --- NUEVA FUNCIÓN PARA GENERAR IDs CORTOS ---
 def generar_id_corto(dependencia, fecha_str, df_existente):
-    # Tomamos las primeras 4 letras de la dependencia
     dep_code = limpiar_texto_archivo(dependencia)[:4].upper()
-    # Formateamos la fecha a DDMMAA
     try:
         partes = fecha_str.split("/")
         fecha_code = f"{partes[0]}{partes[1]}{partes[2][-2:]}"
@@ -243,14 +241,11 @@ def generar_id_corto(dependencia, fecha_str, df_existente):
     
     base_id = f"{dep_code}-{fecha_code}"
     
-    # Buscamos el último número usado para esa combinación
     correlativo = 1
     if not df_existente.empty and COL_ID_SERV in df_existente.columns:
         ids_existentes = df_existente[COL_ID_SERV].astype(str).tolist()
-        # Filtramos los que empiezan con nuestra base_id
         coincidencias = [i for i in ids_existentes if i.startswith(base_id)]
         if coincidencias:
-            # Extraemos el número más alto
             numeros = []
             for c in coincidencias:
                 try:
@@ -263,13 +258,29 @@ def generar_id_corto(dependencia, fecha_str, df_existente):
                 
     return f"{base_id}-{correlativo:02d}"
 
-# --- REPORTE DE SUSPENSIÓN ---
+# --- FUNCIONES DE PDF Y HTML ---
+def _cabecera_pdf(pdf, titulo, subtitulo):
+    pdf.set_fill_color(0, 32, 96)
+    pdf.rect(0, 0, 210, 20, 'F')
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("helvetica", "B", 10)
+    pdf.set_xy(5, 6)
+    pdf.cell(200, 6, "POLICÍA DE LA PROVINCIA DE LA RIOJA - UNIDAD REGIONAL QUINTA - CHAMICAL", ln=True, align="center")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(12)
+    pdf.set_font("helvetica", "B", 14)
+    pdf.cell(0, 7, titulo, ln=True, align="center")
+    pdf.set_font("helvetica", "I", 9)
+    pdf.set_text_color(90, 90, 90)
+    pdf.cell(0, 5, subtitulo, ln=True, align="center")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(5)
+
 def generar_pdf_suspension(row: pd.Series, motivo: str) -> str:
     pdf = FPDF(); pdf.add_page()
     _cabecera_pdf(pdf, "INFORME DE SUSPENSIÓN DE SERVICIO", f"ID de Servicio: {row.get(COL_ID_SERV, '')}")
     
-    # Cartel Rojo Gigante
-    pdf.set_fill_color(198, 40, 40) # Rojo
+    pdf.set_fill_color(198, 40, 40)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("helvetica", "B", 24)
     pdf.cell(0, 20, "EVENTO SUSPENDIDO", ln=True, align="center", fill=True)
@@ -278,7 +289,6 @@ def generar_pdf_suspension(row: pd.Series, motivo: str) -> str:
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("helvetica", "B", 12)
     pdf.cell(0, 10, f"Motivo: {motivo}", ln=True, align="center")
-    
     pdf.ln(10)
     
     def fila_completa(lbl, val, w_lbl=45, w_val=145):
@@ -315,24 +325,6 @@ def generar_pdf_suspension(row: pd.Series, motivo: str) -> str:
     tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
-
-# --- GENERADORES DE PDF Y HTML ---
-def _cabecera_pdf(pdf, titulo, subtitulo):
-    pdf.set_fill_color(0, 32, 96)
-    pdf.rect(0, 0, 210, 20, 'F')
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("helvetica", "B", 10)
-    pdf.set_xy(5, 6)
-    pdf.cell(200, 6, "POLICÍA DE LA PROVINCIA DE LA RIOJA - UNIDAD REGIONAL QUINTA - CHAMICAL", ln=True, align="center")
-    pdf.set_text_color(0, 0, 0)
-    pdf.ln(12)
-    pdf.set_font("helvetica", "B", 14)
-    pdf.cell(0, 7, titulo, ln=True, align="center")
-    pdf.set_font("helvetica", "I", 9)
-    pdf.set_text_color(90, 90, 90)
-    pdf.cell(0, 5, subtitulo, ln=True, align="center")
-    pdf.set_text_color(0, 0, 0)
-    pdf.ln(5)
 
 def descargar_imagen_drive(url_or_id):
     if not url_or_id: return None
@@ -1121,7 +1113,6 @@ def vista_admin():
                 
             filtro_asist = str_lit.radio("Filtrar por estado de envío:", ["Todas", "Pendientes", "Enviadas a Central"], horizontal=True, key="filtro_asist")
             if filtro_asist == "Pendientes":
-                # CORRECCIÓN: Usamos el emoji en lugar de la palabra
                 df_mostrar = df_resumen[~df_resumen[COL_ESTADO_ASIST].astype(str).str.contains("🟢", na=False)]
             elif filtro_asist == "Enviadas a Central":
                 df_mostrar = df_resumen[df_resumen[COL_ESTADO_ASIST].astype(str).str.contains("🟢", na=False)]
