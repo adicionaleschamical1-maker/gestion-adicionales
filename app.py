@@ -36,7 +36,7 @@ COL_ENLACE_ASIST = "Enlace Asistencia"
 str_lit.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-- { font-family: 'Inter', sans-serif; }
+    * { font-family: 'Inter', sans-serif; }
     .stApp { background: #F5F5F5; }
     .header-container {
         background: linear-gradient(135deg, #002060, #002a80); color: white;
