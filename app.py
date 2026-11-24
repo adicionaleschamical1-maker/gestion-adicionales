@@ -258,6 +258,71 @@ def generar_id_corto(dependencia, fecha_str, df_existente):
                 
     return f"{base_id}-{correlativo:02d}"
 
+# --- LOGIN Y CAMBIO DE CLAVE ---
+def _validar_credenciales(dni, clave):
+    try:
+        data = cargar_usuarios_df()
+        if data.empty: return False, "No se pudo cargar la base de datos de usuarios."
+        data.columns = [str(c).strip().lower() for c in data.columns]
+        user = data[data["dni"].astype(str) == str(dni)]
+        if user.empty: return False, "DNI no registrado."
+
+        u = user.iloc[0]
+        clave_pers = str(u.get("clave personal", u.get("clave_personal", ""))).strip()
+        clave_temp = str(u.get("clave", u.get("clave_temporal", ""))).strip()
+
+        requiere_cambio = (clave_pers == "" or clave_pers == str(dni) or (clave_temp != "" and clave == clave_temp))
+        if requiere_cambio:
+            if clave == clave_temp or clave == str(dni) or clave == clave_pers:
+                str_lit.session_state.cambio_clave_requerido = True
+                str_lit.session_state.dni_temp = dni
+                return True, "cambio"
+            return False, "Contraseña temporal incorrecta."
+
+        if clave == clave_pers:
+            str_lit.session_state.autenticado = True
+            str_lit.session_state.usuario_dni = dni
+            str_lit.session_state.dependencia = str(u.get("dependencia", ""))
+            str_lit.session_state.rol = str(u.get("rol", "")).strip()
+            col_nombre = next((c for c in u.index if "nombre" in str(c).lower()), data.columns[1])
+            str_lit.session_state.nombre_apellido = str(u.get(col_nombre, f"DNI: {dni}")).strip()
+            return True, "ok"
+        return False, "Contraseña incorrecta."
+    except Exception as e:
+        return False, f"Error de conexión: {e}"
+
+def pantalla_cambio_clave():
+    str_lit.title("🔑 Definir Nueva Contraseña Personal")
+    str_lit.warning("⚠️ Primer ingreso detectado. Debés cambiar tu contraseña temporal.")
+    nueva = str_lit.text_input("Nueva Contraseña", type="password")
+    confirm = str_lit.text_input("Confirmar Nueva Contraseña", type="password")
+    if str_lit.button("Guardar Nueva Contraseña"):
+        if not nueva or nueva != confirm: str_lit.error("Las contraseñas no coinciden o están vacías."); return
+        try:
+            hoja = abrir_hoja(HOJA_USUARIOS)
+            cell = hoja.find(str(str_lit.session_state.dni_temp))
+            hoja.update_cell(cell.row, 6, nueva); hoja.update_cell(cell.row, 5, "")
+            str_lit.success("¡Contraseña actualizada! Iniciá sesión nuevamente.")
+            str_lit.session_state.cambio_clave_requerido = False
+            str_lit.session_state.dni_temp = None
+            str_lit.rerun()
+        except Exception as e: str_lit.error(f"Error al actualizar: {e}")
+
+def login():
+    str_lit.markdown("### 🔐 Acceso al Sistema de Adicionales")
+    with str_lit.form("form_login"):
+        dni = str_lit.text_input("DNI / Usuario")
+        clave = str_lit.text_input("Contraseña", type="password")
+        submitted = str_lit.form_submit_button("INGRESAR AL SISTEMA")
+    if submitted:
+        if not dni or not clave: str_lit.error("Complete DNI y contraseña."); return
+        with str_lit.spinner("Verificando credenciales..."):
+            exito, msg = _validar_credenciales(dni, clave)
+            if exito:
+                if msg == "cambio": str_lit.rerun()
+                else: str_lit.rerun()
+            else: str_lit.error(msg)
+
 # --- FUNCIONES DE PDF Y HTML ---
 def _cabecera_pdf(pdf, titulo, subtitulo):
     pdf.set_fill_color(0, 32, 96)
