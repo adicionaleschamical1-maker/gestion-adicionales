@@ -607,6 +607,16 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
     html += f"<b>Ubicación:</b> {ubicacion_evento} &nbsp; | &nbsp; <b>ID Servicio:</b> {id_servicio}"
     html += "</div>"
 
+    # --- VALIDACIÓN: Si no hay asistentes, mostramos un mensaje ---
+    if df_asistentes.empty or 'Puesto Asignado' not in df_asistentes.columns:
+        html += "<div style='text-align: center; padding: 40px; border: 2px dashed #ccc; border-radius: 10px; margin-top: 20px;'>"
+        html += "<h3 style='color: #666;'>No hay asistentes cargados en esta planilla todavía.</h3>"
+        html += "<p style='color: #999;'>Esta planilla se generó automáticamente. Cuando el encargado cargue los DNI y firmas, podrá descargar la versión final.</p>"
+        html += "</div>"
+        html += "</div></body></html>"
+        return html
+    # -------------------------------------------------------------
+
     df_triples = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Triple", case=False, na=False)]
     df_dobles = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Doble", case=False, na=False)]
     df_simples = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Simple", case=False, na=False)]
@@ -713,16 +723,34 @@ def vista_dependencia():
         if str_lit.session_state.get(f"fecha_elegida_{counter}", False):
             fecha_texto = f"{fec_inicio.strftime('%d/%m/%Y')}" if (tipo_cant_dias == "1 Día único" or fec_inicio == fec_fin) else f"{fec_inicio.strftime('%d/%m/%Y')} y {fec_fin.strftime('%d/%m/%Y')}"
             cant_dias = 1 if (tipo_cant_dias == "1 Día único" or fec_inicio == fec_fin) else 2
-            tipo_evento = str_lit.text_input("Tipo de evento", key=f"tipo_{counter}")
+            
+            # --- LÓGICA PARA TIPO DE EVENTO POR DÍA ---
+            if cant_dias == 2:
+                col_te1, col_te2 = str_lit.columns(2)
+                with col_te1:
+                    tipo_evento_d1 = str_lit.text_input("Tipo de evento (Día 1)", key=f"tipo_d1_{counter}")
+                with col_te2:
+                    tipo_evento_d2 = str_lit.text_input("Tipo de evento (Día 2)", key=f"tipo_d2_{counter}")
+                
+                if not tipo_evento_d1.strip() or not tipo_evento_d2.strip():
+                    tipo_evento = "" # Si falta uno, no avanzamos
+                else:
+                    tipo_evento = tipo_evento_d1 # Usamos este para validar el flujo general
+            else:
+                tipo_evento = str_lit.text_input("Tipo de evento", key=f"tipo_{counter}")
+                tipo_evento_d1 = tipo_evento
+                tipo_evento_d2 = tipo_evento
+            # ------------------------------------------
             
             if tipo_evento.strip():
                 
-                # --- MEMORIA DE ORGANIZADORES Y PAGADORES (CORREGIDA) ---
+                # --- MEMORIA DE ORGANIZADORES Y PAGADORES ---
                 df_orgs = cargar_organizadores_df()
-                col_org1, col_org2 = str_lit.columns(2)
-                with col_org2: 
-                    dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
                 
+                # 1. Primero el DNI
+                dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
+                
+                # 2. Buscamos en la memoria
                 if dni_organizador.strip() and not df_orgs.empty:
                     match = df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()]
                     if not match.empty:
@@ -733,8 +761,8 @@ def vista_dependencia():
                 nombre_default = str_lit.session_state.get(f"org_nombre_{counter}", "")
                 cuil_default_org = str_lit.session_state.get(f"org_cuil_{counter}", "")
 
-                with col_org1: 
-                    nombre_organizador = str_lit.text_input("Nombre Organizador", value=nombre_default, key=f"nom_org_{counter}")
+                # 3. Luego el Nombre
+                nombre_organizador = str_lit.text_input("Nombre Organizador", value=nombre_default, key=f"nom_org_{counter}")
                 
                 if nombre_organizador.strip() and dni_organizador.strip():
                     es_mismo_pagador = str_lit.checkbox("El organizador es la misma persona que paga", value=True, key=f"mismo_pag_{counter}")
@@ -747,10 +775,11 @@ def vista_dependencia():
                         cuil_pagador = cuil_pagado_por
                     else:
                         df_pags = cargar_pagadores_df()
-                        col_pag1, col_pag2, col_pag3 = str_lit.columns(3)
-                        with col_pag2: 
-                            dni_pagador = str_lit.text_input("DNI del Pagador", key=f"dni_pag_{counter}")
                         
+                        # 1. Primero el DNI del pagador
+                        dni_pagador = str_lit.text_input("DNI del Pagador", key=f"dni_pag_{counter}")
+                        
+                        # 2. Buscamos en memoria
                         if dni_pagador.strip() and not df_pags.empty:
                             match_pag = df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()]
                             if not match_pag.empty:
@@ -761,9 +790,11 @@ def vista_dependencia():
                         nombre_pag_default = str_lit.session_state.get(f"pag_nombre_{counter}", "")
                         cuil_pag_default = str_lit.session_state.get(f"pag_cuil_{counter}", "")
                         
+                        # 3. Luego el nombre y el CUIL
+                        col_pag1, col_pag2 = str_lit.columns(2)
                         with col_pag1: 
                             nombre_pagador = str_lit.text_input("Nombre del Pagador", value=nombre_pag_default, key=f"nom_pag_{counter}")
-                        with col_pag3: 
+                        with col_pag2: 
                             cuil_pagado_por = str_lit.text_input("CUIL / CUIT a Facturar (11 dígitos)", value=cuil_pag_default, key=f"cuil_pag_{counter}")
                         
                         pagado_por = f"{nombre_pagador} (DNI: {dni_pagador})"
@@ -823,13 +854,39 @@ def vista_dependencia():
                             js_triple = jefes_d1[2]
                             subs_triple = subs_d1[2]
                         
-                        str_lit.markdown(f"""
-                            <div class="monto-box">
-                                <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 5px;">TOTAL ESTIMADO A PAGAR (aprox)</div>
-                                <div class="monto-total">${monto_total:,.2f}</div>
-                                <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos} (Módulos: {max_modulos})</div>
-                            </div>
-                        """, unsafe_allow_html=True)
+                        # --- LÓGICA PARA MOSTRAR MONTOS POR DÍA ---
+                        if cant_dias == 2:
+                            monto_total_d1 = calcular_monto_total(jefes_d1, subs_d1)
+                            monto_total_d2 = calcular_monto_total(jefes_d2, subs_d2)
+                            
+                            html_monto = f"""
+                                <div class="monto-box">
+                                    <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 10px;">TOTALES ESTIMADOS A PAGAR (aprox)</div>
+                                    <div style="display: flex; justify-content: space-around; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+                                        <div>
+                                            <div style="font-size: 0.8rem; color: #666;">Día 1 ({fec_inicio.strftime('%d/%m')})</div>
+                                            <div style="font-size: 1.2rem; font-weight: bold; color: #2E7D32;">${monto_total_d1:,.2f}</div>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8rem; color: #666;">Día 2 ({fec_fin.strftime('%d/%m')})</div>
+                                            <div style="font-size: 1.2rem; font-weight: bold; color: #2E7D32;">${monto_total_d2:,.2f}</div>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 1.4rem; font-weight: 800; color: #1B5E20;">TOTAL: ${monto_total:,.2f}</div>
+                                    <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos} (Módulos: {max_modulos})</div>
+                                </div>
+                            """
+                        else:
+                            html_monto = f"""
+                                <div class="monto-box">
+                                    <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 5px;">TOTAL ESTIMADO A PAGAR (aprox)</div>
+                                    <div class="monto-total">${monto_total:,.2f}</div>
+                                    <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos} (Módulos: {max_modulos})</div>
+                                </div>
+                            """
+                        
+                        str_lit.markdown(html_monto, unsafe_allow_html=True)
+                        # -----------------------------------------
                         
                         with str_lit.form(f"form_envio_{counter}"):
                             file_comp = str_lit.file_uploader("Comprobante de Pago (OBLIGATORIO)", type=["png", "jpg", "jpeg", "pdf"], key=f"comp_{counter}")
@@ -864,13 +921,13 @@ def vista_dependencia():
                                 base_id = generar_id_corto(str_lit.session_state.dependencia, fec_inicio.strftime('%d/%m/%Y'), df_actual)
                                 # --------------------------------
 
-                                def enviar_payload(id_para_enviar, fecha_para_enviar):
+                                def enviar_payload(id_para_enviar, fecha_para_enviar, tipo_para_enviar):
                                     payload = {
                                         "action": "crear_servicio",
                                         "id_servicio": id_para_enviar, 
                                         "dependencia": str(str_lit.session_state.dependencia),
                                         "fecha_evento": fecha_para_enviar, 
-                                        "tipo_evento": str(tipo_evento),
+                                        "tipo_evento": tipo_para_enviar,
                                         "organizador": f"{nombre_organizador} (DNI: {dni_organizador})", 
                                         "ubicacion": str(ubicacion_predio),
                                         "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
@@ -904,8 +961,8 @@ def vista_dependencia():
                                     if cant_dias == 2:
                                         id_d1 = f"{base_id}_D1"
                                         id_d2 = f"{base_id}_D2"
-                                        res1 = enviar_payload(id_d1, fec_inicio.strftime('%d/%m/%Y'))
-                                        res2 = enviar_payload(id_d2, fec_fin.strftime('%d/%m/%Y'))
+                                        res1 = enviar_payload(id_d1, fec_inicio.strftime('%d/%m/%Y'), tipo_evento_d1)
+                                        res2 = enviar_payload(id_d2, fec_fin.strftime('%d/%m/%Y'), tipo_evento_d2)
                                         
                                         if res1.get("status") == "success" and res2.get("status") == "success":
                                             str_lit.success(f"¡Solicitudes para ambos días registradas con éxito! (IDs: {id_d1} y {id_d2})")
@@ -913,27 +970,18 @@ def vista_dependencia():
                                         else:
                                             str_lit.error("Hubo un error al guardar uno de los días. Revisá la planilla.")
                                     else:
-                                        res = enviar_payload(base_id, fec_inicio.strftime('%d/%m/%Y'))
+                                        res = enviar_payload(base_id, fec_inicio.strftime('%d/%m/%Y'), tipo_evento)
                                         if res.get("status") == "success":
                                             str_lit.success(f"¡Solicitud registrada con éxito! (ID: {base_id})")
                                             ids_creados = [base_id]
                                         else: 
                                             str_lit.error(f"Error al enviar: {res.get('message')}")
 
-                                    # --- BOTONES DE DESCARGA INMEDIATA ---
+                                    # --- MENSAJE DE ÉXITO Y LIMPIEZA ---
                                     if ids_creados:
-                                        str_lit.markdown("### 📄 Descargar Planillas de Asistencia")
-                                        for id_nuevo in ids_creados:
-                                            html_planilla = generar_reporte_html(pd.DataFrame(), id_nuevo, str(tipo_evento), fecha_texto, f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}", str(ubicacion_predio))
-                                            str_lit.download_button(
-                                                label=f"📥 Descargar Planilla para {id_nuevo}",
-                                                data=html_planilla,
-                                                file_name=f"Asistencia_{id_nuevo}.html",
-                                                mime="text/html",
-                                                key=f"dl_{id_nuevo}_{time.time()}"
-                                            )
+                                        str_lit.success("El servicio ha sido registrado. Puede ir a la pestaña 'Pendientes de Asistencia' para gestionar la planilla o generar el PDF desde el panel de administración.")
                                         
-                                        if str_lit.button("Finalizar y limpiar formulario"):
+                                        if str_lit.button("Cargar otro servicio"):
                                             str_lit.session_state[f"fecha_elegida_{counter}"] = False
                                             str_lit.session_state.form_counter += 1
                                             str_lit.cache_data.clear()
