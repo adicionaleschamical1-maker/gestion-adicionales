@@ -533,4 +533,679 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
     html += "td { padding: 10px; border-bottom: 1px solid #ddd; font-size: 13px; vertical-align: middle; }"
     html += ".dni { font-family: monospace; font-weight: bold; font-size: 15px; background: #e9ecef; padding: 4px 8px; border-radius: 4px; user-select: all; color: #8B1E1E; }"
     html += ".firma { max-width: 150px; max-height: 70px; }"
-    html += "@media print { body { background: white; padding: 0; } .card { box-shadow: none; } button { display: none
+    html += "@media print { body { background: white; padding: 0; } .card { box-shadow: none; } button { display: none; } }"
+    html += "</style></head><body>"
+
+    html += "<div class='card'>"
+    html += "<div style='text-align: right;'><button onclick='window.print()' style='padding: 8px 16px; background: #002060; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;'>🖨️ Imprimir / Guardar PDF</button></div>"
+
+    html += "<div class='header'>"
+    html += "<h1>POLICÍA DE LA PROVINCIA DE LA RIOJA</h1>"
+    html += "<h2>UNIDAD REGIONAL QUINTA - CHAMICAL</h2>"
+    html += "<p>Planilla de Asistencia - Servicio Adicional</p>"
+    html += "</div>"
+
+    html += "<div class='info'>"
+    html += f"<b>Evento:</b> {tipo_evento} &nbsp; | &nbsp; <b>Fecha:</b> {fecha_evento} &nbsp; | &nbsp; <b>Horario:</b> {horario_evento}<br>"
+    html += f"<b>Ubicación:</b> {ubicacion_evento} &nbsp; | &nbsp; <b>ID Servicio:</b> {id_servicio}"
+    html += "</div>"
+
+    df_triples = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Triple", case=False, na=False)]
+    df_dobles = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Doble", case=False, na=False)]
+    df_simples = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Simple", case=False, na=False)]
+    
+    df_otros = df_asistentes[
+        ~df_asistentes['Puesto Asignado'].astype(str).str.contains("Triple", case=False, na=False) &
+        ~df_asistentes['Puesto Asignado'].astype(str).str.contains("Doble", case=False, na=False) &
+        ~df_asistentes['Puesto Asignado'].astype(str).str.contains("Simple", case=False, na=False)
+    ]
+
+    def armar_tabla(df_seccion):
+        tabla = "<table>"
+        tabla += "<tr><th>Puesto</th><th>DNI</th><th>Jerarquía</th><th>Nombre y Apellido</th><th>Firma</th></tr>"
+        for _, row in df_seccion.iterrows():
+            tabla += "<tr>"
+            tabla += f"<td>{row.get('Puesto Asignado', '')}</td>"
+            tabla += f"<td><span class='dni'>{row.get('DNI', '')}</span></td>"
+            tabla += f"<td>{row.get('Jerarquía', '')}</td>"
+            tabla += f"<td>{row.get('Nombre y Apellido', '')}</td>"
+            
+            firma_val = str(row.get("Enlace Firma", ""))
+            if firma_val.startswith("data:image"):
+                tabla += f"<td><img src='{firma_val}' class='firma' alt='Firma'></td>"
+            elif firma_val.startswith("http"):
+                tabla += f"<td><a href='{firma_val}' target='_blank'>Ver Firma</a></td>"
+            else:
+                tabla += "<td>(Sin firma)</td>"
+            tabla += "</tr>"
+        tabla += "</table>"
+        return tabla
+
+    if not df_triples.empty:
+        html += "<div class='seccion-box seccion-triple'>"
+        html += "<div class='seccion-titulo bg-triple'>⏱️ TURNO TRIPLE (12h)</div>"
+        html += armar_tabla(df_triples)
+        html += "</div>"
+
+    if not df_dobles.empty:
+        html += "<div class='seccion-box seccion-doble'>"
+        html += "<div class='seccion-titulo bg-doble'>⏱️ TURNO DOBLE (8h)</div>"
+        html += armar_tabla(df_dobles)
+        html += "</div>"
+
+    if not df_simples.empty:
+        html += "<div class='seccion-box seccion-simple'>"
+        html += "<div class='seccion-titulo bg-simple'>⏱️ TURNO SIMPLE (4h)</div>"
+        html += armar_tabla(df_simples)
+        html += "</div>"
+
+    if not df_otros.empty:
+        html += "<div class='seccion-box'>"
+        html += "<div class='seccion-titulo' style='background: #666;'>OTROS PUESTOS</div>"
+        html += armar_tabla(df_otros)
+        html += "</div>"
+
+    html += "</div></body></html>"
+    return html
+
+def _render_modulos(max_modulos: int, counter: int, dia_num: int = 1):
+    labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)"]
+    labels_ordenados = labels_base[:max_modulos][::-1]
+    jefes_dict, subs_dict = {}, {}
+    
+    if dia_num > 1:
+        str_lit.markdown(f"##### 📅 Cantidades para el Día {dia_num}")
+        
+    for label in labels_ordenados:
+        str_lit.markdown(f"**Turno {label}**")
+        c1, c2 = str_lit.columns(2)
+        with c1: j = str_lit.number_input(f"Jefes ({label}) - Día {dia_num}", 0, step=1, key=f"j_{label}_{counter}_{dia_num}")
+        with c2: s = str_lit.number_input(f"Subalternos ({label}) - Día {dia_num}", 0, step=1, key=f"s_{label}_{counter}_{dia_num}")
+        if "Simple" in label: jefes_dict[0] = int(j); subs_dict[0] = int(s)
+        elif "Doble" in label: jefes_dict[1] = int(j); subs_dict[1] = int(s)
+        elif "Triple" in label: jefes_dict[2] = int(j); subs_dict[2] = int(s)
+    return [jefes_dict.get(i, 0) for i in range(3)], [subs_dict.get(i, 0) for i in range(3)]
+
+def vista_dependencia():
+    nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Personal Policial")
+    saludo = obtener_saludo(nombre_efectivo)
+    
+    str_lit.sidebar.markdown(f"**{nombre_efectivo}** ({str_lit.session_state.dependencia})")
+    boton_refrescar()
+    if str_lit.sidebar.button("🚪 Cerrar Sesión"): str_lit.session_state.autenticado = False; str_lit.rerun()
+
+    str_lit.markdown(f"### {saludo}")
+    tab1, tab2, tab3 = str_lit.tabs(["🟢 Cargar Nuevo Servicio", "⏳ Pendientes de Asistencia", "📜 Historial de Servicios"])
+    counter = str_lit.session_state.form_counter
+
+    with tab1:
+        str_lit.header("Solicitud de Servicio Adicional")
+        if f"fecha_elegida_{counter}" not in str_lit.session_state: str_lit.session_state[f"fecha_elegida_{counter}"] = False
+        with str_lit.form(f"form_fecha_{counter}"):
+            tipo_cant_dias = str_lit.radio("Modalidad de días:", ["1 Día único", "2 Días específicos (Ej: Viernes y Sábado)"], horizontal=True, key=f"tipo_dias_{counter}")
+            if tipo_cant_dias == "1 Día único":
+                fec_inicio = str_lit.date_input("Fecha del Evento", value=datetime.date.today(), key=f"fec_ini_{counter}")
+                fec_fin = fec_inicio
+            else:
+                col_f1, col_f2 = str_lit.columns(2)
+                with col_f1: fec_inicio = str_lit.date_input("Fecha Día 1", value=datetime.date.today(), key=f"fec_ini_{counter}")
+                with col_f2: fec_fin = str_lit.date_input("Fecha Día 2", value=datetime.date.today(), key=f"fec_fin_{counter}")
+            btn_confirmar_fecha = str_lit.form_submit_button("Confirmar Fechas y Continuar")
+        if btn_confirmar_fecha: str_lit.session_state[f"fecha_elegida_{counter}"] = True
+
+        if str_lit.session_state.get(f"fecha_elegida_{counter}", False):
+            fecha_texto = f"{fec_inicio.strftime('%d/%m/%Y')}" if (tipo_cant_dias == "1 Día único" or fec_inicio == fec_fin) else f"{fec_inicio.strftime('%d/%m/%Y')} y {fec_fin.strftime('%d/%m/%Y')}"
+            cant_dias = 1 if (tipo_cant_dias == "1 Día único" or fec_inicio == fec_fin) else 2
+            tipo_evento = str_lit.text_input("Tipo de evento", key=f"tipo_{counter}")
+            
+            if tipo_evento.strip():
+                
+                # --- MEMORIA DE ORGANIZADORES Y PAGADORES (CORREGIDA) ---
+                df_orgs = cargar_organizadores_df()
+                col_org1, col_org2 = str_lit.columns(2)
+                with col_org2: 
+                    dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
+                
+                if dni_organizador.strip() and not df_orgs.empty:
+                    match = df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()]
+                    if not match.empty:
+                        str_lit.session_state[f"org_nombre_{counter}"] = str(match.iloc[0].get("nombre", ""))
+                        str_lit.session_state[f"org_cuil_{counter}"] = str(match.iloc[0].get("cuil", ""))
+                        str_lit.info(f"💡 Organizador reconocido: {match.iloc[0].get('nombre', '')}")
+
+                nombre_default = str_lit.session_state.get(f"org_nombre_{counter}", "")
+                cuil_default_org = str_lit.session_state.get(f"org_cuil_{counter}", "")
+
+                with col_org1: 
+                    nombre_organizador = str_lit.text_input("Nombre Organizador", value=nombre_default, key=f"nom_org_{counter}")
+                
+                if nombre_organizador.strip() and dni_organizador.strip():
+                    es_mismo_pagador = str_lit.checkbox("El organizador es la misma persona que paga", value=True, key=f"mismo_pag_{counter}")
+                    
+                    if es_mismo_pagador:
+                        pagado_por = f"{nombre_organizador} (DNI: {dni_organizador})"
+                        cuil_pagado_por = str_lit.text_input("CUIL / CUIT del Organizador (11 dígitos)", value=cuil_default_org, key=f"cuil_org_{counter}")
+                        dni_pagador = dni_organizador
+                        nombre_pagador = nombre_organizador
+                        cuil_pagador = cuil_pagado_por
+                    else:
+                        df_pags = cargar_pagadores_df()
+                        col_pag1, col_pag2, col_pag3 = str_lit.columns(3)
+                        with col_pag2: 
+                            dni_pagador = str_lit.text_input("DNI del Pagador", key=f"dni_pag_{counter}")
+                        
+                        if dni_pagador.strip() and not df_pags.empty:
+                            match_pag = df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()]
+                            if not match_pag.empty:
+                                str_lit.session_state[f"pag_nombre_{counter}"] = str(match_pag.iloc[0].get("nombre", ""))
+                                str_lit.session_state[f"pag_cuil_{counter}"] = str(match_pag.iloc[0].get("cuil", ""))
+                                str_lit.info(f"💡 Pagador reconocido: {match_pag.iloc[0].get('nombre', '')}")
+                        
+                        nombre_pag_default = str_lit.session_state.get(f"pag_nombre_{counter}", "")
+                        cuil_pag_default = str_lit.session_state.get(f"pag_cuil_{counter}", "")
+                        
+                        with col_pag1: 
+                            nombre_pagador = str_lit.text_input("Nombre del Pagador", value=nombre_pag_default, key=f"nom_pag_{counter}")
+                        with col_pag3: 
+                            cuil_pagado_por = str_lit.text_input("CUIL / CUIT a Facturar (11 dígitos)", value=cuil_pag_default, key=f"cuil_pag_{counter}")
+                        
+                        pagado_por = f"{nombre_pagador} (DNI: {dni_pagador})"
+                        cuil_pagador = cuil_pagado_por
+                
+                else:
+                    pagado_por = ""
+                    cuil_pagado_por = ""
+                # ---------------------------------------------------------
+
+                if pagado_por.strip() and cuil_pagado_por.strip():
+                    ubicacion_predio = str_lit.text_input("Ubicación / Predio", key=f"ubi_{counter}")
+                    if ubicacion_predio.strip():
+                        col_h1, col_h2 = str_lit.columns(2)
+                        with col_h1: hora_inicio = str_lit.time_input("Hora Inicio", value=datetime.time(15, 0), key=f"h_ini_{counter}")
+                        with col_h2: hora_fin = str_lit.time_input("Hora Fin", value=datetime.time(19, 0), key=f"h_fin_{counter}")
+                        
+                        diferencia_horas, max_modulos = calcular_monto_y_modulos(hora_inicio, hora_fin)
+                        
+                        if cant_dias == 2:
+                            str_lit.markdown("---")
+                            str_lit.markdown("### 📅 Distribución de Efectivos para el Día 1")
+                            jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
+                            
+                            str_lit.markdown("---")
+                            str_lit.markdown("### 📅 Distribución de Efectivos para el Día 2")
+                            jefes_d2, subs_d2 = _render_modulos(max_modulos, counter, dia_num=2)
+                            
+                            total_jefes_d1 = sum(jefes_d1)
+                            total_subs_d1 = sum(subs_d1)
+                            monto_d1 = calcular_monto_total(jefes_d1, subs_d1)
+                            
+                            total_jefes_d2 = sum(jefes_d2)
+                            total_subs_d2 = sum(subs_d2)
+                            monto_d2 = calcular_monto_total(jefes_d2, subs_d2)
+                            
+                            total_jefes = total_jefes_d1 + total_jefes_d2
+                            total_subalternos = total_subs_d1 + total_subs_d2
+                            monto_total = monto_d1 + monto_d2
+                            
+                            js_simple = jefes_d1[0] + jefes_d2[0]
+                            subs_simple = subs_d1[0] + subs_d2[0]
+                            js_doble = jefes_d1[1] + jefes_d2[1]
+                            subs_doble = subs_d1[1] + subs_d2[1]
+                            js_triple = jefes_d1[2] + jefes_d2[2]
+                            subs_triple = subs_d1[2] + subs_d2[2]
+                        else:
+                            jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
+                            total_jefes = sum(jefes_d1)
+                            total_subalternos = sum(subs_d1)
+                            monto_total = calcular_monto_total(jefes_d1, subs_d1)
+                            
+                            js_simple = jefes_d1[0]
+                            subs_simple = subs_d1[0]
+                            js_doble = jefes_d1[1]
+                            subs_doble = subs_d1[1]
+                            js_triple = jefes_d1[2]
+                            subs_triple = subs_d1[2]
+                        
+                        str_lit.markdown(f"""
+                            <div class="monto-box">
+                                <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 5px;">TOTAL ESTIMADO A PAGAR (aprox)</div>
+                                <div class="monto-total">${monto_total:,.2f}</div>
+                                <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos} (Módulos: {max_modulos})</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        with str_lit.form(f"form_envio_{counter}"):
+                            file_comp = str_lit.file_uploader("Comprobante de Pago (OBLIGATORIO)", type=["png", "jpg", "jpeg", "pdf"], key=f"comp_{counter}")
+                            file_hab = str_lit.file_uploader("Habilitación Municipal (Opcional)", type=["png", "jpg", "jpeg", "pdf"], key=f"hab_{counter}")
+                            file_cont = str_lit.file_uploader("Contrato (Opcional)", type=["png", "jpg", "jpeg", "pdf"], key=f"cont_{counter}")
+                            submitted = str_lit.form_submit_button("🚀 Enviar Solicitud Definitiva")
+
+                        if submitted:
+                            if total_jefes == 0 and total_subalternos == 0: 
+                                str_lit.error("Asigne al menos un efectivo.")
+                            elif not file_comp: 
+                                str_lit.error("Debe subir el Comprobante de Pago obligatoriamente.")
+                            elif not validar_cuil(cuil_pagado_por): 
+                                str_lit.error("El CUIL / CUIT ingresado es inválido (deben ser 11 números).")
+                            else:
+                                # --- GUARDAR EN MEMORIA ---
+                                try:
+                                    if df_orgs.empty or df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()].empty:
+                                        abrir_hoja("Organizadores").append_row([dni_organizador.strip(), nombre_organizador.strip(), cuil_default_org])
+                                    
+                                    if not es_mismo_pagador:
+                                        if df_pags.empty or df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()].empty:
+                                            abrir_hoja("Pagadores").append_row([dni_pagador.strip(), nombre_pagador.strip(), cuil_pagado_por.strip()])
+                                    
+                                    str_lit.cache_data.clear()
+                                except Exception as e:
+                                    logger.error(f"Error guardando memoria: {e}")
+                                # --------------------------
+
+                                # --- GENERACIÓN DE IDs CORTOS ---
+                                df_actual = cargar_servicios_df()
+                                base_id = generar_id_corto(str_lit.session_state.dependencia, fec_inicio.strftime('%d/%m/%Y'), df_actual)
+                                # --------------------------------
+
+                                def enviar_payload(id_para_enviar, fecha_para_enviar):
+                                    payload = {
+                                        "action": "crear_servicio",
+                                        "id_servicio": id_para_enviar, 
+                                        "dependencia": str(str_lit.session_state.dependencia),
+                                        "fecha_evento": fecha_para_enviar, 
+                                        "tipo_evento": str(tipo_evento),
+                                        "organizador": f"{nombre_organizador} (DNI: {dni_organizador})", 
+                                        "ubicacion": str(ubicacion_predio),
+                                        "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
+                                        "cant_jefes": int(total_jefes), 
+                                        "cant_subalternos": int(total_subalternos),
+                                        "modulos": int(max_modulos), 
+                                        "monto_total": float(monto_total),
+                                        "jefes_simples": int(js_simple), 
+                                        "subalternos_simples": int(subs_simple),
+                                        "jefes_dobles": int(js_doble), 
+                                        "subalternos_dobles": int(subs_doble),
+                                        "jefes_triples": int(js_triple), 
+                                        "subalternos_triples": int(subs_triple),
+                                        "pagado_por": str(pagado_por), 
+                                        "cuil_pagado_por": str(cuil_pagado_por),
+                                        "estado_central": "🟡 Pendiente",
+                                        "file_comp_base64": base64.b64encode(file_comp.getvalue()).decode("utf-8"),
+                                        "name_comp": f"{id_para_enviar}_comprobante.{file_comp.name.split('.')[-1]}", 
+                                        "type_comp": file_comp.type,
+                                        "file_hab_base64": base64.b64encode(file_hab.getvalue()).decode("utf-8") if file_hab else "",
+                                        "name_hab": f"{id_para_enviar}_habilitacion.{file_hab.name.split('.')[-1]}" if file_hab else "", 
+                                        "type_hab": file_hab.type if file_hab else "",
+                                        "file_cont_base64": base64.b64encode(file_cont.getvalue()).decode("utf-8") if file_cont else "",
+                                        "name_cont": f"{id_para_enviar}_contrato.{file_cont.name.split('.')[-1]}" if file_cont else "", 
+                                        "type_cont": file_cont.type if file_cont else "",
+                                    }
+                                    return _post_apps_script(payload)
+
+                                with str_lit.spinner("Enviando solicitud a la nube..."):
+                                    ids_creados = []
+                                    if cant_dias == 2:
+                                        id_d1 = f"{base_id}_D1"
+                                        id_d2 = f"{base_id}_D2"
+                                        res1 = enviar_payload(id_d1, fec_inicio.strftime('%d/%m/%Y'))
+                                        res2 = enviar_payload(id_d2, fec_fin.strftime('%d/%m/%Y'))
+                                        
+                                        if res1.get("status") == "success" and res2.get("status") == "success":
+                                            str_lit.success(f"¡Solicitudes para ambos días registradas con éxito! (IDs: {id_d1} y {id_d2})")
+                                            ids_creados = [id_d1, id_d2]
+                                        else:
+                                            str_lit.error("Hubo un error al guardar uno de los días. Revisá la planilla.")
+                                    else:
+                                        res = enviar_payload(base_id, fec_inicio.strftime('%d/%m/%Y'))
+                                        if res.get("status") == "success":
+                                            str_lit.success(f"¡Solicitud registrada con éxito! (ID: {base_id})")
+                                            ids_creados = [base_id]
+                                        else: 
+                                            str_lit.error(f"Error al enviar: {res.get('message')}")
+
+                                    # --- BOTONES DE DESCARGA INMEDIATA ---
+                                    if ids_creados:
+                                        str_lit.markdown("### 📄 Descargar Planillas de Asistencia")
+                                        for id_nuevo in ids_creados:
+                                            html_planilla = generar_reporte_html(pd.DataFrame(), id_nuevo, str(tipo_evento), fecha_texto, f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}", str(ubicacion_predio))
+                                            str_lit.download_button(
+                                                label=f"📥 Descargar Planilla para {id_nuevo}",
+                                                data=html_planilla,
+                                                file_name=f"Asistencia_{id_nuevo}.html",
+                                                mime="text/html",
+                                                key=f"dl_{id_nuevo}_{time.time()}"
+                                            )
+                                        
+                                        if str_lit.button("Finalizar y limpiar formulario"):
+                                            str_lit.session_state[f"fecha_elegida_{counter}"] = False
+                                            str_lit.session_state.form_counter += 1
+                                            str_lit.cache_data.clear()
+                                            str_lit.rerun()
+                                    # ------------------------------------
+
+    with tab2:
+        str_lit.header("Servicios Pendientes de Planilla de Asistencia")
+        data = cargar_servicios_df()
+        if not data.empty and COL_DEP in data.columns:
+            df_dep = data[data[COL_DEP].astype(str) == str(str_lit.session_state.dependencia)]
+            col_a1 = next((c for c in df_dep.columns if "asistencia día 1" in str(c).lower() or "asistencia 1" in str(c).lower()), None)
+            col_a2 = next((c for c in df_dep.columns if "asistencia día 2" in str(c).lower() or "asistencia 2" in str(c).lower()), None)
+            col_gen = next((c for c in df_dep.columns if "enlace asistencia" in str(c).lower()), None)
+
+            def esta_pendiente(r):
+                if not col_a1 and not col_gen: return False
+                fec = str(r.get(COL_FECHA, ""))
+                a1_val = str(r.get(col_a1, r.get(col_gen, ""))).strip()
+                a2_val = str(r.get(col_a2, "")).strip()
+                return (a1_val == "" or a2_val == "") if " y " in fec else (a1_val == "")
+
+            df_pend = df_dep[df_dep.apply(esta_pendiente, axis=1)]
+            if df_pend.empty: str_lit.success("🎉 ¡Sin pendientes!")
+            else:
+                for _, row in df_pend.iterrows():
+                    id_serv = row.get(COL_ID_SERV) or row.get('id_servicio') or row.iloc[0]
+                    fec_ev = str(row.get(COL_FECHA) or '')
+                    with str_lit.expander(f"📁 EXPEDIENTE: {id_serv} | 📅 {fec_ev}"):
+                        with str_lit.form(f"form_asist_1_{id_serv}"):
+                            file_a1 = str_lit.file_uploader("Planilla Asistencia (Escaneada / Foto)", type=["png", "jpg", "jpeg", "pdf"], key=f"f1_{id_serv}")
+                            sub_a1 = str_lit.form_submit_button("Subir Archivo al Expediente")
+                        if sub_a1 and file_a1:
+                            payload = {"action": "subir_asistencia", "id_servicio": str(id_serv), "dia_num": 1,
+                                "file_asist_base64": base64.b64encode(file_a1.getvalue()).decode("utf-8"),
+                                "name_asist": f"{id_serv}_asistencia.{file_a1.name.split('.')[-1]}", "type_asist": file_a1.type}
+                            with str_lit.spinner("Subiendo archivo..."):
+                                res = _post_apps_script(payload)
+                                if res.get("status") == "success":
+                                    str_lit.success("¡Planilla adjuntada!")
+                                    str_lit.cache_data.clear(); str_lit.rerun()
+                                else: str_lit.error(f"Error: {res.get('message')}")
+
+    with tab3:
+        str_lit.header("Historial General")
+        data = cargar_servicios_df()
+        if not data.empty and COL_DEP in data.columns:
+            str_lit.dataframe(data[data[COL_DEP].astype(str) == str(str_lit.session_state.dependencia)], use_container_width=True)
+
+# --- PANEL DE ADMINISTRACIÓN ---
+def vista_admin():
+    nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
+    saludo = obtener_saludo(nombre_efectivo)
+
+    str_lit.sidebar.markdown(f"**{nombre_efectivo}** (ADMINISTRADOR)")
+    str_lit.sidebar.markdown("---")
+    str_lit.sidebar.subheader("⚙️ Control de Sistema")
+    modo_mant_actual = verificar_modo_mantenimiento()
+    nuevo_modo_toggle = str_lit.sidebar.toggle("🛠️ Modo Mantenimiento", value=modo_mant_actual)
+    
+    if nuevo_modo_toggle != modo_mant_actual:
+        estado_str = "ACTIVO" if nuevo_modo_toggle else "INACTIVO"
+        with str_lit.spinner("Actualizando..."):
+            res = _post_apps_script({"action": "set_mantenimiento", "estado": estado_str})
+            if res.get("status") == "success":
+                str_lit.cache_data.clear(); str_lit.success(f"Modo: {estado_str}"); str_lit.rerun()
+            else: str_lit.error("No se pudo actualizar el mantenimiento.")
+
+    boton_refrescar()
+    if str_lit.sidebar.button("🚪 Cerrar Sesión"): str_lit.session_state.autenticado = False; str_lit.rerun()
+
+    str_lit.markdown(f"### {saludo}")
+    str_lit.title("📋 Control General y Despacho a Central")
+    data = cargar_servicios_df()
+    
+    if not data.empty and COL_ESTADO_CENTRAL in data.columns:
+        pendientes = data[data[COL_ESTADO_CENTRAL].astype(str).str.contains("Recibido", na=False)]
+        if not pendientes.empty: str_lit.warning(f"🔔 Hay **{len(pendientes)}** servicio(s) pendientes de revisión y despacho.")
+
+    tab_exp, tab_enlaces, tab_asist, tab_depuracion = str_lit.tabs([
+        "📄 Expedientes", "📲 Enlaces (Asistencia)", "📊 Asistencias Digitales", "🧹 Mantenimiento"
+    ])
+
+    with tab_exp:
+        str_lit.subheader("Gestión de Expedientes (Central)")
+        if not data.empty:
+            filtro_estado = str_lit.radio("Filtrar expedientes:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_exp")
+            df_filtrado = data.copy()
+            
+            col_estado_real = next((c for c in df_filtrado.columns if "Estado Central" in str(c)), "Estado Central")
+            
+            if filtro_estado == "Pendientes" and col_estado_real in df_filtrado.columns:
+                df_filtrado = df_filtrado[~df_filtrado[col_estado_real].astype(str).str.contains("Enviado", na=False)]
+            elif filtro_estado == "Enviadas" and col_estado_real in df_filtrado.columns:
+                df_filtrado = df_filtrado[df_filtrado[col_estado_real].astype(str).str.contains("Enviado", na=False)]
+
+            str_lit.dataframe(df_filtrado, use_container_width=True)
+            opciones = [f"{r.get(COL_ID_SERV, '')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado.iterrows()]
+            if opciones:
+                elegido = str_lit.selectbox("Seleccionar servicio para despachar", options=opciones, key="sel_exp")
+                if elegido:
+                    id_sel = elegido.split(" - ")[0]
+                    row_data = data[data[COL_ID_SERV].astype(str) == id_sel].iloc[0]
+                    str_lit.markdown("---")
+                    
+                    # --- BOTÓN DE SUSPENSIÓN ---
+                    with str_lit.expander("🚨 Opciones de Suspensión"):
+                        motivo_susp = str_lit.radio("Motivo de Suspensión:", ["Cancelación Definitiva", "Reprogramación"], key=f"susp_mot_{id_sel}")
+                        nueva_fecha = None
+                        if motivo_susp == "Reprogramación":
+                            nueva_fecha = str_lit.date_input("Nueva Fecha de Reprogramación", key=f"susp_fec_{id_sel}")
+                        
+                        if str_lit.button("🚨 Confirmar Suspensión", type="primary"):
+                            motivo_final = f"Cancelado" if motivo_susp == "Cancelación Definitiva" else f"Reprogramado al {nueva_fecha.strftime('%d/%m/%Y')}"
+                            with str_lit.spinner("Suspendiendo servicio..."):
+                                res = _post_apps_script({"action": "suspender_servicio", "id_servicio": id_sel, "motivo": motivo_final})
+                                if res.get("status") == "success":
+                                    str_lit.success("¡Servicio Suspendido!")
+                                    str_lit.cache_data.clear()
+                                    str_lit.session_state[f"pdf_susp_{id_sel}"] = True
+                                else:
+                                    str_lit.error(f"Error: {res.get('message')}")
+                    
+                    if str_lit.session_state.get(f"pdf_susp_{id_sel}", False):
+                        if str_lit.button("📄 Generar Reporte de Suspensión"):
+                            with str_lit.spinner("Generando PDF..."):
+                                pdf_path = generar_pdf_suspension(row_data, f"Servicio {motivo_susp}")
+                                with open(pdf_path, "rb") as f: pdf_bytes = f.read()
+                                os.unlink(pdf_path)
+                                str_lit.download_button(
+                                    label="📥 Descargar Reporte de Suspensión",
+                                    data=pdf_bytes,
+                                    file_name=f"Suspension_{id_sel}.pdf",
+                                    mime="application/pdf"
+                                )
+                    # ---------------------------
+
+                    c_pdf, c_estado = str_lit.columns(2)
+                    with c_pdf:
+                        if str_lit.button("🚀 Generar PDF con Constancias"):
+                            with str_lit.spinner("Generando PDF..."):
+                                pdf_path = generar_pdf_servicio(row_data)
+                                with open(pdf_path, "rb") as f: pdf_bytes = f.read()
+                                os.unlink(pdf_path)
+                                
+                                nombre_ev = limpiar_texto_archivo(row_data.get(COL_TIPO_EV, ""))
+                                fec_sel = str(row_data.get(COL_FECHA, ""))
+                                try:
+                                    partes_fecha = fec_sel.split("/")
+                                    fecha_formateada = f"{partes_fecha[0].zfill(2)}{partes_fecha[1].zfill(2)}{partes_fecha[2][-2:]}" if len(partes_fecha) == 3 else fec_sel.replace("/", "")
+                                except: fecha_formateada = fec_sel.replace("/", "")
+                                
+                                nombre_archivo = f"Contratacion_Servicio_Adicional_{nombre_ev}_{fecha_formateada}.pdf".replace(" ", "_")
+                                
+                                str_lit.download_button(label=f"📥 Descargar {nombre_archivo}", data=pdf_bytes, file_name=nombre_archivo, mime="application/pdf")
+                    with c_estado:
+                        if str_lit.button("✅ Marcar como Enviado a Central"):
+                            try:
+                                hoja_serv = abrir_hoja(HOJA_SERVICIOS)
+                                cell = hoja_serv.find(str(id_sel))
+                                if cell:
+                                    cabecera = hoja_serv.row_values(1)
+                                    col_index = -1
+                                    for idx, val in enumerate(cabecera):
+                                        if "Estado Central" in str(val):
+                                            col_index = idx + 1
+                                            break
+                                    
+                                    if col_index != -1:
+                                        hoja_serv.update_cell(cell.row, col_index, "🟢 Enviado a Central")
+                                        str_lit.success("¡Marcado como enviado a Central!")
+                                        str_lit.cache_data.clear(); str_lit.rerun()
+                                    else:
+                                        str_lit.error("No se encontró la columna 'Estado Central' en la hoja.")
+                            except Exception as e: str_lit.error(f"Error: {e}")
+
+    with tab_enlaces:
+        str_lit.subheader("Enviar Enlace de Asistencia al Encargado")
+        if not data.empty:
+            filtro_estado_env = str_lit.radio("Filtrar eventos:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_env")
+            df_filtrado_env = data.copy()
+            
+            col_enlace_real = next((c for c in df_filtrado_env.columns if "Enlace Asistencia" in str(c)), "Enlace Asistencia")
+            
+            if filtro_estado_env == "Pendientes" and col_enlace_real in df_filtrado_env.columns:
+                df_filtrado_env = df_filtrado_env[df_filtrado_env[col_enlace_real].astype(str).str.strip() == ""]
+            elif filtro_estado_env == "Enviadas" and col_enlace_real in df_filtrado_env.columns:
+                df_filtrado_env = df_filtrado_env[df_filtrado_env[col_enlace_real].astype(str).str.strip() != ""]
+
+            str_lit.dataframe(df_filtrado_env[[COL_ID_SERV, COL_TIPO_EV, COL_FECHA, col_enlace_real]], use_container_width=True)
+            
+            opciones_env = [f"{r.get(COL_ID_SERV, '')} | {r.get(COL_TIPO_EV, 'Evento')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado_env.iterrows()]
+            
+            if opciones_env:
+                elegido_env = str_lit.selectbox("Seleccionar servicio para enviar enlace", options=opciones_env, key="sel_env")
+                if elegido_env:
+                    id_sel_env = elegido_env.split(" | ")[0]
+                    
+                    row_data_env = data[data[COL_ID_SERV].astype(str) == id_sel_env].iloc[0]
+                    link_formulario_limpio = f"{URL_APPS_SCRIPT}?id_servicio={id_sel_env}"
+                    str_lit.markdown("---")
+                    str_lit.markdown("##### 📤 Enviar Planilla al Encargado del Evento")
+                    mensaje_wa = f"Hola, te envío el enlace para cargar la planilla de asistencia del servicio *{id_sel_env}* ({row_data_env.get(COL_TIPO_EV, '')}):\n\n{link_formulario_limpio}"
+                    url_wa_directo = f"https://api.whatsapp.com/send?text={requests.utils.quote(mensaje_wa)}"
+                    str_lit.markdown(f'<a href="{url_wa_directo}" target="_blank" style="text-decoration:none;"><button style="background-color: #25D366; color: white; border: none; padding: 12px 20px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 10px;">📲 Enviar Formulario por WhatsApp</button></a>', unsafe_allow_html=True)
+                    with str_lit.expander("Ver enlace en texto"): str_lit.code(link_formulario_limpio, language="text")
+                    if str_lit.button("✅ Marcar Enlace como Enviado"):
+                        try:
+                            hoja_serv = abrir_hoja(HOJA_SERVICIOS)
+                            cell = hoja_serv.find(str(id_sel_env))
+                            if cell:
+                                cabecera = hoja_serv.row_values(1)
+                                col_index = -1
+                                for idx, val in enumerate(cabecera):
+                                    if "Enlace Asistencia" in str(val):
+                                        col_index = idx + 1
+                                        break
+                                
+                                if col_index != -1:
+                                    hoja_serv.update_cell(cell.row, col_index, "🟢 Enviado")
+                                    str_lit.success("¡Enlace marcado como enviado!")
+                                    str_lit.cache_data.clear(); str_lit.rerun()
+                                else:
+                                    str_lit.error("No se encontró la columna 'Enlace Asistencia' en la hoja.")
+                        except Exception as e: str_lit.error(f"Error: {e}")
+
+    with tab_asist:
+        str_lit.subheader("Listado y Descarga de Asistencias")
+        df_asist = cargar_asistencia_digital_df()
+        if not df_asist.empty and COL_ID_SERV in df_asist.columns:
+            df_agrupado = df_asist.groupby(COL_ID_SERV).agg(Efectivos_Cargados=("DNI", "count")).reset_index()
+            if COL_ID_SERV in data.columns:
+                df_resumen = pd.merge(df_agrupado, data, on=COL_ID_SERV, how="left")
+            else:
+                df_resumen = df_agrupado
+                df_resumen[COL_TIPO_EV] = "Evento Desconocido"
+                df_resumen[COL_FECHA] = ""
+                df_resumen[COL_UBI] = ""
+
+            if COL_ESTADO_ASIST not in df_resumen.columns:
+                df_resumen[COL_ESTADO_ASIST] = ""
+                
+            filtro_asist = str_lit.radio("Filtrar por estado de envío:", ["Todas", "Pendientes", "Enviadas a Central"], horizontal=True, key="filtro_asist")
+            if filtro_asist == "Pendientes":
+                # CORRECCIÓN: Usamos el emoji en lugar de la palabra
+                df_mostrar = df_resumen[~df_resumen[COL_ESTADO_ASIST].astype(str).str.contains("🟢", na=False)]
+            elif filtro_asist == "Enviadas a Central":
+                df_mostrar = df_resumen[df_resumen[COL_ESTADO_ASIST].astype(str).str.contains("🟢", na=False)]
+            else:
+                df_mostrar = df_resumen
+
+            cols_a_mostrar = [COL_ID_SERV, COL_TIPO_EV, COL_FECHA, "Efectivos_Cargados"]
+            if COL_ESTADO_ASIST in df_mostrar.columns: cols_a_mostrar.append(COL_ESTADO_ASIST)
+            str_lit.dataframe(df_mostrar[cols_a_mostrar], use_container_width=True)
+            str_lit.markdown("---")
+            
+            opciones_eventos = [f"{r.get(COL_ID_SERV, '')} | {r.get(COL_TIPO_EV, 'Evento')} - {r.get(COL_FECHA, '')} ({r.get(COL_UBI, '')})" for _, r in df_mostrar.iterrows()]
+            evento_elegido = str_lit.selectbox("Seleccioná el evento:", options=opciones_eventos, key="sel_asist")
+            
+            if evento_elegido:
+                id_sel_asist = evento_elegido.split(" | ")[0]
+                df_filtrado_evento = df_asist[df_asist[COL_ID_SERV].astype(str) == id_sel_asist]
+                row_serv_asist = df_resumen[df_resumen[COL_ID_SERV].astype(str) == id_sel_asist].iloc[0]
+                
+                c_btn_pdf, c_btn_marcar = str_lit.columns(2)
+                
+                with c_btn_pdf:
+                    if str_lit.button("📄 Generar Reporte Web (HTML)"):
+                        with str_lit.spinner("Generando reporte..."):
+                            html_content = generar_reporte_html(
+                                df_filtrado_evento, 
+                                id_sel_asist, 
+                                str(row_serv_asist.get(COL_TIPO_EV, "")), 
+                                str(row_serv_asist.get(COL_FECHA, "")), 
+                                str(row_serv_asist.get(COL_HORARIO, "")),
+                                str(row_serv_asist.get(COL_UBI, ""))
+                            )
+                            
+                            nombre_ev = limpiar_texto_archivo(row_serv_asist.get(COL_TIPO_EV, ""))
+                            fec_sel = str(row_serv_asist.get(COL_FECHA, ""))
+                            nombre_archivo = f"Asistencia_{nombre_ev}_{fec_sel.replace('/','-')}.html"
+                            
+                            str_lit.download_button(
+                                label=f"📥 Descargar {nombre_archivo}",
+                                data=html_content,
+                                file_name=nombre_archivo,
+                                mime="text/html",
+                                help="Descargá este archivo y envialo por WhatsApp. Se abre como una página web."
+                            )
+
+                with c_btn_marcar:
+                    if not str(row_serv_asist.get(COL_ESTADO_ASIST, "")).startswith("🟢"):
+                        if str_lit.button("✅ Marcar Asistencia como Enviada"):
+                            with str_lit.spinner("Actualizando..."):
+                                res = _post_apps_script({"action": "marcar_asistencia_enviada", "id_servicio": id_sel_asist})
+                                if res.get("status") == "success":
+                                    str_lit.success("¡Planilla de asistencia marcada como enviada!")
+                                    str_lit.cache_data.clear()
+                                    str_lit.rerun()
+                                else:
+                                    str_lit.error(f"Error: {res.get('message')}")
+                    else:
+                        str_lit.success("✅ Esta planilla ya fue marcada como enviada a Central.")
+        else:
+            str_lit.info("Aún no hay registros de asistencia o falta la columna 'ID Servicio'.")
+
+    with tab_depuracion:
+        str_lit.subheader("🧹 Depuración y Archivado Mensual")
+        str_lit.warning("Esta acción moverá los registros a una solapa histórica.")
+        periodo_inp = str_lit.text_input("Periodo del Histórico", value=datetime.date.today().strftime("%Y_%m"))
+        if str_lit.button("⚠️ Ejecutar Limpieza Mensual"):
+            with str_lit.spinner("Depurando..."):
+                res = _post_apps_script({"action": "depurar_mes", "periodo": periodo_inp})
+                if res.get("status") == "success":
+                    str_lit.success(f"¡Migrado a Historico_Asistencia_{periodo_inp}!")
+                    str_lit.cache_data.clear()
+                else: str_lit.error(f"Error: {res.get('message')}")
+
+# --- ENRUTADOR PRINCIPAL ---
+modo_mantenimiento_activo = verificar_modo_mantenimiento()
+
+if str_lit.session_state.get("cambio_clave_requerido", False):
+    pantalla_cambio_clave()
+elif not str_lit.session_state.autenticado:
+    login()
+elif str_lit.session_state.rol == "Administrador":
+    vista_admin()
+elif modo_mantenimiento_activo:
+    str_lit.markdown("""<div style="text-align: center; padding: 4rem 2rem;"><h1>🛠️ SITIO EN MANTENIMIENTO</h1><p style="font-size: 1.2rem; color: #555;">Por favor intente nuevamente en unos momentos.</p></div>""", unsafe_allow_html=True)
+    if str_lit.button("🚪 Cerrar Sesión"): str_lit.session_state.autenticado = False; str_lit.rerun()
+else:
+    vista_dependencia()
