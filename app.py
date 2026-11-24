@@ -982,13 +982,14 @@ def vista_dependencia():
                             else:
                                 # --- GUARDAR EN MEMORIA ---
                                 try:
-                                    if df_orgs.empty or df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()].empty:
-                                        abrir_hoja("Organizadores").append_row([dni_organizador.strip(), nombre_organizador.strip(), cuil_default_org])
-                                    
-                                    if not es_mismo_pagador:
-                                        if df_pags.empty or df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()].empty:
-                                            abrir_hoja("Pagadores").append_row([dni_pagador.strip(), nombre_pagador.strip(), cuil_pagado_por.strip()])
-                                    
+                                    cuil_org_a_guardar = cuil_pagado_por.strip() if es_mismo_pagador else ""
+                                    if df_orgs.empty or df_orgs[df_orgs["dni"].astype(str).str.replace(r"\D", "", regex=True).str.strip() == dni_org_limpio].empty:
+                                        abrir_hoja("Organizadores").append_row([dni_org_limpio, nombre_organizador.strip(), cuil_org_a_guardar])
+
+                                    if not es_mismo_pagador and dni_pag_limpio:
+                                        if df_pags.empty or df_pags[df_pags["dni"].astype(str).str.replace(r"\D", "", regex=True).str.strip() == dni_pag_limpio].empty:
+                                            abrir_hoja("Pagadores").append_row([dni_pag_limpio, nombre_pagador.strip(), cuil_pagado_por.strip()])
+
                                     str_lit.cache_data.clear()
                                 except Exception as e:
                                     logger.error(f"Error guardando memoria: {e}")
