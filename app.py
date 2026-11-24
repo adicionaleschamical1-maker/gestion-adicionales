@@ -173,27 +173,105 @@ def verificar_modo_mantenimiento() -> bool:
         return False
     except Exception: return False
 
-# --- FUNCIONES DE MEMORIA DE ORGANIZADORES Y PAGADORES ---
-@str_lit.cache_data(ttl=5, show_spinner=False)
-def cargar_organizadores_df() -> pd.DataFrame:
-    try: 
-        df = pd.DataFrame(abrir_hoja("Organizadores").get_all_records())
-        if not df.empty: df.columns = [str(c).strip().lower() for c in df.columns]
-        return df
-    except Exception as e: 
-        logger.error(f"Error organizadores: {e}")
-        return pd.DataFrame()
+# --- MEMORIA DE ORGANIZADORES Y PAGADORES ---
+                df_orgs = cargar_organizadores_df()
 
-@str_lit.cache_data(ttl=5, show_spinner=False)
-def cargar_pagadores_df() -> pd.DataFrame:
-    try: 
-        df = pd.DataFrame(abrir_hoja("Pagadores").get_all_records())
-        if not df.empty: df.columns = [str(c).strip().lower() for c in df.columns]
-        return df
-    except Exception as e: 
-        logger.error(f"Error pagadores: {e}")
-        return pd.DataFrame()
-# ---------------------------------------------------------
+                def _extraer_cuil(fila):
+                    for col in ["cuil", "cuit", "cuil / cuit", "cuil_cuit"]:
+                        if col in fila.index and str(fila.get(col, "")).strip():
+                            return re.sub(r"\D", "", str(fila.get(col, "")).strip())
+                    return ""
+
+                # 1. Primero el DNI del organizador
+                dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
+                dni_org_limpio = re.sub(r"\D", "", dni_organizador.strip())
+
+                key_org_dni_prev = f"_prev_dni_org_{counter}"
+                if str_lit.session_state.get(key_org_dni_prev) != dni_org_limpio:
+                    str_lit.session_state[key_org_dni_prev] = dni_org_limpio
+                    if dni_org_limpio and not df_orgs.empty and "dni" in df_orgs.columns:
+                        match = df_orgs[df_orgs["dni"].astype(str).str.replace(r"\D", "", regex=True).str.strip() == dni_org_limpio]
+                        if not match.empty:
+                            nom_found = str(match.iloc[0].get("nombre", "")).strip()
+                            cuil_found = _extraer_cuil(match.iloc[0])
+                            str_lit.session_state[f"nom_org_{counter}"] = nom_found
+                            str_lit.session_state[f"cuil_org_{counter}"] = cuil_found
+                        else:
+                            str_lit.session_state[f"nom_org_{counter}"] = ""
+                            str_lit.session_state[f"cuil_org_{counter}"] = ""
+                    else:
+                        str_lit.session_state[f"nom_org_{counter}"] = ""
+                        str_lit.session_state[f"cuil_org_{counter}"] = ""
+
+                # 2. Nombre del organizador
+                nombre_organizador = str_lit.text_input("Nombre Organizador", key=f"nom_org_{counter}")
+
+                if dni_org_limpio and not df_orgs.empty and "dni" in df_orgs.columns:
+                    match_info_org = df_orgs[df_orgs["dni"].astype(str).str.replace(r"\D", "", regex=True).str.strip() == dni_org_limpio]
+                    if not match_info_org.empty:
+                        cuil_info_org = _extraer_cuil(match_info_org.iloc[0]) or "Sin CUIL registrado"
+                        str_lit.info(
+                            f"💡 **Organizador reconocido:** {match_info_org.iloc[0].get('nombre', '')} | "
+                            f"**DNI:** {dni_org_limpio} | **CUIL/CUIT:** {cuil_info_org}"
+                        )
+
+                if nombre_organizador.strip() and dni_organizador.strip():
+                    es_mismo_pagador = str_lit.checkbox("El organizador es la misma persona que paga", value=True, key=f"mismo_pag_{counter}")
+
+                    if es_mismo_pagador:
+                        pagado_por = f"{nombre_organizador} (DNI: {dni_organizador})"
+                        cuil_pagado_por = str_lit.text_input("CUIL / CUIT del Organizador (11 dígitos)", key=f"cuil_org_{counter}")
+                        dni_pagador = dni_organizador
+                        nombre_pagador = nombre_organizador
+                        cuil_pagador = cuil_pagado_por
+                    else:
+                        df_pags = cargar_pagadores_df()
+
+                        # 1. Primero el DNI del pagador
+                        dni_pagador = str_lit.text_input("DNI del Pagador", key=f"dni_pag_{counter}")
+                        dni_pag_limpio = re.sub(r"\D", "", dni_pagador.strip())
+
+                        key_pag_dni_prev = f"_prev_dni_pag_{counter}"
+                        if str_lit.session_state.get(key_pag_dni_prev) != dni_pag_limpio:
+                            str_lit.session_state[key_pag_dni_prev] = dni_pag_limpio
+                            if dni_pag_limpio and not df_pags.empty and "dni" in df_pags.columns:
+                                match_pag = df_pags[df_pags["dni"].astype(str).str.replace(r"\D", "", regex=True).str.strip() == dni_pag_limpio]
+                                if not match_pag.empty:
+                                    nom_pag_found = str(match_pag.iloc[0].get("nombre", "")).strip()
+                                    cuil_pag_found = _extraer_cuil(match_pag.iloc[0])
+                                    str_lit.session_state[f"nom_pag_{counter}"] = nom_pag_found
+                                    str_lit.session_state[f"cuil_pag_{counter}"] = cuil_pag_found
+                                else:
+                                    str_lit.session_state[f"nom_pag_{counter}"] = ""
+                                    str_lit.session_state[f"cuil_pag_{counter}"] = ""
+                            else:
+                                str_lit.session_state[f"nom_pag_{counter}"] = ""
+                                str_lit.session_state[f"cuil_pag_{counter}"] = ""
+
+                        # Mostrar información completa si existe en memoria
+                        if dni_pag_limpio and not df_pags.empty and "dni" in df_pags.columns:
+                            match_info_pag = df_pags[df_pags["dni"].astype(str).str.replace(r"\D", "", regex=True).str.strip() == dni_pag_limpio]
+                            if not match_info_pag.empty:
+                                cuil_info_pag = _extraer_cuil(match_info_pag.iloc[0]) or "Sin CUIL registrado"
+                                str_lit.info(
+                                    f"💡 **Pagador reconocido:** {match_info_pag.iloc[0].get('nombre', '')} | "
+                                    f"**DNI:** {dni_pag_limpio} | **CUIL/CUIT:** {cuil_info_pag}"
+                                )
+
+                        # 2. Nombre y CUIL del pagador
+                        col_pag1, col_pag2 = str_lit.columns(2)
+                        with col_pag1:
+                            nombre_pagador = str_lit.text_input("Nombre del Pagador", key=f"nom_pag_{counter}")
+                        with col_pag2:
+                            cuil_pagado_por = str_lit.text_input("CUIL / CUIT a Facturar (11 dígitos)", key=f"cuil_pag_{counter}")
+
+                        pagado_por = f"{nombre_pagador} (DNI: {dni_pagador})"
+                        cuil_pagador = cuil_pagado_por
+
+                else:
+                    pagado_por = ""
+                    cuil_pagado_por = ""
+                # ---------------------------------------------------------
 
 def boton_refrescar():
     if str_lit.sidebar.button("🔄 Refrescar datos"):
