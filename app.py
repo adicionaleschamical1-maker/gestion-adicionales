@@ -31,8 +31,9 @@ COL_DEP = "Dependencia"
 COL_ESTADO_CENTRAL = "Estado Central"
 COL_ESTADO_ASIST = "Estado Asistencia"
 COL_ENLACE_ASIST = "Enlace Asistencia"
+COL_ORGANIZADOR = "Organizador"
 
-# --- ESTILOS VISUALES (CON PROFUNDIDAD Y SOBRIEDAD) ---
+# --- ESTILOS VISUALES (CON TARJETAS PROPORCIONADAS) ---
 str_lit.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -42,31 +43,30 @@ str_lit.markdown("""
     /* Encabezado */
     .header-container {
         background: linear-gradient(135deg, #002060, #002a80); color: white;
-        padding: 2rem 1rem; border-radius: 16px; text-align: center;
+        padding: 1.5rem 1rem; border-radius: 16px; text-align: center;
         margin-bottom: 2rem; box-shadow: 0 8px 20px rgba(0,32,96,0.2);
         border-bottom: 5px solid #8B1E1E;
     }
     .badge-chamical {
         background: #8B1E1E; display: inline-block; padding: 6px 25px;
-        border-radius: 50px; font-size: 0.9rem; font-weight: 800; color: white;
-        box-shadow: 0 4px 10px rgba(139,30,30,0.4); margin-top: 10px; letter-spacing: 1px;
+        border-radius: 50px; font-size: 0.85rem; font-weight: 800; color: white;
+        box-shadow: 0 4px 10px rgba(139,30,30,0.4); margin-top: 8px; letter-spacing: 1px;
     }
 
-    /* Tarjetas del Dashboard */
+    /* Tarjetas del Dashboard (Achicadas y Proporcionadas) */
     .kpi-card {
-        background: #FFFFFF; border-radius: 12px; padding: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-left: 5px solid #002060;
-        text-align: center; transition: transform 0.2s;
+        background: #FFFFFF; border-radius: 10px; padding: 12px 8px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-left: 4px solid #002060;
+        text-align: center; height: 100%;
     }
-    .kpi-card:hover { transform: translateY(-5px); }
-    .kpi-title { font-size: 0.85rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-    .kpi-value { font-size: 2rem; font-weight: 800; color: #002060; margin-top: 5px; }
+    .kpi-title { font-size: 0.7rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.1; }
+    .kpi-value { font-size: 1.3rem; font-weight: 800; color: #002060; margin-top: 5px; word-wrap: break-word; }
     .kpi-alert { border-left-color: #C62828; }
     .kpi-alert .kpi-value { color: #C62828; }
 
     /* Contenedores de Formularios y Tablas */
     div.stExpander, div.stForm, div[data-testid="stDataFrame"] {
-        background: #FFFFFF; border-radius: 12px; padding: 20px;
+        background: #FFFFFF; border-radius: 12px; padding: 15px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid #EAEAEA;
     }
     
@@ -79,7 +79,7 @@ str_lit.markdown("""
     .stButton > button, div.stFormSubmitButton > button {
         border-radius: 8px !important; font-weight: 600 !important;
         background-color: #002060 !important; color: white !important;
-        border: none !important; padding: 10px 24px !important;
+        border: none !important; padding: 8px 20px !important;
         box-shadow: 0 4px 6px rgba(0,32,96,0.2) !important;
         transition: all 0.2s !important;
     }
@@ -94,13 +94,13 @@ str_lit.markdown("""
         border-radius: 8px; margin-top: 15px; text-align: center;
         box-shadow: 0 4px 10px rgba(46,125,50,0.1);
     }
-    .monto-total { font-size: 1.6rem; font-weight: 800; color: #1B5E20; }
+    .monto-total { font-size: 1.5rem; font-weight: 800; color: #1B5E20; }
     </style>
     <div class="header-container">
-        <div style="font-size: 3rem; margin-bottom: 5px;">👮‍♂️</div>
-        <div style="font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">POLICÍA DE LA PROVINCIA DE LA RIOJA</div>
-        <div style="font-size: 1rem; font-weight: 700; color: #ffd700; margin: 5px 0;">UNIDAD REGIONAL QUINTA - CHAMICAL</div>
-        <div style="font-size: 0.9rem; font-weight: 600; margin-bottom: 10px; opacity: 0.9;">OFICINA DE ADICIONALES</div>
+        <div style="font-size: 2.5rem; margin-bottom: 5px;">👮‍♂️</div>
+        <div style="font-size: 1.1rem; font-weight: 800; letter-spacing: 1px;">POLICÍA DE LA PROVINCIA DE LA RIOJA</div>
+        <div style="font-size: 0.95rem; font-weight: 700; color: #ffd700; margin: 5px 0;">UNIDAD REGIONAL QUINTA - CHAMICAL</div>
+        <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; opacity: 0.9;">OFICINA DE ADICIONALES</div>
         <div class="badge-chamical">SISTEMA DE GESTIÓN</div>
     </div>
 """, unsafe_allow_html=True)
@@ -345,6 +345,49 @@ def _cabecera_pdf(pdf, titulo, subtitulo):
     pdf.cell(0, 5, subtitulo, ln=True, align="center")
     pdf.set_text_color(0, 0, 0); pdf.ln(5)
 
+def generar_pdf_suspension(row: pd.Series, motivo: str) -> str:
+    pdf = FPDF(); pdf.add_page()
+    _cabecera_pdf(pdf, "INFORME DE SUSPENSIÓN DE SERVICIO", f"ID de Servicio: {row.get(COL_ID_SERV, '')}")
+    
+    pdf.set_fill_color(198, 40, 40); pdf.set_text_color(255, 255, 255)
+    pdf.set_font("helvetica", "B", 24); pdf.cell(0, 20, "EVENTO SUSPENDIDO", ln=True, align="center", fill=True)
+    
+    pdf.ln(5); pdf.set_text_color(0, 0, 0); pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 10, f"Motivo: {motivo}", ln=True, align="center"); pdf.ln(10)
+    
+    def fila_completa(lbl, val, w_lbl=45, w_val=145):
+        pdf.set_font("helvetica", "B", 10); pdf.set_fill_color(245, 247, 250)
+        pdf.cell(w_lbl, 8, f" {lbl}", 1, 0, 'L', True)
+        pdf.set_font("helvetica", "", 10); pdf.cell(w_val, 8, f" {val}", 1, 1, 'L')
+
+    def seccion_titulo(titulo):
+        pdf.ln(4); pdf.set_font("helvetica", "B", 11); pdf.set_fill_color(0, 32, 96)
+        pdf.set_text_color(255, 255, 255); pdf.cell(190, 8, f"  {titulo}", 1, 1, 'L', True)
+        pdf.set_text_color(0, 0, 0)
+
+    seccion_titulo("DATOS DEL EVENTO ORIGINAL")
+    fila_completa("Dependencia", str(row.get(COL_DEP, '')))
+    fila_completa("Tipo de Evento", str(row.get(COL_TIPO_EV, '')))
+    fila_completa("Fecha Original", str(row.get(COL_FECHA, '')))
+    fila_completa("Horario", str(row.get(COL_HORARIO, '')))
+    fila_completa("Ubicación / Predio", str(row.get(COL_UBI, '')))
+    fila_completa("Organizador", str(row.get(COL_ORGANIZADOR, '')))
+    
+    monto_val = row.get('Monto Total', 0)
+    monto_str = f"${float(monto_val):,.2f}" if monto_val else "$0.00"
+    fila_completa("Monto Total", monto_str)
+
+    pdf.ln(15); pdf.set_font("helvetica", "", 10)
+    pdf.cell(0, 10, "_________________________________________________", ln=True, align="center")
+    pdf.cell(0, 5, "Firma y Aclaración del Administrador", ln=True, align="center")
+    
+    fecha_emision = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+    pdf.ln(5); pdf.cell(0, 5, f"Reporte generado el: {fecha_emision}", ln=True, align="center")
+
+    tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    pdf.output(tmp_pdf.name)
+    return tmp_pdf.name
+
 def descargar_imagen_drive(url_or_id):
     if not url_or_id: return None
     try:
@@ -400,7 +443,7 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     fila_tabla("Dependencia", str(row.get(COL_DEP, '')), "Fecha(s)", fecha_ev_str)
     fila_tabla("Tipo de Evento", str(row.get(COL_TIPO_EV, '')), "Horario", str(row.get(COL_HORARIO, '')), 35, 70, 25, 60)
     fila_completa("Ubicación / Predio", str(row.get(COL_UBI, '')))
-    fila_completa("Organizador", str(row.get('Organizador', '')))
+    fila_completa("Organizador", str(row.get(COL_ORGANIZADOR, '')))
 
     seccion_titulo("2. RECURSOS Y MÓDULOS ASIGNADOS")
     monto_val = row.get('Monto Total', 0)
@@ -846,14 +889,12 @@ def vista_admin():
             try: total_monto += float(r.get('Monto Total', 0))
             except: pass
         
-        # Contamos pendientes de asistencia
         if not df_asist.empty and COL_ID_SERV in df_asist.columns:
             df_agrupado = df_asist.groupby(COL_ID_SERV).agg(Efectivos_Cargados=("DNI", "count")).reset_index()
             pendientes_asist = len(data) - len(df_agrupado)
         else:
             pendientes_asist = len(data)
 
-    # Pintamos las tarjetas
     c1, c2, c3, c4 = str_lit.columns(4)
     with c1:
         str_lit.markdown(f'<div class="kpi-card"><div class="kpi-title">Total Servicios</div><div class="kpi-value">{total_servicios}</div></div>', unsafe_allow_html=True)
@@ -876,8 +917,8 @@ def vista_admin():
     with tab_exp:
         str_lit.subheader("Gestión de Expedientes (Central)")
         if not data.empty:
-            # --- BARRA DE BÚSQUEDA ---
-            busqueda = str_lit.text_input("🔍 Buscar por ID o Dependencia:", key="busq_exp")
+            # --- BARRA DE BÚSQUEDA AVANZADA ---
+            busqueda = str_lit.text_input("🔍 Buscar por ID, Evento, Organizador o Dependencia:", key="busq_exp")
             
             filtro_estado = str_lit.radio("Filtrar expedientes:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_exp")
             df_filtrado = data.copy()
@@ -890,8 +931,12 @@ def vista_admin():
                 df_filtrado = df_filtrado[df_filtrado[col_estado_real].astype(str).str.contains("Enviado", na=False)]
 
             if busqueda:
-                mask = df_filtrado[COL_ID_SERV].astype(str).str.contains(busqueda, case=False, na=False) | \
-                       df_filtrado[COL_DEP].astype(str).str.contains(busqueda, case=False, na=False)
+                mask = (
+                    df_filtrado[COL_ID_SERV].astype(str).str.contains(busqueda, case=False, na=False) |
+                    df_filtrado[COL_DEP].astype(str).str.contains(busqueda, case=False, na=False) |
+                    df_filtrado[COL_TIPO_EV].astype(str).str.contains(busqueda, case=False, na=False) |
+                    df_filtrado[COL_ORGANIZADOR].astype(str).str.contains(busqueda, case=False, na=False)
+                )
                 df_filtrado = df_filtrado[mask]
 
             str_lit.dataframe(df_filtrado, use_container_width=True)
@@ -911,7 +956,6 @@ def vista_admin():
                         if motivo_susp == "Reprogramación":
                             nueva_fecha = str_lit.date_input("Nueva Fecha", key=f"susp_fec_{id_sel}")
                         
-                        # Confirmación
                         confirmar = str_lit.checkbox("¿Está seguro de suspender este evento?", key=f"conf_susp_{id_sel}")
                         
                         if str_lit.button("🚨 Confirmar Suspensión", type="primary", disabled=not confirmar):
@@ -924,11 +968,9 @@ def vista_admin():
                                     str_lit.cache_data.clear(); str_lit.rerun()
                                 else: str_lit.error(f"Error: {res.get('message')}")
                     
-                    # Generar PDF de suspensión (si ya se suspendió)
                     if str(row_data.get(COL_ESTADO_CENTRAL, "")).startswith("🔴"):
                         if str_lit.button("📄 Generar Reporte de Suspensión"):
                             with str_lit.spinner("Generando PDF..."):
-                                # Nota: Esta función debería estar definida más arriba en el archivo
                                 pdf_path = generar_pdf_suspension(row_data, str(row_data.get(COL_ESTADO_CENTRAL, "")))
                                 with open(pdf_path, "rb") as f: pdf_bytes = f.read()
                                 os.unlink(pdf_path)
@@ -972,7 +1014,6 @@ def vista_admin():
                             except Exception as e: str_lit.error(f"Error: {e}")
 
     with tab_enlaces:
-        # (Misma lógica que ya tenías)
         str_lit.subheader("Enviar Enlace de Asistencia al Encargado")
         if not data.empty:
             filtro_estado_env = str_lit.radio("Filtrar eventos:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_env")
@@ -1018,7 +1059,6 @@ def vista_admin():
                         except Exception as e: str_lit.error(f"Error: {e}")
 
     with tab_asist:
-        # (Misma lógica que ya tenías)
         str_lit.subheader("Listado y Descarga de Asistencias")
         df_asist = cargar_asistencia_digital_df()
         if not df_asist.empty and COL_ID_SERV in df_asist.columns:
@@ -1039,7 +1079,6 @@ def vista_admin():
             else:
                 df_mostrar = df_resumen
 
-            # --- BARRA DE BÚSQUEDA ---
             busqueda_asist = str_lit.text_input("🔍 Buscar evento por nombre:", key="busq_asist")
             if busqueda_asist:
                 df_mostrar = df_mostrar[df_mostrar[COL_TIPO_EV].astype(str).str.contains(busqueda_asist, case=False, na=False)]
