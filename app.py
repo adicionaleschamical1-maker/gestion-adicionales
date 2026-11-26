@@ -32,57 +32,76 @@ COL_ESTADO_CENTRAL = "Estado Central"
 COL_ESTADO_ASIST = "Estado Asistencia"
 COL_ENLACE_ASIST = "Enlace Asistencia"
 
-# --- ESTILOS VISUALES ---
+# --- ESTILOS VISUALES (CON PROFUNDIDAD Y SOBRIEDAD) ---
 str_lit.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     * { font-family: 'Inter', sans-serif; }
-    .stApp { background: #F5F5F5; }
+    .stApp { background-color: #F4F6F9; }
+    
+    /* Encabezado */
     .header-container {
         background: linear-gradient(135deg, #002060, #002a80); color: white;
-        padding: 2rem 1rem; border-radius: 20px; text-align: center;
-        margin-bottom: 2rem; box-shadow: 0 10px 25px rgba(0,32,96,0.3);
-        border-bottom: 6px solid #8B1E1E;
+        padding: 2rem 1rem; border-radius: 16px; text-align: center;
+        margin-bottom: 2rem; box-shadow: 0 8px 20px rgba(0,32,96,0.2);
+        border-bottom: 5px solid #8B1E1E;
     }
     .badge-chamical {
-        background: #8B1E1E; display: inline-block; padding: 8px 30px;
-        border-radius: 50px; font-size: 1rem; font-weight: 800; color: white;
-        box-shadow: 0 4px 15px rgba(139,30,30,0.5); margin-top: 10px; letter-spacing: 1px;
+        background: #8B1E1E; display: inline-block; padding: 6px 25px;
+        border-radius: 50px; font-size: 0.9rem; font-weight: 800; color: white;
+        box-shadow: 0 4px 10px rgba(139,30,30,0.4); margin-top: 10px; letter-spacing: 1px;
     }
-    div.stExpander, div.stForm {
-        background: #FFFFFF; border-radius: 20px; padding: 20px;
-        margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        border-left: 6px solid #002060; border: 1px solid #E0E0E0;
+
+    /* Tarjetas del Dashboard */
+    .kpi-card {
+        background: #FFFFFF; border-radius: 12px; padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-left: 5px solid #002060;
+        text-align: center; transition: transform 0.2s;
     }
-    input, textarea, select, div[data-baseweb="input"] > div, div[data-baseweb="base-input"] {
-        background-color: #FFFFFF !important; border: 1.5px solid #B0BEC5 !important;
-        border-radius: 8px !important; color: #1a1a1a !important;
+    .kpi-card:hover { transform: translateY(-5px); }
+    .kpi-title { font-size: 0.85rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    .kpi-value { font-size: 2rem; font-weight: 800; color: #002060; margin-top: 5px; }
+    .kpi-alert { border-left-color: #C62828; }
+    .kpi-alert .kpi-value { color: #C62828; }
+
+    /* Contenedores de Formularios y Tablas */
+    div.stExpander, div.stForm, div[data-testid="stDataFrame"] {
+        background: #FFFFFF; border-radius: 12px; padding: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid #EAEAEA;
     }
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #002060, #002a80) !important; color: white !important;
+    
+    /* Inputs */
+    input, textarea, select {
+        border-radius: 8px !important; border: 1px solid #D1D5DB !important;
     }
+    
+    /* Botones */
     .stButton > button, div.stFormSubmitButton > button {
-        border-radius: 30px !important; font-weight: 700 !important;
-        background: linear-gradient(135deg, #002060, #002a80) !important;
-        color: white !important; border: none !important;
-        height: 3.2em !important; width: 100% !important;
+        border-radius: 8px !important; font-weight: 600 !important;
+        background-color: #002060 !important; color: white !important;
+        border: none !important; padding: 10px 24px !important;
+        box-shadow: 0 4px 6px rgba(0,32,96,0.2) !important;
+        transition: all 0.2s !important;
     }
+    .stButton > button:hover { background-color: #002a80 !important; }
+    
+    /* Botón de Suspensión */
+    .btn-suspender > button { background-color: #C62828 !important; }
+
+    /* Montos */
     .monto-box {
-        background: #E8F5E9; border-left: 6px solid #2E7D32; padding: 15px;
-        border-radius: 10px; margin-top: 15px; text-align: center;
+        background: #E8F5E9; border-left: 5px solid #2E7D32; padding: 15px;
+        border-radius: 8px; margin-top: 15px; text-align: center;
+        box-shadow: 0 4px 10px rgba(46,125,50,0.1);
     }
-    .monto-total { font-size: 1.5rem; font-weight: 800; color: #1B5E20; }
-    .suspension-box {
-        background: #FFEBEE; border: 2px solid #C62828; border-radius: 8px;
-        padding: 15px; text-align: center; margin-bottom: 20px;
-    }
+    .monto-total { font-size: 1.6rem; font-weight: 800; color: #1B5E20; }
     </style>
     <div class="header-container">
-        <div style="font-size: 3.5rem; margin-bottom: 5px;">👮‍♂️</div>
-        <div style="font-size: 1.3rem; font-weight: 800; letter-spacing: 1px;">POLICÍA DE LA PROVINCIA DE LA RIOJA</div>
-        <div style="font-size: 1.1rem; font-weight: 700; color: #ffd700; margin: 5px 0;">UNIDAD REGIONAL QUINTA - CHAMICAL</div>
-        <div style="font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; opacity: 0.95;">OFICINA DE ADICIONALES</div>
-        <div class="badge-chamical">CHAMICAL</div>
+        <div style="font-size: 3rem; margin-bottom: 5px;">👮‍♂️</div>
+        <div style="font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">POLICÍA DE LA PROVINCIA DE LA RIOJA</div>
+        <div style="font-size: 1rem; font-weight: 700; color: #ffd700; margin: 5px 0;">UNIDAD REGIONAL QUINTA - CHAMICAL</div>
+        <div style="font-size: 0.9rem; font-weight: 600; margin-bottom: 10px; opacity: 0.9;">OFICINA DE ADICIONALES</div>
+        <div class="badge-chamical">SISTEMA DE GESTIÓN</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -95,6 +114,7 @@ HOJA_USUARIOS = "Usuarios"
 HOJA_PERSONAL = "Personal_Base"
 HOJA_ASISTENCIA = "Asistencia_Digital_Global"
 HOJA_CONFIG = "Config"
+HOJA_AUDITORIA = "Auditoria"
 
 PRECIO_JEFE = 33000
 PRECIO_SUB = 28000
@@ -129,13 +149,24 @@ def abrir_hoja(nombre: str):
     try: return ss.worksheet(nombre)
     except gspread.WorksheetNotFound: return ss.sheet1
 
+# --- LÓGICA DE AUDITORÍA ---
+def registrar_auditoria(usuario, accion, detalle):
+    try:
+        hoja = abrir_hoja(HOJA_AUDITORIA)
+        if not hoja.get_all_values():
+            hoja.append_row(["Fecha Hora", "Usuario", "Accion", "Detalle"])
+        fecha = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        hoja.append_row([fecha, usuario, accion, detalle])
+    except Exception as e:
+        logger.error(f"Error auditoría: {e}")
+
+# --- CARGAS DE DATOS ---
 @str_lit.cache_data(ttl=5, show_spinner=False)
 def cargar_servicios_df() -> pd.DataFrame:
     try: 
         hoja = abrir_hoja(HOJA_SERVICIOS)
         datos = hoja.get_all_values()
         if not datos: return pd.DataFrame()
-        
         cabecera = datos[0]
         nuevas_cabeceras = []
         vistos = {}
@@ -147,11 +178,9 @@ def cargar_servicios_df() -> pd.DataFrame:
             else:
                 vistos[col_limpia] = 1
                 nuevas_cabeceras.append(col_limpia)
-                
         return pd.DataFrame(datos[1:], columns=nuevas_cabeceras)
     except Exception as e: 
-        logger.error(f"Error servicios: {e}")
-        return pd.DataFrame()
+        logger.error(f"Error servicios: {e}"); return pd.DataFrame()
 
 @str_lit.cache_data(ttl=60, show_spinner=False)
 def cargar_usuarios_df() -> pd.DataFrame:
@@ -173,16 +202,14 @@ def verificar_modo_mantenimiento() -> bool:
         return False
     except Exception: return False
 
-# --- FUNCIONES DE MEMORIA DE ORGANIZADORES Y PAGADORES ---
+# --- MEMORIA DE ORGANIZADORES Y PAGADORES ---
 @str_lit.cache_data(ttl=5, show_spinner=False)
 def cargar_organizadores_df() -> pd.DataFrame:
     try: 
         df = pd.DataFrame(abrir_hoja("Organizadores").get_all_records())
         if not df.empty: df.columns = [str(c).strip().lower() for c in df.columns]
         return df
-    except Exception as e: 
-        logger.error(f"Error organizadores: {e}")
-        return pd.DataFrame()
+    except Exception as e: logger.error(f"Error organizadores: {e}"); return pd.DataFrame()
 
 @str_lit.cache_data(ttl=5, show_spinner=False)
 def cargar_pagadores_df() -> pd.DataFrame:
@@ -190,10 +217,7 @@ def cargar_pagadores_df() -> pd.DataFrame:
         df = pd.DataFrame(abrir_hoja("Pagadores").get_all_records())
         if not df.empty: df.columns = [str(c).strip().lower() for c in df.columns]
         return df
-    except Exception as e: 
-        logger.error(f"Error pagadores: {e}")
-        return pd.DataFrame()
-# ---------------------------------------------------------
+    except Exception as e: logger.error(f"Error pagadores: {e}"); return pd.DataFrame()
 
 def boton_refrescar():
     if str_lit.sidebar.button("🔄 Refrescar datos"):
@@ -203,6 +227,7 @@ def boton_refrescar():
 _defaults = {"autenticado": False, "usuario_dni": None, "dependencia": None, "rol": None, "nombre_apellido": None, "cambio_clave_requerido": False, "form_counter": 0}
 for k, v in _defaults.items(): str_lit.session_state.setdefault(k, v)
 
+# --- FUNCIONES UTILITARIAS ---
 def validar_cuil(valor: str) -> bool: return bool(re.fullmatch(r"\d{11}", str(valor).strip()))
 def calcular_monto_y_modulos(hora_inicio: datetime.time, hora_fin: datetime.time):
     dt_ini = datetime.datetime.combine(datetime.date.today(), hora_inicio)
@@ -230,7 +255,6 @@ def limpiar_texto_archivo(texto):
     texto = re.sub(r'[^a-zA-Z0-9\s]', '', texto)
     return " ".join(texto.split()).strip()
 
-# --- NUEVA FUNCIÓN PARA GENERAR IDs CORTOS ---
 def generar_id_corto(dependencia, fecha_str, df_existente):
     dep_code = limpiar_texto_archivo(dependencia)[:4].upper()
     try:
@@ -238,9 +262,7 @@ def generar_id_corto(dependencia, fecha_str, df_existente):
         fecha_code = f"{partes[0]}{partes[1]}{partes[2][-2:]}"
     except:
         fecha_code = datetime.date.today().strftime("%d%m%y")
-    
     base_id = f"{dep_code}-{fecha_code}"
-    
     correlativo = 1
     if not df_existente.empty and COL_ID_SERV in df_existente.columns:
         ids_existentes = df_existente[COL_ID_SERV].astype(str).tolist()
@@ -248,29 +270,22 @@ def generar_id_corto(dependencia, fecha_str, df_existente):
         if coincidencias:
             numeros = []
             for c in coincidencias:
-                try:
-                    num = int(c.split("-")[-1].split("_")[0])
-                    numeros.append(num)
-                except:
-                    pass
-            if numeros:
-                correlativo = max(numeros) + 1
-                
+                try: numeros.append(int(c.split("-")[-1].split("_")[0]))
+                except: pass
+            if numeros: correlativo = max(numeros) + 1
     return f"{base_id}-{correlativo:02d}"
 
-# --- LOGIN Y CAMBIO DE CLAVE ---
+# --- LOGIN ---
 def _validar_credenciales(dni, clave):
     try:
         data = cargar_usuarios_df()
-        if data.empty: return False, "No se pudo cargar la base de datos de usuarios."
+        if data.empty: return False, "No se pudo cargar la base de datos."
         data.columns = [str(c).strip().lower() for c in data.columns]
         user = data[data["dni"].astype(str) == str(dni)]
         if user.empty: return False, "DNI no registrado."
-
         u = user.iloc[0]
         clave_pers = str(u.get("clave personal", u.get("clave_personal", ""))).strip()
         clave_temp = str(u.get("clave", u.get("clave_temporal", ""))).strip()
-
         requiere_cambio = (clave_pers == "" or clave_pers == str(dni) or (clave_temp != "" and clave == clave_temp))
         if requiere_cambio:
             if clave == clave_temp or clave == str(dni) or clave == clave_pers:
@@ -278,7 +293,6 @@ def _validar_credenciales(dni, clave):
                 str_lit.session_state.dni_temp = dni
                 return True, "cambio"
             return False, "Contraseña temporal incorrecta."
-
         if clave == clave_pers:
             str_lit.session_state.autenticado = True
             str_lit.session_state.usuario_dni = dni
@@ -288,8 +302,7 @@ def _validar_credenciales(dni, clave):
             str_lit.session_state.nombre_apellido = str(u.get(col_nombre, f"DNI: {dni}")).strip()
             return True, "ok"
         return False, "Contraseña incorrecta."
-    except Exception as e:
-        return False, f"Error de conexión: {e}"
+    except Exception as e: return False, f"Error de conexión: {e}"
 
 def pantalla_cambio_clave():
     str_lit.title("🔑 Definir Nueva Contraseña Personal")
@@ -302,7 +315,7 @@ def pantalla_cambio_clave():
             hoja = abrir_hoja(HOJA_USUARIOS)
             cell = hoja.find(str(str_lit.session_state.dni_temp))
             hoja.update_cell(cell.row, 6, nueva); hoja.update_cell(cell.row, 5, "")
-            str_lit.success("¡Contraseña actualizada! Iniciá sesión nuevamente.")
+            str_lit.success("¡Contraseña actualizada!")
             str_lit.session_state.cambio_clave_requerido = False
             str_lit.session_state.dni_temp = None
             str_lit.rerun()
@@ -318,94 +331,31 @@ def login():
         if not dni or not clave: str_lit.error("Complete DNI y contraseña."); return
         with str_lit.spinner("Verificando credenciales..."):
             exito, msg = _validar_credenciales(dni, clave)
-            if exito:
-                if msg == "cambio": str_lit.rerun()
-                else: str_lit.rerun()
+            if exito: str_lit.rerun()
             else: str_lit.error(msg)
 
-# --- FUNCIONES DE PDF Y HTML ---
+# --- GENERADORES DE PDF ---
 def _cabecera_pdf(pdf, titulo, subtitulo):
-    pdf.set_fill_color(0, 32, 96)
-    pdf.rect(0, 0, 210, 20, 'F')
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("helvetica", "B", 10)
-    pdf.set_xy(5, 6)
-    pdf.cell(200, 6, "POLICÍA DE LA PROVINCIA DE LA RIOJA - UNIDAD REGIONAL QUINTA - CHAMICAL", ln=True, align="center")
-    pdf.set_text_color(0, 0, 0)
-    pdf.ln(12)
-    pdf.set_font("helvetica", "B", 14)
-    pdf.cell(0, 7, titulo, ln=True, align="center")
-    pdf.set_font("helvetica", "I", 9)
-    pdf.set_text_color(90, 90, 90)
+    pdf.set_fill_color(0, 32, 96); pdf.rect(0, 0, 210, 20, 'F')
+    pdf.set_text_color(255, 255, 255); pdf.set_font("helvetica", "B", 10)
+    pdf.set_xy(5, 6); pdf.cell(200, 6, "POLICÍA DE LA PROVINCIA DE LA RIOJA - UNIDAD REGIONAL QUINTA - CHAMICAL", ln=True, align="center")
+    pdf.set_text_color(0, 0, 0); pdf.ln(12)
+    pdf.set_font("helvetica", "B", 14); pdf.cell(0, 7, titulo, ln=True, align="center")
+    pdf.set_font("helvetica", "I", 9); pdf.set_text_color(90, 90, 90)
     pdf.cell(0, 5, subtitulo, ln=True, align="center")
-    pdf.set_text_color(0, 0, 0)
-    pdf.ln(5)
-
-def generar_pdf_suspension(row: pd.Series, motivo: str) -> str:
-    pdf = FPDF(); pdf.add_page()
-    _cabecera_pdf(pdf, "INFORME DE SUSPENSIÓN DE SERVICIO", f"ID de Servicio: {row.get(COL_ID_SERV, '')}")
-    
-    pdf.set_fill_color(198, 40, 40)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("helvetica", "B", 24)
-    pdf.cell(0, 20, "EVENTO SUSPENDIDO", ln=True, align="center", fill=True)
-    
-    pdf.ln(5)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 10, f"Motivo: {motivo}", ln=True, align="center")
-    pdf.ln(10)
-    
-    def fila_completa(lbl, val, w_lbl=45, w_val=145):
-        pdf.set_font("helvetica", "B", 10); pdf.set_fill_color(245, 247, 250)
-        pdf.cell(w_lbl, 8, f" {lbl}", 1, 0, 'L', True)
-        pdf.set_font("helvetica", "", 10); pdf.cell(w_val, 8, f" {val}", 1, 1, 'L')
-
-    def seccion_titulo(titulo):
-        pdf.ln(4); pdf.set_font("helvetica", "B", 11); pdf.set_fill_color(0, 32, 96)
-        pdf.set_text_color(255, 255, 255); pdf.cell(190, 8, f"  {titulo}", 1, 1, 'L', True)
-        pdf.set_text_color(0, 0, 0)
-
-    seccion_titulo("DATOS DEL EVENTO ORIGINAL")
-    fila_completa("Dependencia", str(row.get(COL_DEP, '')))
-    fila_completa("Tipo de Evento", str(row.get(COL_TIPO_EV, '')))
-    fila_completa("Fecha Original", str(row.get(COL_FECHA, '')))
-    fila_completa("Horario", str(row.get(COL_HORARIO, '')))
-    fila_completa("Ubicación / Predio", str(row.get(COL_UBI, '')))
-    fila_completa("Organizador", str(row.get('Organizador', '')))
-    
-    monto_val = row.get('Monto Total', 0)
-    monto_str = f"${float(monto_val):,.2f}" if monto_val else "$0.00"
-    fila_completa("Monto Total", monto_str)
-
-    pdf.ln(15)
-    pdf.set_font("helvetica", "", 10)
-    pdf.cell(0, 10, "_________________________________________________", ln=True, align="center")
-    pdf.cell(0, 5, "Firma y Aclaración del Administrador", ln=True, align="center")
-    
-    fecha_emision = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-    pdf.ln(5)
-    pdf.cell(0, 5, f"Reporte generado el: {fecha_emision}", ln=True, align="center")
-
-    tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    pdf.output(tmp_pdf.name)
-    return tmp_pdf.name
+    pdf.set_text_color(0, 0, 0); pdf.ln(5)
 
 def descargar_imagen_drive(url_or_id):
     if not url_or_id: return None
     try:
         file_id = str(url_or_id).strip()
-        
         if file_id.startswith("data:image"):
             try:
                 header, encoded = file_id.split(",", 1)
                 img = Image.open(BytesIO(base64.b64decode(encoded)))
-                out = BytesIO()
-                img.convert("RGB").save(out, format="JPEG", quality=50)
+                out = BytesIO(); img.convert("RGB").save(out, format="JPEG", quality=50)
                 return BytesIO(out.getvalue())
-            except Exception as e:
-                return None
-                
+            except: return None
         if file_id.startswith("http"):
             match = re.search(r'/d/([a-zA-Z0-9-_]+)', file_id)
             if match: file_id = match.group(1)
@@ -413,21 +363,15 @@ def descargar_imagen_drive(url_or_id):
                 match = re.search(r'id=([a-zA-Z0-9-_]+)', file_id)
                 if match: file_id = match.group(1)
                 else: return None
-
         download_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
         response = requests.get(download_url, stream=True, timeout=10)
-        
         if response.status_code == 200:
             try:
-                img = Image.open(BytesIO(response.content))
-                img.verify() 
+                img = Image.open(BytesIO(response.content)); img.verify() 
                 return BytesIO(response.content)
-            except Exception as e:
-                return None
-        else:
-            return None
-    except Exception as e:
+            except: return None
         return None
+    except: return None
 
 def generar_pdf_servicio(row: pd.Series) -> str:
     pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
@@ -469,28 +413,20 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     js_triple = int(float(row.get('Jefes Triples', 0) or 0))
     subs_triple = int(float(row.get('Subalternos Triples', 0) or 0))
     
-    pdf.set_font("helvetica", "B", 9)
-    pdf.set_fill_color(245, 247, 250)
+    pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
     pdf.cell(45, 6, " Módulo", 1, 0, 'L', True)
     pdf.cell(35, 6, " Jefes", 1, 0, 'L', True)
     pdf.cell(35, 6, " Subalternos", 1, 1, 'L', True)
     
     pdf.set_font("helvetica", "", 9)
     if js_simple > 0 or subs_simple > 0:
-        pdf.cell(45, 6, " Simple (4h)", 1, 0, 'L')
-        pdf.cell(35, 6, f" {js_simple}", 1, 0, 'L')
-        pdf.cell(35, 6, f" {subs_simple}", 1, 1, 'L')
+        pdf.cell(45, 6, " Simple (4h)", 1, 0, 'L'); pdf.cell(35, 6, f" {js_simple}", 1, 0, 'L'); pdf.cell(35, 6, f" {subs_simple}", 1, 1, 'L')
     if js_doble > 0 or subs_doble > 0:
-        pdf.cell(45, 6, " Doble (8h)", 1, 0, 'L')
-        pdf.cell(35, 6, f" {js_doble}", 1, 0, 'L')
-        pdf.cell(35, 6, f" {subs_doble}", 1, 1, 'L')
+        pdf.cell(45, 6, " Doble (8h)", 1, 0, 'L'); pdf.cell(35, 6, f" {js_doble}", 1, 0, 'L'); pdf.cell(35, 6, f" {subs_doble}", 1, 1, 'L')
     if js_triple > 0 or subs_triple > 0:
-        pdf.cell(45, 6, " Triple (12h)", 1, 0, 'L')
-        pdf.cell(35, 6, f" {js_triple}", 1, 0, 'L')
-        pdf.cell(35, 6, f" {subs_triple}", 1, 1, 'L')
+        pdf.cell(45, 6, " Triple (12h)", 1, 0, 'L'); pdf.cell(35, 6, f" {js_triple}", 1, 0, 'L'); pdf.cell(35, 6, f" {subs_triple}", 1, 1, 'L')
 
-    pdf.ln(2)
-    fila_tabla("Módulos (Max)", str(row.get('Módulos', 1)), "Monto Total", monto_str)
+    pdf.ln(2); fila_tabla("Módulos (Max)", str(row.get('Módulos', 1)), "Monto Total", monto_str)
 
     seccion_titulo("3. DATOS DE FACTURACIÓN Y PAGO")
     fila_completa("Pagado por", str(row.get('Pagador', '')))
@@ -501,66 +437,21 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     col_comp = next((c for c in row.index if "Enlace Comprobante" in str(c)), "Enlace Comprobante")
     col_cont = next((c for c in row.index if "Enlace Contrato" in str(c)), "Enlace Contrato")
     
-    url_hab = str(row.get(col_hab, ""))
-    url_comp = str(row.get(col_comp, ""))
-    url_cont = str(row.get(col_cont, ""))
+    url_hab = str(row.get(col_hab, "")); url_comp = str(row.get(col_comp, "")); url_cont = str(row.get(col_cont, ""))
 
     def link_pdf(etiqueta, url):
-        pdf.set_fill_color(245, 247, 250)
-        pdf.set_font("helvetica", "B", 9)
-        pdf.cell(45, 6, f" {etiqueta}", 1, 0, 'L', True)
-        pdf.set_font("helvetica", "", 9)
+        pdf.set_fill_color(245, 247, 250); pdf.set_font("helvetica", "B", 9)
+        pdf.cell(45, 6, f" {etiqueta}", 1, 0, 'L', True); pdf.set_font("helvetica", "", 9)
         if url.startswith("http"):
-            pdf.set_text_color(0, 102, 204)
-            pdf.cell(145, 6, " [ Ver Documento ]", 1, 1, 'L', link=url)
+            pdf.set_text_color(0, 102, 204); pdf.cell(145, 6, " [ Ver Documento ]", 1, 1, 'L', link=url)
             pdf.set_text_color(0, 0, 0)
         else:
-            pdf.set_text_color(120, 120, 120)
-            pdf.cell(145, 6, " No adjuntado", 1, 1, 'L')
+            pdf.set_text_color(120, 120, 120); pdf.cell(145, 6, " No adjuntado", 1, 1, 'L')
             pdf.set_text_color(0, 0, 0)
 
     link_pdf("Habilitación Municipal", url_hab)
     link_pdf("Comprobante de Pago", url_comp)
     link_pdf("Contrato", url_cont)
-
-    def incrustar_imagen(titulo, url):
-        if not url or not str(url).startswith("http"): return
-        img_data = descargar_imagen_drive(url)
-        if not img_data: return
-        
-        try:
-            img = Image.open(img_data)
-            if img.mode in ("RGBA", "P"): img = img.convert("RGB")
-            
-            pdf.add_page()
-            pdf.set_font("helvetica", "B", 12)
-            pdf.set_text_color(0, 32, 96)
-            pdf.cell(0, 10, f"ANEXO: {titulo.upper()}", ln=True, align="center")
-            pdf.ln(5)
-            
-            ancho_max = 190
-            ancho_img, alto_img = img.size
-            proporcion = alto_img / ancho_img
-            alto_render = ancho_max * proporcion
-            
-            if alto_render > 250:
-                alto_render = 250
-                ancho_max = alto_render / proporcion
-
-            x = (210 - ancho_max) / 2
-            tmp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-            img.save(tmp_img.name, format="JPEG")
-            
-            pdf.image(tmp_img.name, x=x, y=pdf.get_y(), w=ancho_max, h=alto_render)
-            os.unlink(tmp_img.name)
-        except Exception as e:
-            logger.error(f"Error incrustando imagen: {e}")
-            pdf.set_font("helvetica", "I", 10)
-            pdf.cell(0, 10, " [ No se pudo incrustar la imagen ] ", ln=True, align="center")
-
-    if url_comp.startswith("http"): incrustar_imagen("Comprobante de Pago", url_comp)
-    if url_hab.startswith("http"): incrustar_imagen("Habilitación Municipal", url_hab)
-    if url_cont.startswith("http"): incrustar_imagen("Contrato", url_cont)
 
     tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(tmp_pdf.name)
@@ -575,7 +466,6 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
     html += ".header h1 { color: #002060; font-size: 18px; margin: 0; }"
     html += ".header h2 { color: #8B1E1E; font-size: 14px; margin: 5px 0; }"
     html += ".info { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #002060; font-size: 14px; }"
-    
     html += ".seccion-box { border: 2px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 20px; }"
     html += ".seccion-triple { border-color: #5e35b1; }"
     html += ".seccion-doble { border-color: #1565c0; }"
@@ -584,7 +474,6 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
     html += ".bg-triple { background: #5e35b1; }"
     html += ".bg-doble { background: #1565c0; }"
     html += ".bg-simple { background: #2e7d32; }"
-
     html += "table { width: 100%; border-collapse: collapse; }"
     html += "th { background: #002060; color: white; padding: 10px; text-align: left; font-size: 13px; }"
     html += "td { padding: 10px; border-bottom: 1px solid #ddd; font-size: 13px; vertical-align: middle; }"
@@ -595,7 +484,6 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
 
     html += "<div class='card'>"
     html += "<div style='text-align: right;'><button onclick='window.print()' style='padding: 8px 16px; background: #002060; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;'>🖨️ Imprimir / Guardar PDF</button></div>"
-
     html += "<div class='header'>"
     html += "<h1>POLICÍA DE LA PROVINCIA DE LA RIOJA</h1>"
     html += "<h2>UNIDAD REGIONAL QUINTA - CHAMICAL</h2>"
@@ -607,20 +495,15 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
     html += f"<b>Ubicación:</b> {ubicacion_evento} &nbsp; | &nbsp; <b>ID Servicio:</b> {id_servicio}"
     html += "</div>"
 
-    # --- VALIDACIÓN: Si no hay asistentes, mostramos un mensaje ---
     if df_asistentes.empty or 'Puesto Asignado' not in df_asistentes.columns:
         html += "<div style='text-align: center; padding: 40px; border: 2px dashed #ccc; border-radius: 10px; margin-top: 20px;'>"
         html += "<h3 style='color: #666;'>No hay asistentes cargados en esta planilla todavía.</h3>"
-        html += "<p style='color: #999;'>Esta planilla se generó automáticamente. Cuando el encargado cargue los DNI y firmas, podrá descargar la versión final.</p>"
-        html += "</div>"
-        html += "</div></body></html>"
+        html += "</div></div></body></html>"
         return html
-    # -------------------------------------------------------------
 
     df_triples = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Triple", case=False, na=False)]
     df_dobles = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Doble", case=False, na=False)]
     df_simples = df_asistentes[df_asistentes['Puesto Asignado'].astype(str).str.contains("Simple", case=False, na=False)]
-    
     df_otros = df_asistentes[
         ~df_asistentes['Puesto Asignado'].astype(str).str.contains("Triple", case=False, na=False) &
         ~df_asistentes['Puesto Asignado'].astype(str).str.contains("Doble", case=False, na=False) &
@@ -628,49 +511,28 @@ def generar_reporte_html(df_asistentes, id_servicio, tipo_evento, fecha_evento, 
     ]
 
     def armar_tabla(df_seccion):
-        tabla = "<table>"
-        tabla += "<tr><th>Puesto</th><th>DNI</th><th>Jerarquía</th><th>Nombre y Apellido</th><th>Firma</th></tr>"
+        tabla = "<table><tr><th>Puesto</th><th>DNI</th><th>Jerarquía</th><th>Nombre y Apellido</th><th>Firma</th></tr>"
         for _, row in df_seccion.iterrows():
             tabla += "<tr>"
             tabla += f"<td>{row.get('Puesto Asignado', '')}</td>"
             tabla += f"<td><span class='dni'>{row.get('DNI', '')}</span></td>"
             tabla += f"<td>{row.get('Jerarquía', '')}</td>"
             tabla += f"<td>{row.get('Nombre y Apellido', '')}</td>"
-            
             firma_val = str(row.get("Enlace Firma", ""))
-            if firma_val.startswith("data:image"):
-                tabla += f"<td><img src='{firma_val}' class='firma' alt='Firma'></td>"
-            elif firma_val.startswith("http"):
-                tabla += f"<td><a href='{firma_val}' target='_blank'>Ver Firma</a></td>"
-            else:
-                tabla += "<td>(Sin firma)</td>"
+            if firma_val.startswith("data:image"): tabla += f"<td><img src='{firma_val}' class='firma' alt='Firma'></td>"
+            elif firma_val.startswith("http"): tabla += f"<td><a href='{firma_val}' target='_blank'>Ver Firma</a></td>"
+            else: tabla += "<td>(Sin firma)</td>"
             tabla += "</tr>"
-        tabla += "</table>"
-        return tabla
+        return tabla + "</table>"
 
     if not df_triples.empty:
-        html += "<div class='seccion-box seccion-triple'>"
-        html += "<div class='seccion-titulo bg-triple'>⏱️ TURNO TRIPLE (12h)</div>"
-        html += armar_tabla(df_triples)
-        html += "</div>"
-
+        html += f"<div class='seccion-box seccion-triple'><div class='seccion-titulo bg-triple'>⏱️ TURNO TRIPLE (12h)</div>{armar_tabla(df_triples)}</div>"
     if not df_dobles.empty:
-        html += "<div class='seccion-box seccion-doble'>"
-        html += "<div class='seccion-titulo bg-doble'>⏱️ TURNO DOBLE (8h)</div>"
-        html += armar_tabla(df_dobles)
-        html += "</div>"
-
+        html += f"<div class='seccion-box seccion-doble'><div class='seccion-titulo bg-doble'>⏱️ TURNO DOBLE (8h)</div>{armar_tabla(df_dobles)}</div>"
     if not df_simples.empty:
-        html += "<div class='seccion-box seccion-simple'>"
-        html += "<div class='seccion-titulo bg-simple'>⏱️ TURNO SIMPLE (4h)</div>"
-        html += armar_tabla(df_simples)
-        html += "</div>"
-
+        html += f"<div class='seccion-box seccion-simple'><div class='seccion-titulo bg-simple'>⏱️ TURNO SIMPLE (4h)</div>{armar_tabla(df_simples)}</div>"
     if not df_otros.empty:
-        html += "<div class='seccion-box'>"
-        html += "<div class='seccion-titulo' style='background: #666;'>OTROS PUESTOS</div>"
-        html += armar_tabla(df_otros)
-        html += "</div>"
+        html += f"<div class='seccion-box'><div class='seccion-titulo' style='background: #666;'>OTROS PUESTOS</div>{armar_tabla(df_otros)}</div>"
 
     html += "</div></body></html>"
     return html
@@ -679,10 +541,7 @@ def _render_modulos(max_modulos: int, counter: int, dia_num: int = 1):
     labels_base = ["Simple (4h)", "Doble (8h)", "Triple (12h)"]
     labels_ordenados = labels_base[:max_modulos][::-1]
     jefes_dict, subs_dict = {}, {}
-    
-    if dia_num > 1:
-        str_lit.markdown(f"##### 📅 Cantidades para el Día {dia_num}")
-        
+    if dia_num > 1: str_lit.markdown(f"##### 📅 Cantidades para el Día {dia_num}")
     for label in labels_ordenados:
         str_lit.markdown(f"**Turno {label}**")
         c1, c2 = str_lit.columns(2)
@@ -709,7 +568,7 @@ def vista_dependencia():
         str_lit.header("Solicitud de Servicio Adicional")
         if f"fecha_elegida_{counter}" not in str_lit.session_state: str_lit.session_state[f"fecha_elegida_{counter}"] = False
         with str_lit.form(f"form_fecha_{counter}"):
-            tipo_cant_dias = str_lit.radio("Modalidad de días:", ["1 Día único", "2 Días específicos (Ej: Viernes y Sábado)"], horizontal=True, key=f"tipo_dias_{counter}")
+            tipo_cant_dias = str_lit.radio("Modalidad de días:", ["1 Día único", "2 Días específicos"], horizontal=True, key=f"tipo_dias_{counter}")
             if tipo_cant_dias == "1 Día único":
                 fec_inicio = str_lit.date_input("Fecha del Evento", value=datetime.date.today(), key=f"fec_ini_{counter}")
                 fec_fin = fec_inicio
@@ -724,106 +583,66 @@ def vista_dependencia():
             fecha_texto = f"{fec_inicio.strftime('%d/%m/%Y')}" if (tipo_cant_dias == "1 Día único" or fec_inicio == fec_fin) else f"{fec_inicio.strftime('%d/%m/%Y')} y {fec_fin.strftime('%d/%m/%Y')}"
             cant_dias = 1 if (tipo_cant_dias == "1 Día único" or fec_inicio == fec_fin) else 2
             
-            # --- LÓGICA PARA TIPO DE EVENTO POR DÍA ---
             if cant_dias == 2:
                 col_te1, col_te2 = str_lit.columns(2)
-                with col_te1:
-                    tipo_evento_d1 = str_lit.text_input("Tipo de evento (Día 1)", key=f"tipo_d1_{counter}")
-                with col_te2:
-                    tipo_evento_d2 = str_lit.text_input("Tipo de evento (Día 2)", key=f"tipo_d2_{counter}")
-                
-                if not tipo_evento_d1.strip() or not tipo_evento_d2.strip():
-                    tipo_evento = "" # Si falta uno, no avanzamos
-                else:
-                    tipo_evento = tipo_evento_d1 # Usamos este para validar el flujo general
+                with col_te1: tipo_evento_d1 = str_lit.text_input("Tipo de evento (Día 1)", key=f"tipo_d1_{counter}")
+                with col_te2: tipo_evento_d2 = str_lit.text_input("Tipo de evento (Día 2)", key=f"tipo_d2_{counter}")
+                tipo_evento = tipo_evento_d1 if tipo_evento_d1.strip() and tipo_evento_d2.strip() else ""
             else:
                 tipo_evento = str_lit.text_input("Tipo de evento", key=f"tipo_{counter}")
-                tipo_evento_d1 = tipo_evento
-                tipo_evento_d2 = tipo_evento
-            # ------------------------------------------
+                tipo_evento_d1 = tipo_evento_d2 = tipo_evento
             
             if tipo_evento.strip():
-                
-                # --- MEMORIA DE ORGANIZADORES Y PAGADORES (CON AUTORREFRESCO) ---
                 df_orgs = cargar_organizadores_df()
-                
-                # 1. Primero el DNI del Organizador
                 dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
                 
-                # 2. Si el DNI tiene texto, buscamos en la base
                 if dni_organizador.strip() and not df_orgs.empty:
                     match = df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()]
                     if not match.empty:
-                        nombre_guardado = str_lit.session_state.get(f"org_nombre_auto_{counter}", "")
-                        nombre_encontrado = str(match.iloc[0].get("nombre", ""))
-                        
-                        if nombre_guardado != nombre_encontrado:
-                            str_lit.session_state[f"org_nombre_auto_{counter}"] = nombre_encontrado
+                        if str_lit.session_state.get(f"org_nombre_auto_{counter}", "") != str(match.iloc[0].get("nombre", "")):
+                            str_lit.session_state[f"org_nombre_auto_{counter}"] = str(match.iloc[0].get("nombre", ""))
                             str_lit.session_state[f"org_cuil_auto_{counter}"] = str(match.iloc[0].get("cuil", ""))
                             str_lit.session_state[f"org_reconocido_{counter}"] = True
                             str_lit.rerun()
 
-                # 3. Mostramos el cartel informativo con el CUIL incluido
                 if str_lit.session_state.get(f"org_reconocido_{counter}", False):
-                    cuil_info = str_lit.session_state.get(f"org_cuil_auto_{counter}", "")
-                    str_lit.info(f"💡 Organizador reconocido: {str_lit.session_state.get(f'org_nombre_auto_{counter}', '')} | CUIL: {cuil_info}")
+                    str_lit.info(f"💡 Organizador: {str_lit.session_state.get(f'org_nombre_auto_{counter}', '')} | CUIL: {str_lit.session_state.get(f'org_cuil_auto_{counter}', '')}")
 
-                # 4. Dibujamos los campos con los datos de la memoria
                 nombre_default = str_lit.session_state.get(f"org_nombre_auto_{counter}", "")
                 cuil_default_org = str_lit.session_state.get(f"org_cuil_auto_{counter}", "")
-
                 nombre_organizador = str_lit.text_input("Nombre Organizador", value=nombre_default, key=f"nom_org_{counter}")
                 
                 if nombre_organizador.strip() and dni_organizador.strip():
                     es_mismo_pagador = str_lit.checkbox("El organizador es la misma persona que paga", value=True, key=f"mismo_pag_{counter}")
-                    
                     if es_mismo_pagador:
                         pagado_por = f"{nombre_organizador} (DNI: {dni_organizador})"
-                        cuil_pagado_por = str_lit.text_input("CUIL / CUIT del Organizador (11 dígitos)", value=cuil_default_org, key=f"cuil_org_{counter}")
-                        dni_pagador = dni_organizador
-                        nombre_pagador = nombre_organizador
-                        cuil_pagador = cuil_pagado_por
+                        cuil_pagado_por = str_lit.text_input("CUIL / CUIT del Organizador", value=cuil_default_org, key=f"cuil_org_{counter}")
+                        dni_pagador, nombre_pagador, cuil_pagador = dni_organizador, nombre_organizador, cuil_pagado_por
                     else:
                         df_pags = cargar_pagadores_df()
-                        
-                        # 1. Primero el DNI del Pagador
                         dni_pagador = str_lit.text_input("DNI del Pagador", key=f"dni_pag_{counter}")
                         
-                        # 2. Buscamos en la memoria de pagadores
                         if dni_pagador.strip() and not df_pags.empty:
                             match_pag = df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()]
                             if not match_pag.empty:
-                                nombre_pag_guardado = str_lit.session_state.get(f"pag_nombre_auto_{counter}", "")
-                                nombre_pag_encontrado = str(match_pag.iloc[0].get("nombre", ""))
-                                
-                                if nombre_pag_guardado != nombre_pag_encontrado:
-                                    str_lit.session_state[f"pag_nombre_auto_{counter}"] = nombre_pag_encontrado
+                                if str_lit.session_state.get(f"pag_nombre_auto_{counter}", "") != str(match_pag.iloc[0].get("nombre", "")):
+                                    str_lit.session_state[f"pag_nombre_auto_{counter}"] = str(match_pag.iloc[0].get("nombre", ""))
                                     str_lit.session_state[f"pag_cuil_auto_{counter}"] = str(match_pag.iloc[0].get("cuil", ""))
                                     str_lit.session_state[f"pag_reconocido_{counter}"] = True
                                     str_lit.rerun()
                         
-                        # 3. Mostramos el cartel del pagador con el CUIL
                         if str_lit.session_state.get(f"pag_reconocido_{counter}", False):
-                            cuil_pag_info = str_lit.session_state.get(f"pag_cuil_auto_{counter}", "")
-                            str_lit.info(f"💡 Pagador reconocido: {str_lit.session_state.get(f'pag_nombre_auto_{counter}', '')} | CUIL: {cuil_pag_info}")
+                            str_lit.info(f"💡 Pagador: {str_lit.session_state.get(f'pag_nombre_auto_{counter}', '')} | CUIL: {str_lit.session_state.get(f'pag_cuil_auto_{counter}', '')}")
                         
-                        # 4. Dibujamos los campos del pagador
                         nombre_pag_default = str_lit.session_state.get(f"pag_nombre_auto_{counter}", "")
                         cuil_pag_default = str_lit.session_state.get(f"pag_cuil_auto_{counter}", "")
-                        
                         col_pag1, col_pag2 = str_lit.columns(2)
-                        with col_pag1: 
-                            nombre_pagador = str_lit.text_input("Nombre del Pagador", value=nombre_pag_default, key=f"nom_pag_{counter}")
-                        with col_pag2: 
-                            cuil_pagado_por = str_lit.text_input("CUIL / CUIT a Facturar (11 dígitos)", value=cuil_pag_default, key=f"cuil_pag_{counter}")
-                        
+                        with col_pag1: nombre_pagador = str_lit.text_input("Nombre del Pagador", value=nombre_pag_default, key=f"nom_pag_{counter}")
+                        with col_pag2: cuil_pagado_por = str_lit.text_input("CUIL / CUIT a Facturar", value=cuil_pag_default, key=f"cuil_pag_{counter}")
                         pagado_por = f"{nombre_pagador} (DNI: {dni_pagador})"
                         cuil_pagador = cuil_pagado_por
-                
                 else:
-                    pagado_por = ""
-                    cuil_pagado_por = ""
-                # -------------------------------------------------------------------------
+                    pagado_por = ""; cuil_pagado_por = ""
 
                 if pagado_por.strip() and cuil_pagado_por.strip():
                     ubicacion_predio = str_lit.text_input("Ubicación / Predio", key=f"ubi_{counter}")
@@ -835,78 +654,49 @@ def vista_dependencia():
                         diferencia_horas, max_modulos = calcular_monto_y_modulos(hora_inicio, hora_fin)
                         
                         if cant_dias == 2:
-                            str_lit.markdown("---")
-                            str_lit.markdown("### 📅 Distribución de Efectivos para el Día 1")
+                            str_lit.markdown("---"); str_lit.markdown("### 📅 Distribución Día 1")
                             jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
-                            
-                            str_lit.markdown("---")
-                            str_lit.markdown("### 📅 Distribución de Efectivos para el Día 2")
+                            str_lit.markdown("---"); str_lit.markdown("### 📅 Distribución Día 2")
                             jefes_d2, subs_d2 = _render_modulos(max_modulos, counter, dia_num=2)
                             
-                            total_jefes_d1 = sum(jefes_d1)
-                            total_subs_d1 = sum(subs_d1)
                             monto_d1 = calcular_monto_total(jefes_d1, subs_d1)
-                            
-                            total_jefes_d2 = sum(jefes_d2)
-                            total_subs_d2 = sum(subs_d2)
                             monto_d2 = calcular_monto_total(jefes_d2, subs_d2)
-                            
-                            total_jefes = total_jefes_d1 + total_jefes_d2
-                            total_subalternos = total_subs_d1 + total_subs_d2
+                            total_jefes = sum(jefes_d1) + sum(jefes_d2)
+                            total_subalternos = sum(subs_d1) + sum(subs_d2)
                             monto_total = monto_d1 + monto_d2
                             
-                            js_simple = jefes_d1[0] + jefes_d2[0]
-                            subs_simple = subs_d1[0] + subs_d2[0]
-                            js_doble = jefes_d1[1] + jefes_d2[1]
-                            subs_doble = subs_d1[1] + subs_d2[1]
-                            js_triple = jefes_d1[2] + jefes_d2[2]
-                            subs_triple = subs_d1[2] + subs_d2[2]
-                        else:
-                            jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
-                            total_jefes = sum(jefes_d1)
-                            total_subalternos = sum(subs_d1)
-                            monto_total = calcular_monto_total(jefes_d1, subs_d1)
-                            
-                            js_simple = jefes_d1[0]
-                            subs_simple = subs_d1[0]
-                            js_doble = jefes_d1[1]
-                            subs_doble = subs_d1[1]
-                            js_triple = jefes_d1[2]
-                            subs_triple = subs_d1[2]
-                        
-                        # --- LÓGICA PARA MOSTRAR MONTOS POR DÍA ---
-                        if cant_dias == 2:
-                            monto_total_d1 = calcular_monto_total(jefes_d1, subs_d1)
-                            monto_total_d2 = calcular_monto_total(jefes_d2, subs_d2)
+                            js_simple = jefes_d1[0] + jefes_d2[0]; subs_simple = subs_d1[0] + subs_d2[0]
+                            js_doble = jefes_d1[1] + jefes_d2[1]; subs_doble = subs_d1[1] + subs_d2[1]
+                            js_triple = jefes_d1[2] + jefes_d2[2]; subs_triple = subs_d1[2] + subs_d2[2]
                             
                             html_monto = f"""
                                 <div class="monto-box">
-                                    <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 10px;">TOTALES ESTIMADOS A PAGAR (aprox)</div>
+                                    <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 10px;">TOTALES ESTIMADOS</div>
                                     <div style="display: flex; justify-content: space-around; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
-                                        <div>
-                                            <div style="font-size: 0.8rem; color: #666;">Día 1 ({fec_inicio.strftime('%d/%m')})</div>
-                                            <div style="font-size: 1.2rem; font-weight: bold; color: #2E7D32;">${monto_total_d1:,.2f}</div>
-                                        </div>
-                                        <div>
-                                            <div style="font-size: 0.8rem; color: #666;">Día 2 ({fec_fin.strftime('%d/%m')})</div>
-                                            <div style="font-size: 1.2rem; font-weight: bold; color: #2E7D32;">${monto_total_d2:,.2f}</div>
-                                        </div>
+                                        <div><div style="font-size: 0.8rem; color: #666;">Día 1</div><div style="font-size: 1.2rem; font-weight: bold; color: #2E7D32;">${monto_d1:,.2f}</div></div>
+                                        <div><div style="font-size: 0.8rem; color: #666;">Día 2</div><div style="font-size: 1.2rem; font-weight: bold; color: #2E7D32;">${monto_d2:,.2f}</div></div>
                                     </div>
                                     <div style="font-size: 1.4rem; font-weight: 800; color: #1B5E20;">TOTAL: ${monto_total:,.2f}</div>
-                                    <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos} (Módulos: {max_modulos})</div>
+                                    <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos}</div>
                                 </div>
                             """
                         else:
+                            jefes_d1, subs_d1 = _render_modulos(max_modulos, counter, dia_num=1)
+                            total_jefes = sum(jefes_d1); total_subalternos = sum(subs_d1)
+                            monto_total = calcular_monto_total(jefes_d1, subs_d1)
+                            js_simple, subs_simple = jefes_d1[0], subs_d1[0]
+                            js_doble, subs_doble = jefes_d1[1], subs_d1[1]
+                            js_triple, subs_triple = jefes_d1[2], subs_d1[2]
+                            
                             html_monto = f"""
                                 <div class="monto-box">
-                                    <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 5px;">TOTAL ESTIMADO A PAGAR (aprox)</div>
+                                    <div style="font-size: 0.9rem; color: #555; font-weight: bold;">TOTAL ESTIMADO</div>
                                     <div class="monto-total">${monto_total:,.2f}</div>
-                                    <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos} (Módulos: {max_modulos})</div>
+                                    <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos}</div>
                                 </div>
                             """
                         
                         str_lit.markdown(html_monto, unsafe_allow_html=True)
-                        # -----------------------------------------
                         
                         with str_lit.form(f"form_envio_{counter}"):
                             file_comp = str_lit.file_uploader("Comprobante de Pago (OBLIGATORIO)", type=["png", "jpg", "jpeg", "pdf"], key=f"comp_{counter}")
@@ -915,98 +705,65 @@ def vista_dependencia():
                             submitted = str_lit.form_submit_button("🚀 Enviar Solicitud Definitiva")
 
                         if submitted:
-                            if total_jefes == 0 and total_subalternos == 0: 
-                                str_lit.error("Asigne al menos un efectivo.")
-                            elif not file_comp: 
-                                str_lit.error("Debe subir el Comprobante de Pago obligatoriamente.")
-                            elif not validar_cuil(cuil_pagado_por): 
-                                str_lit.error("El CUIL / CUIT ingresado es inválido (deben ser 11 números).")
+                            if total_jefes == 0 and total_subalternos == 0: str_lit.error("Asigne al menos un efectivo.")
+                            elif not file_comp: str_lit.error("Debe subir el Comprobante de Pago.")
+                            elif not validar_cuil(cuil_pagado_por): str_lit.error("El CUIL / CUIT es inválido.")
                             else:
-                                # --- GUARDAR EN MEMORIA ---
                                 try:
                                     if df_orgs.empty or df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()].empty:
                                         abrir_hoja("Organizadores").append_row([dni_organizador.strip(), nombre_organizador.strip(), cuil_default_org])
-                                    
                                     if not es_mismo_pagador:
                                         if df_pags.empty or df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()].empty:
                                             abrir_hoja("Pagadores").append_row([dni_pagador.strip(), nombre_pagador.strip(), cuil_pagado_por.strip()])
-                                    
                                     str_lit.cache_data.clear()
-                                except Exception as e:
-                                    logger.error(f"Error guardando memoria: {e}")
-                                # --------------------------
+                                except Exception as e: logger.error(f"Error memoria: {e}")
 
-                                # --- GENERACIÓN DE IDs CORTOS ---
                                 df_actual = cargar_servicios_df()
                                 base_id = generar_id_corto(str_lit.session_state.dependencia, fec_inicio.strftime('%d/%m/%Y'), df_actual)
-                                # --------------------------------
-
+                                
                                 def enviar_payload(id_para_enviar, fecha_para_enviar, tipo_para_enviar):
                                     payload = {
-                                        "action": "crear_servicio",
-                                        "id_servicio": id_para_enviar, 
-                                        "dependencia": str(str_lit.session_state.dependencia),
-                                        "fecha_evento": fecha_para_enviar, 
-                                        "tipo_evento": tipo_para_enviar,
-                                        "organizador": f"{nombre_organizador} (DNI: {dni_organizador})", 
-                                        "ubicacion": str(ubicacion_predio),
-                                        "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
-                                        "cant_jefes": int(total_jefes), 
-                                        "cant_subalternos": int(total_subalternos),
-                                        "modulos": int(max_modulos), 
-                                        "monto_total": float(monto_total),
-                                        "jefes_simples": int(js_simple), 
-                                        "subalternos_simples": int(subs_simple),
-                                        "jefes_dobles": int(js_doble), 
-                                        "subalternos_dobles": int(subs_doble),
-                                        "jefes_triples": int(js_triple), 
-                                        "subalternos_triples": int(subs_triple),
-                                        "pagado_por": str(pagado_por), 
-                                        "cuil_pagado_por": str(cuil_pagado_por),
-                                        "estado_central": "🟡 Pendiente",
+                                        "action": "crear_servicio", "id_servicio": id_para_enviar, 
+                                        "dependencia": str(str_lit.session_state.dependencia), "fecha_evento": fecha_para_enviar, 
+                                        "tipo_evento": tipo_para_enviar, "organizador": f"{nombre_organizador} (DNI: {dni_organizador})", 
+                                        "ubicacion": str(ubicacion_predio), "horario": f"{hora_inicio.strftime('%H:%M')} a {hora_fin.strftime('%H:%M')}",
+                                        "cant_jefes": int(total_jefes), "cant_subalternos": int(total_subalternos),
+                                        "modulos": int(max_modulos), "monto_total": float(monto_total),
+                                        "jefes_simples": int(js_simple), "subalternos_simples": int(subs_simple),
+                                        "jefes_dobles": int(js_doble), "subalternos_dobles": int(subs_doble),
+                                        "jefes_triples": int(js_triple), "subalternos_triples": int(subs_triple),
+                                        "pagado_por": str(pagado_por), "cuil_pagado_por": str(cuil_pagado_por), "estado_central": "🟡 Pendiente",
                                         "file_comp_base64": base64.b64encode(file_comp.getvalue()).decode("utf-8"),
-                                        "name_comp": f"{id_para_enviar}_comprobante.{file_comp.name.split('.')[-1]}", 
-                                        "type_comp": file_comp.type,
+                                        "name_comp": f"{id_para_enviar}_comprobante.{file_comp.name.split('.')[-1]}", "type_comp": file_comp.type,
                                         "file_hab_base64": base64.b64encode(file_hab.getvalue()).decode("utf-8") if file_hab else "",
-                                        "name_hab": f"{id_para_enviar}_habilitacion.{file_hab.name.split('.')[-1]}" if file_hab else "", 
-                                        "type_hab": file_hab.type if file_hab else "",
+                                        "name_hab": f"{id_para_enviar}_habilitacion.{file_hab.name.split('.')[-1]}" if file_hab else "", "type_hab": file_hab.type if file_hab else "",
                                         "file_cont_base64": base64.b64encode(file_cont.getvalue()).decode("utf-8") if file_cont else "",
-                                        "name_cont": f"{id_para_enviar}_contrato.{file_cont.name.split('.')[-1]}" if file_cont else "", 
-                                        "type_cont": file_cont.type if file_cont else "",
+                                        "name_cont": f"{id_para_enviar}_contrato.{file_cont.name.split('.')[-1]}" if file_cont else "", "type_cont": file_cont.type if file_cont else "",
                                     }
                                     return _post_apps_script(payload)
 
                                 with str_lit.spinner("Enviando solicitud a la nube..."):
                                     ids_creados = []
                                     if cant_dias == 2:
-                                        id_d1 = f"{base_id}_D1"
-                                        id_d2 = f"{base_id}_D2"
+                                        id_d1 = f"{base_id}_D1"; id_d2 = f"{base_id}_D2"
                                         res1 = enviar_payload(id_d1, fec_inicio.strftime('%d/%m/%Y'), tipo_evento_d1)
                                         res2 = enviar_payload(id_d2, fec_fin.strftime('%d/%m/%Y'), tipo_evento_d2)
-                                        
                                         if res1.get("status") == "success" and res2.get("status") == "success":
-                                            str_lit.success(f"¡Solicitudes para ambos días registradas con éxito! (IDs: {id_d1} y {id_d2})")
+                                            str_lit.success(f"¡Solicitudes registradas! (IDs: {id_d1} y {id_d2})")
                                             ids_creados = [id_d1, id_d2]
-                                        else:
-                                            str_lit.error("Hubo un error al guardar uno de los días. Revisá la planilla.")
+                                        else: str_lit.error("Hubo un error al guardar uno de los días.")
                                     else:
                                         res = enviar_payload(base_id, fec_inicio.strftime('%d/%m/%Y'), tipo_evento)
                                         if res.get("status") == "success":
-                                            str_lit.success(f"¡Solicitud registrada con éxito! (ID: {base_id})")
+                                            str_lit.success(f"¡Solicitud registrada! (ID: {base_id})")
                                             ids_creados = [base_id]
-                                        else: 
-                                            str_lit.error(f"Error al enviar: {res.get('message')}")
+                                        else: str_lit.error(f"Error al enviar: {res.get('message')}")
 
-                                    # --- MENSAJE DE ÉXITO Y LIMPIEZA ---
                                     if ids_creados:
-                                        str_lit.success("El servicio ha sido registrado. Puede ir a la pestaña 'Pendientes de Asistencia' para gestionar la planilla o generar el PDF desde el panel de administración.")
-                                        
                                         if str_lit.button("Cargar otro servicio"):
                                             str_lit.session_state[f"fecha_elegida_{counter}"] = False
                                             str_lit.session_state.form_counter += 1
-                                            str_lit.cache_data.clear()
-                                            str_lit.rerun()
-                                    # ------------------------------------
+                                            str_lit.cache_data.clear(); str_lit.rerun()
 
     with tab2:
         str_lit.header("Servicios Pendientes de Planilla de Asistencia")
@@ -1051,7 +808,7 @@ def vista_dependencia():
         if not data.empty and COL_DEP in data.columns:
             str_lit.dataframe(data[data[COL_DEP].astype(str) == str(str_lit.session_state.dependencia)], use_container_width=True)
 
-# --- PANEL DE ADMINISTRACIÓN ---
+# --- PANEL DE ADMINISTRACIÓN CON DASHBOARD ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
@@ -1075,12 +832,43 @@ def vista_admin():
 
     str_lit.markdown(f"### {saludo}")
     str_lit.title("📋 Control General y Despacho a Central")
-    data = cargar_servicios_df()
     
-    if not data.empty and COL_ESTADO_CENTRAL in data.columns:
-        pendientes = data[data[COL_ESTADO_CENTRAL].astype(str).str.contains("Recibido", na=False)]
-        if not pendientes.empty: str_lit.warning(f"🔔 Hay **{len(pendientes)}** servicio(s) pendientes de revisión y despacho.")
+    data = cargar_servicios_df()
+    df_asist = cargar_asistencia_digital_df()
 
+    # --- DASHBOARD DE KPIs (Tarjetas de Resumen) ---
+    total_servicios = len(data) if not data.empty else 0
+    total_monto = 0
+    pendientes_asist = 0
+    
+    if not data.empty:
+        for _, r in data.iterrows():
+            try: total_monto += float(r.get('Monto Total', 0))
+            except: pass
+        
+        # Contamos pendientes de asistencia
+        if not df_asist.empty and COL_ID_SERV in df_asist.columns:
+            df_agrupado = df_asist.groupby(COL_ID_SERV).agg(Efectivos_Cargados=("DNI", "count")).reset_index()
+            pendientes_asist = len(data) - len(df_agrupado)
+        else:
+            pendientes_asist = len(data)
+
+    # Pintamos las tarjetas
+    c1, c2, c3, c4 = str_lit.columns(4)
+    with c1:
+        str_lit.markdown(f'<div class="kpi-card"><div class="kpi-title">Total Servicios</div><div class="kpi-value">{total_servicios}</div></div>', unsafe_allow_html=True)
+    with c2:
+        str_lit.markdown(f'<div class="kpi-card"><div class="kpi-title">Monto Facturado</div><div class="kpi-value">${total_monto:,.0f}</div></div>', unsafe_allow_html=True)
+    with c3:
+        str_lit.markdown(f'<div class="kpi-card kpi-alert"><div class="kpi-title">Pendientes Asist.</div><div class="kpi-value">{pendientes_asist}</div></div>', unsafe_allow_html=True)
+    with c4:
+        estado_str = "ACTIVO" if modo_mant_actual else "NORMAL"
+        color_str = "#C62828" if modo_mant_actual else "#2E7D32"
+        str_lit.markdown(f'<div class="kpi-card"><div class="kpi-title">Estado Sistema</div><div class="kpi-value" style="color:{color_str};">{estado_str}</div></div>', unsafe_allow_html=True)
+    
+    str_lit.markdown("<br>", unsafe_allow_html=True)
+
+    # --- PESTAÑAS DE GESTIÓN ---
     tab_exp, tab_enlaces, tab_asist, tab_depuracion = str_lit.tabs([
         "📄 Expedientes", "📲 Enlaces (Asistencia)", "📊 Asistencias Digitales", "🧹 Mantenimiento"
     ])
@@ -1088,6 +876,9 @@ def vista_admin():
     with tab_exp:
         str_lit.subheader("Gestión de Expedientes (Central)")
         if not data.empty:
+            # --- BARRA DE BÚSQUEDA ---
+            busqueda = str_lit.text_input("🔍 Buscar por ID o Dependencia:", key="busq_exp")
+            
             filtro_estado = str_lit.radio("Filtrar expedientes:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_exp")
             df_filtrado = data.copy()
             
@@ -1098,7 +889,13 @@ def vista_admin():
             elif filtro_estado == "Enviadas" and col_estado_real in df_filtrado.columns:
                 df_filtrado = df_filtrado[df_filtrado[col_estado_real].astype(str).str.contains("Enviado", na=False)]
 
+            if busqueda:
+                mask = df_filtrado[COL_ID_SERV].astype(str).str.contains(busqueda, case=False, na=False) | \
+                       df_filtrado[COL_DEP].astype(str).str.contains(busqueda, case=False, na=False)
+                df_filtrado = df_filtrado[mask]
+
             str_lit.dataframe(df_filtrado, use_container_width=True)
+            
             opciones = [f"{r.get(COL_ID_SERV, '')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado.iterrows()]
             if opciones:
                 elegido = str_lit.selectbox("Seleccionar servicio para despachar", options=opciones, key="sel_exp")
@@ -1107,37 +904,35 @@ def vista_admin():
                     row_data = data[data[COL_ID_SERV].astype(str) == id_sel].iloc[0]
                     str_lit.markdown("---")
                     
-                    # --- BOTÓN DE SUSPENSIÓN ---
+                    # --- BOTÓN DE SUSPENSIÓN CON CONFIRMACIÓN ---
                     with str_lit.expander("🚨 Opciones de Suspensión"):
-                        motivo_susp = str_lit.radio("Motivo de Suspensión:", ["Cancelación Definitiva", "Reprogramación"], key=f"susp_mot_{id_sel}")
+                        motivo_susp = str_lit.radio("Motivo:", ["Cancelación Definitiva", "Reprogramación"], key=f"susp_mot_{id_sel}")
                         nueva_fecha = None
                         if motivo_susp == "Reprogramación":
-                            nueva_fecha = str_lit.date_input("Nueva Fecha de Reprogramación", key=f"susp_fec_{id_sel}")
+                            nueva_fecha = str_lit.date_input("Nueva Fecha", key=f"susp_fec_{id_sel}")
                         
-                        if str_lit.button("🚨 Confirmar Suspensión", type="primary"):
+                        # Confirmación
+                        confirmar = str_lit.checkbox("¿Está seguro de suspender este evento?", key=f"conf_susp_{id_sel}")
+                        
+                        if str_lit.button("🚨 Confirmar Suspensión", type="primary", disabled=not confirmar):
                             motivo_final = f"Cancelado" if motivo_susp == "Cancelación Definitiva" else f"Reprogramado al {nueva_fecha.strftime('%d/%m/%Y')}"
-                            with str_lit.spinner("Suspendiendo servicio..."):
+                            with str_lit.spinner("Suspendiendo..."):
                                 res = _post_apps_script({"action": "suspender_servicio", "id_servicio": id_sel, "motivo": motivo_final})
                                 if res.get("status") == "success":
                                     str_lit.success("¡Servicio Suspendido!")
-                                    str_lit.cache_data.clear()
-                                    str_lit.session_state[f"pdf_susp_{id_sel}"] = True
-                                else:
-                                    str_lit.error(f"Error: {res.get('message')}")
+                                    registrar_auditoria(nombre_efectivo, "Suspensión", f"ID: {id_sel} - Motivo: {motivo_final}")
+                                    str_lit.cache_data.clear(); str_lit.rerun()
+                                else: str_lit.error(f"Error: {res.get('message')}")
                     
-                    if str_lit.session_state.get(f"pdf_susp_{id_sel}", False):
+                    # Generar PDF de suspensión (si ya se suspendió)
+                    if str(row_data.get(COL_ESTADO_CENTRAL, "")).startswith("🔴"):
                         if str_lit.button("📄 Generar Reporte de Suspensión"):
                             with str_lit.spinner("Generando PDF..."):
-                                pdf_path = generar_pdf_suspension(row_data, f"Servicio {motivo_susp}")
+                                # Nota: Esta función debería estar definida más arriba en el archivo
+                                pdf_path = generar_pdf_suspension(row_data, str(row_data.get(COL_ESTADO_CENTRAL, "")))
                                 with open(pdf_path, "rb") as f: pdf_bytes = f.read()
                                 os.unlink(pdf_path)
-                                str_lit.download_button(
-                                    label="📥 Descargar Reporte de Suspensión",
-                                    data=pdf_bytes,
-                                    file_name=f"Suspension_{id_sel}.pdf",
-                                    mime="application/pdf"
-                                )
-                    # ---------------------------
+                                str_lit.download_button("📥 Descargar Reporte de Suspensión", data=pdf_bytes, file_name=f"Suspension_{id_sel}.pdf", mime="application/pdf")
 
                     c_pdf, c_estado = str_lit.columns(2)
                     with c_pdf:
@@ -1155,8 +950,8 @@ def vista_admin():
                                 except: fecha_formateada = fec_sel.replace("/", "")
                                 
                                 nombre_archivo = f"Contratacion_Servicio_Adicional_{nombre_ev}_{fecha_formateada}.pdf".replace(" ", "_")
-                                
                                 str_lit.download_button(label=f"📥 Descargar {nombre_archivo}", data=pdf_bytes, file_name=nombre_archivo, mime="application/pdf")
+                    
                     with c_estado:
                         if str_lit.button("✅ Marcar como Enviado a Central"):
                             try:
@@ -1166,24 +961,22 @@ def vista_admin():
                                     cabecera = hoja_serv.row_values(1)
                                     col_index = -1
                                     for idx, val in enumerate(cabecera):
-                                        if "Estado Central" in str(val):
-                                            col_index = idx + 1
-                                            break
+                                        if "Estado Central" in str(val): col_index = idx + 1; break
                                     
                                     if col_index != -1:
                                         hoja_serv.update_cell(cell.row, col_index, "🟢 Enviado a Central")
                                         str_lit.success("¡Marcado como enviado a Central!")
+                                        registrar_auditoria(nombre_efectivo, "Envío a Central", f"ID: {id_sel}")
                                         str_lit.cache_data.clear(); str_lit.rerun()
-                                    else:
-                                        str_lit.error("No se encontró la columna 'Estado Central' en la hoja.")
+                                    else: str_lit.error("No se encontró la columna 'Estado Central'.")
                             except Exception as e: str_lit.error(f"Error: {e}")
 
     with tab_enlaces:
+        # (Misma lógica que ya tenías)
         str_lit.subheader("Enviar Enlace de Asistencia al Encargado")
         if not data.empty:
             filtro_estado_env = str_lit.radio("Filtrar eventos:", ["Todas", "Pendientes", "Enviadas"], horizontal=True, key="filtro_env")
             df_filtrado_env = data.copy()
-            
             col_enlace_real = next((c for c in df_filtrado_env.columns if "Enlace Asistencia" in str(c)), "Enlace Asistencia")
             
             if filtro_estado_env == "Pendientes" and col_enlace_real in df_filtrado_env.columns:
@@ -1192,14 +985,12 @@ def vista_admin():
                 df_filtrado_env = df_filtrado_env[df_filtrado_env[col_enlace_real].astype(str).str.strip() != ""]
 
             str_lit.dataframe(df_filtrado_env[[COL_ID_SERV, COL_TIPO_EV, COL_FECHA, col_enlace_real]], use_container_width=True)
-            
             opciones_env = [f"{r.get(COL_ID_SERV, '')} | {r.get(COL_TIPO_EV, 'Evento')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado_env.iterrows()]
             
             if opciones_env:
                 elegido_env = str_lit.selectbox("Seleccionar servicio para enviar enlace", options=opciones_env, key="sel_env")
                 if elegido_env:
                     id_sel_env = elegido_env.split(" | ")[0]
-                    
                     row_data_env = data[data[COL_ID_SERV].astype(str) == id_sel_env].iloc[0]
                     link_formulario_limpio = f"{URL_APPS_SCRIPT}?id_servicio={id_sel_env}"
                     str_lit.markdown("---")
@@ -1216,19 +1007,18 @@ def vista_admin():
                                 cabecera = hoja_serv.row_values(1)
                                 col_index = -1
                                 for idx, val in enumerate(cabecera):
-                                    if "Enlace Asistencia" in str(val):
-                                        col_index = idx + 1
-                                        break
+                                    if "Enlace Asistencia" in str(val): col_index = idx + 1; break
                                 
                                 if col_index != -1:
                                     hoja_serv.update_cell(cell.row, col_index, "🟢 Enviado")
                                     str_lit.success("¡Enlace marcado como enviado!")
+                                    registrar_auditoria(nombre_efectivo, "Envío de Enlace", f"ID: {id_sel_env}")
                                     str_lit.cache_data.clear(); str_lit.rerun()
-                                else:
-                                    str_lit.error("No se encontró la columna 'Enlace Asistencia' en la hoja.")
+                                else: str_lit.error("No se encontró la columna 'Enlace Asistencia'.")
                         except Exception as e: str_lit.error(f"Error: {e}")
 
     with tab_asist:
+        # (Misma lógica que ya tenías)
         str_lit.subheader("Listado y Descarga de Asistencias")
         df_asist = cargar_asistencia_digital_df()
         if not df_asist.empty and COL_ID_SERV in df_asist.columns:
@@ -1237,20 +1027,22 @@ def vista_admin():
                 df_resumen = pd.merge(df_agrupado, data, on=COL_ID_SERV, how="left")
             else:
                 df_resumen = df_agrupado
-                df_resumen[COL_TIPO_EV] = "Evento Desconocido"
-                df_resumen[COL_FECHA] = ""
-                df_resumen[COL_UBI] = ""
+                df_resumen[COL_TIPO_EV] = "Evento Desconocido"; df_resumen[COL_FECHA] = ""; df_resumen[COL_UBI] = ""
 
-            if COL_ESTADO_ASIST not in df_resumen.columns:
-                df_resumen[COL_ESTADO_ASIST] = ""
+            if COL_ESTADO_ASIST not in df_resumen.columns: df_resumen[COL_ESTADO_ASIST] = ""
                 
-            filtro_asist = str_lit.radio("Filtrar por estado de envío:", ["Todas", "Pendientes", "Enviadas a Central"], horizontal=True, key="filtro_asist")
+            filtro_asist = str_lit.radio("Filtrar por estado:", ["Todas", "Pendientes", "Enviadas a Central"], horizontal=True, key="filtro_asist")
             if filtro_asist == "Pendientes":
                 df_mostrar = df_resumen[~df_resumen[COL_ESTADO_ASIST].astype(str).str.contains("🟢", na=False)]
             elif filtro_asist == "Enviadas a Central":
                 df_mostrar = df_resumen[df_resumen[COL_ESTADO_ASIST].astype(str).str.contains("🟢", na=False)]
             else:
                 df_mostrar = df_resumen
+
+            # --- BARRA DE BÚSQUEDA ---
+            busqueda_asist = str_lit.text_input("🔍 Buscar evento por nombre:", key="busq_asist")
+            if busqueda_asist:
+                df_mostrar = df_mostrar[df_mostrar[COL_TIPO_EV].astype(str).str.contains(busqueda_asist, case=False, na=False)]
 
             cols_a_mostrar = [COL_ID_SERV, COL_TIPO_EV, COL_FECHA, "Efectivos_Cargados"]
             if COL_ESTADO_ASIST in df_mostrar.columns: cols_a_mostrar.append(COL_ESTADO_ASIST)
@@ -1271,11 +1063,8 @@ def vista_admin():
                     if str_lit.button("📄 Generar Reporte Web (HTML)"):
                         with str_lit.spinner("Generando reporte..."):
                             html_content = generar_reporte_html(
-                                df_filtrado_evento, 
-                                id_sel_asist, 
-                                str(row_serv_asist.get(COL_TIPO_EV, "")), 
-                                str(row_serv_asist.get(COL_FECHA, "")), 
-                                str(row_serv_asist.get(COL_HORARIO, "")),
+                                df_filtrado_evento, id_sel_asist, str(row_serv_asist.get(COL_TIPO_EV, "")), 
+                                str(row_serv_asist.get(COL_FECHA, "")), str(row_serv_asist.get(COL_HORARIO, "")),
                                 str(row_serv_asist.get(COL_UBI, ""))
                             )
                             
@@ -1284,11 +1073,8 @@ def vista_admin():
                             nombre_archivo = f"Asistencia_{nombre_ev}_{fec_sel.replace('/','-')}.html"
                             
                             str_lit.download_button(
-                                label=f"📥 Descargar {nombre_archivo}",
-                                data=html_content,
-                                file_name=nombre_archivo,
-                                mime="text/html",
-                                help="Descargá este archivo y envialo por WhatsApp. Se abre como una página web."
+                                label=f"📥 Descargar {nombre_archivo}", data=html_content, file_name=nombre_archivo,
+                                mime="text/html", help="Descargá este archivo y envialo por WhatsApp."
                             )
 
                 with c_btn_marcar:
@@ -1297,15 +1083,14 @@ def vista_admin():
                             with str_lit.spinner("Actualizando..."):
                                 res = _post_apps_script({"action": "marcar_asistencia_enviada", "id_servicio": id_sel_asist})
                                 if res.get("status") == "success":
-                                    str_lit.success("¡Planilla de asistencia marcada como enviada!")
-                                    str_lit.cache_data.clear()
-                                    str_lit.rerun()
-                                else:
-                                    str_lit.error(f"Error: {res.get('message')}")
+                                    str_lit.success("¡Planilla marcada como enviada!")
+                                    registrar_auditoria(nombre_efectivo, "Envío de Asistencia", f"ID: {id_sel_asist}")
+                                    str_lit.cache_data.clear(); str_lit.rerun()
+                                else: str_lit.error(f"Error: {res.get('message')}")
                     else:
-                        str_lit.success("✅ Esta planilla ya fue marcada como enviada a Central.")
+                        str_lit.success("✅ Esta planilla ya fue marcada como enviada.")
         else:
-            str_lit.info("Aún no hay registros de asistencia o falta la columna 'ID Servicio'.")
+            str_lit.info("Aún no hay registros de asistencia.")
 
     with tab_depuracion:
         str_lit.subheader("🧹 Depuración y Archivado Mensual")
@@ -1316,6 +1101,7 @@ def vista_admin():
                 res = _post_apps_script({"action": "depurar_mes", "periodo": periodo_inp})
                 if res.get("status") == "success":
                     str_lit.success(f"¡Migrado a Historico_Asistencia_{periodo_inp}!")
+                    registrar_auditoria(nombre_efectivo, "Depuración", f"Periodo: {periodo_inp}")
                     str_lit.cache_data.clear()
                 else: str_lit.error(f"Error: {res.get('message')}")
 
