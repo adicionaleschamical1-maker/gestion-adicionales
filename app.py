@@ -744,24 +744,34 @@ def vista_dependencia():
             
             if tipo_evento.strip():
                 
-                # --- MEMORIA DE ORGANIZADORES Y PAGADORES ---
+                # --- MEMORIA DE ORGANIZADORES Y PAGADORES (CON AUTORREFRESCO) ---
                 df_orgs = cargar_organizadores_df()
                 
-                # 1. Primero el DNI
+                # 1. Primero el DNI del Organizador
                 dni_organizador = str_lit.text_input("DNI Organizador", key=f"dni_org_{counter}")
                 
-                # 2. Buscamos en la memoria
+                # 2. Si el DNI tiene texto, buscamos en la base
                 if dni_organizador.strip() and not df_orgs.empty:
                     match = df_orgs[df_orgs["dni"].astype(str).str.strip() == dni_organizador.strip()]
                     if not match.empty:
-                        str_lit.session_state[f"org_nombre_{counter}"] = str(match.iloc[0].get("nombre", ""))
-                        str_lit.session_state[f"org_cuil_{counter}"] = str(match.iloc[0].get("cuil", ""))
-                        str_lit.info(f"💡 Organizador reconocido: {match.iloc[0].get('nombre', '')}")
+                        nombre_guardado = str_lit.session_state.get(f"org_nombre_auto_{counter}", "")
+                        nombre_encontrado = str(match.iloc[0].get("nombre", ""))
+                        
+                        if nombre_guardado != nombre_encontrado:
+                            str_lit.session_state[f"org_nombre_auto_{counter}"] = nombre_encontrado
+                            str_lit.session_state[f"org_cuil_auto_{counter}"] = str(match.iloc[0].get("cuil", ""))
+                            str_lit.session_state[f"org_reconocido_{counter}"] = True
+                            str_lit.rerun()
 
-                nombre_default = str_lit.session_state.get(f"org_nombre_{counter}", "")
-                cuil_default_org = str_lit.session_state.get(f"org_cuil_{counter}", "")
+                # 3. Mostramos el cartel informativo con el CUIL incluido
+                if str_lit.session_state.get(f"org_reconocido_{counter}", False):
+                    cuil_info = str_lit.session_state.get(f"org_cuil_auto_{counter}", "")
+                    str_lit.info(f"💡 Organizador reconocido: {str_lit.session_state.get(f'org_nombre_auto_{counter}', '')} | CUIL: {cuil_info}")
 
-                # 3. Luego el Nombre
+                # 4. Dibujamos los campos con los datos de la memoria
+                nombre_default = str_lit.session_state.get(f"org_nombre_auto_{counter}", "")
+                cuil_default_org = str_lit.session_state.get(f"org_cuil_auto_{counter}", "")
+
                 nombre_organizador = str_lit.text_input("Nombre Organizador", value=nombre_default, key=f"nom_org_{counter}")
                 
                 if nombre_organizador.strip() and dni_organizador.strip():
@@ -776,21 +786,31 @@ def vista_dependencia():
                     else:
                         df_pags = cargar_pagadores_df()
                         
-                        # 1. Primero el DNI del pagador
+                        # 1. Primero el DNI del Pagador
                         dni_pagador = str_lit.text_input("DNI del Pagador", key=f"dni_pag_{counter}")
                         
-                        # 2. Buscamos en memoria
+                        # 2. Buscamos en la memoria de pagadores
                         if dni_pagador.strip() and not df_pags.empty:
                             match_pag = df_pags[df_pags["dni"].astype(str).str.strip() == dni_pagador.strip()]
                             if not match_pag.empty:
-                                str_lit.session_state[f"pag_nombre_{counter}"] = str(match_pag.iloc[0].get("nombre", ""))
-                                str_lit.session_state[f"pag_cuil_{counter}"] = str(match_pag.iloc[0].get("cuil", ""))
-                                str_lit.info(f"💡 Pagador reconocido: {match_pag.iloc[0].get('nombre', '')}")
+                                nombre_pag_guardado = str_lit.session_state.get(f"pag_nombre_auto_{counter}", "")
+                                nombre_pag_encontrado = str(match_pag.iloc[0].get("nombre", ""))
+                                
+                                if nombre_pag_guardado != nombre_pag_encontrado:
+                                    str_lit.session_state[f"pag_nombre_auto_{counter}"] = nombre_pag_encontrado
+                                    str_lit.session_state[f"pag_cuil_auto_{counter}"] = str(match_pag.iloc[0].get("cuil", ""))
+                                    str_lit.session_state[f"pag_reconocido_{counter}"] = True
+                                    str_lit.rerun()
                         
-                        nombre_pag_default = str_lit.session_state.get(f"pag_nombre_{counter}", "")
-                        cuil_pag_default = str_lit.session_state.get(f"pag_cuil_{counter}", "")
+                        # 3. Mostramos el cartel del pagador con el CUIL
+                        if str_lit.session_state.get(f"pag_reconocido_{counter}", False):
+                            cuil_pag_info = str_lit.session_state.get(f"pag_cuil_auto_{counter}", "")
+                            str_lit.info(f"💡 Pagador reconocido: {str_lit.session_state.get(f'pag_nombre_auto_{counter}', '')} | CUIL: {cuil_pag_info}")
                         
-                        # 3. Luego el nombre y el CUIL
+                        # 4. Dibujamos los campos del pagador
+                        nombre_pag_default = str_lit.session_state.get(f"pag_nombre_auto_{counter}", "")
+                        cuil_pag_default = str_lit.session_state.get(f"pag_cuil_auto_{counter}", "")
+                        
                         col_pag1, col_pag2 = str_lit.columns(2)
                         with col_pag1: 
                             nombre_pagador = str_lit.text_input("Nombre del Pagador", value=nombre_pag_default, key=f"nom_pag_{counter}")
@@ -803,7 +823,7 @@ def vista_dependencia():
                 else:
                     pagado_por = ""
                     cuil_pagado_por = ""
-                # ---------------------------------------------------------
+                # -------------------------------------------------------------------------
 
                 if pagado_por.strip() and cuil_pagado_por.strip():
                     ubicacion_predio = str_lit.text_input("Ubicación / Predio", key=f"ubi_{counter}")
