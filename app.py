@@ -33,19 +33,14 @@ COL_ESTADO_ASIST = "Estado Asistencia"
 COL_ENLACE_ASIST = "Enlace Asistencia"
 COL_ORGANIZADOR = "Organizador"
 
-# --- ESTILOS VISUALES (ESTILO WEB APP MODERNA Y COMPACTA) ---
+# --- ESTILOS VISUALES ---
 str_lit.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
-    /* Forzamos el fondo y la fuente global */
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
-        font-size: 14px;
-    }
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; font-size: 14px; }
     .stApp { background-color: #F4F6F9; }
     
-    /* Header más compacto */
     .header-container {
         background: linear-gradient(135deg, #002060, #002a80); color: white;
         padding: 1.2rem 1rem; border-radius: 12px; text-align: center;
@@ -58,40 +53,28 @@ str_lit.markdown("""
         letter-spacing: 1px;
     }
     
-    /* Títulos de sección */
     h1, h2, h3 { color: #002060 !important; font-weight: 700 !important; }
 
-    /* Tarjetas KPI Compactas y Elegantes */
     .kpi-card {
         background: #FFFFFF; border-radius: 8px; padding: 10px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-left: 3px solid #002060;
         text-align: center; display: flex; flex-direction: column; justify-content: center;
-        height: 100px; /* Altura fija para que sean uniformes */
+        height: 100px;
     }
     .kpi-title { font-size: 0.65rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
     .kpi-value { font-size: 1.4rem; font-weight: 800; color: #002060; margin-top: 2px; }
-    
-    /* Tarjetas de alerta */
     .kpi-alert { border-left-color: #C62828; }
     .kpi-alert .kpi-value { color: #C62828; }
 
-    /* Contenedores de Tabs y Tablas más limpios */
-    div.stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-    }
+    div.stTabs [data-baseweb="tab-list"] { gap: 10px; }
     div.stTabs [data-baseweb="tab"] {
-        background-color: #FFFFFF;
-        border-radius: 8px 8px 0 0;
-        padding: 10px 20px;
-        box-shadow: 0 -2px 5px rgba(0,0,0,0.02);
+        background-color: #FFFFFF; border-radius: 8px 8px 0 0;
+        padding: 10px 20px; box-shadow: 0 -2px 5px rgba(0,0,0,0.02);
     }
     div.stTabs [aria-selected="true"] {
-        background-color: #002060 !important;
-        color: white !important;
-        font-weight: bold !important;
+        background-color: #002060 !important; color: white !important; font-weight: bold !important;
     }
     
-    /* Inputs y Botones */
     input, textarea, select { border-radius: 6px !important; border: 1px solid #D1D5DB !important; }
     .stButton > button, div.stFormSubmitButton > button {
         border-radius: 6px !important; font-weight: 600 !important;
@@ -102,17 +85,13 @@ str_lit.markdown("""
     }
     .stButton > button:hover { background-color: #002a80 !important; }
 
-    /* Montos */
     .monto-box {
         background: #E8F5E9; border-left: 4px solid #2E7D32; padding: 10px;
         border-radius: 6px; margin-top: 10px; text-align: center;
     }
     .monto-total { font-size: 1.3rem; font-weight: 800; color: #1B5E20; }
     
-    /* Mensajes de alerta (st.info, st.success) */
-    div[data-testid="stNotification"] {
-        padding: 10px; border-radius: 6px; font-size: 0.85rem;
-    }
+    div[data-testid="stNotification"] { padding: 10px; border-radius: 6px; font-size: 0.85rem; }
     </style>
     
     <div class="header-container">
@@ -434,9 +413,8 @@ def descargar_imagen_drive(url_or_id):
         return None
     except: return None
 
-def generar_pdf_servicio(row: pd.Series) -> str:
-    pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
-    _cabecera_pdf(pdf, "INFORME DE SERVICIO ADICIONAL", f"ID de Solicitud: {row.get(COL_ID_SERV, '')}")
+def dibujar_informe_en_pdf(pdf, row):
+    # Esta función dibuja el contenido de un informe en el objeto PDF actual.
     
     def fila_tabla(lbl1, val1, lbl2, val2, w1=35, w2=60, w3=35, w4=60):
         pdf.set_font("helvetica", "B", 9); pdf.set_fill_color(245, 247, 250)
@@ -456,6 +434,8 @@ def generar_pdf_servicio(row: pd.Series) -> str:
         pdf.set_text_color(255, 255, 255); pdf.cell(190, 6, f"  {titulo}", 1, 1, 'L', True)
         pdf.set_text_color(0, 0, 0)
 
+    _cabecera_pdf(pdf, "INFORME DE SERVICIO ADICIONAL", f"ID de Solicitud: {row.get(COL_ID_SERV, '')}")
+
     seccion_titulo("1. DATOS GENERALES DEL EVENTO")
     fecha_ev_str = str(row.get(COL_FECHA, ''))
     fila_tabla("Dependencia", str(row.get(COL_DEP, '')), "Fecha(s)", fecha_ev_str)
@@ -466,7 +446,6 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     seccion_titulo("2. RECURSOS Y MÓDULOS ASIGNADOS")
     monto_val = row.get('Monto Total', 0)
     
-    # Limpiamos el string del monto antes de convertirlo a número
     try:
         if isinstance(monto_val, str):
             monto_limpio = monto_val.replace("$", "").replace(".", "").replace(",", ".").strip()
@@ -547,6 +526,21 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     if url_hab.startswith("http"): incrustar_imagen("Habilitación Municipal", url_hab)
     if url_cont.startswith("http"): incrustar_imagen("Contrato", url_cont)
 
+def generar_pdf_servicio(row: pd.Series) -> str:
+    pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(auto=True, margin=15)
+    dibujar_informe_en_pdf(pdf, row)
+    tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    pdf.output(tmp_pdf.name)
+    return tmp_pdf.name
+
+def generar_pdf_consolidado(df_seleccionados: pd.DataFrame) -> str:
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    for index, row in df_seleccionados.iterrows():
+        pdf.add_page()
+        dibujar_informe_en_pdf(pdf, row)
+    
     tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(tmp_pdf.name)
     return tmp_pdf.name
@@ -903,18 +897,16 @@ def vista_dependencia():
         if not data.empty and COL_DEP in data.columns:
             str_lit.dataframe(data[data[COL_DEP].astype(str) == str(str_lit.session_state.dependencia)], use_container_width=True)
 
-# --- VISTA DE LA CENTRAL (SOLO LECTURA) ---
-def vista_central():
-    nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Central")
+# --- VISTA DEL OBSERVADOR (SOLO LECTURA) ---
+def vista_observador():
+    nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Observador")
     saludo = obtener_saludo(nombre_efectivo)
     
-    str_lit.sidebar.markdown(f"**{nombre_efectivo}** (CENTRAL - SOLO LECTURA)")
+    str_lit.sidebar.markdown(f"**{nombre_efectivo}** (OBSERVADOR)")
     boton_refrescar()
     if str_lit.sidebar.button("🚪 Cerrar Sesión"): str_lit.session_state.autenticado = False; str_lit.rerun()
 
     str_lit.markdown(f"### {saludo}")
-    
-    # ELIMINAMOS EL TÍTULO GIGANTE Y PONEMOS UN SUBTÍTULO
     str_lit.markdown("#### 📊 Resumen General")
     
     data = cargar_servicios_df()
@@ -944,12 +936,12 @@ def vista_central():
     
     str_lit.markdown("<br>", unsafe_allow_html=True)
 
-    tab_exp, tab_asist = str_lit.tabs(["📄 Expedientes (Para Descargar)", "📊 Planillas de Asistencia (Para Descargar)"])
+    tab_exp, tab_enlaces, tab_asist = str_lit.tabs(["📄 Expedientes (Para Descargar)", "📲 Enlaces (Estado)", "📊 Asistencias (Para Descargar)"])
 
     with tab_exp:
         str_lit.subheader("Listado de Expedientes")
         if not data.empty:
-            busqueda = str_lit.text_input("🔍 Buscar por ID, Evento, Organizador o Dependencia:", key="busq_central")
+            busqueda = str_lit.text_input("🔍 Buscar por ID, Evento, Organizador o Dependencia:", key="busq_obs")
             
             df_filtrado = data.copy()
             if busqueda:
@@ -961,17 +953,49 @@ def vista_central():
                 )
                 df_filtrado = df_filtrado[mask]
 
-            str_lit.dataframe(df_filtrado, use_container_width=True)
+            # Tabla interactiva con checks
+            df_filtrado = df_filtrado.reset_index(drop=True)
+            df_filtrado.insert(0, "Unificar", False)
             
+            edited_df = str_lit.data_editor(
+                df_filtrado, 
+                key="editor_obs", 
+                hide_index=True,
+                column_config={
+                    "Unificar": str_lit.column_config.CheckboxColumn(
+                        "Unificar",
+                        help="Seleccione para incluir en el PDF consolidado",
+                        default=False,
+                    )
+                },
+                disabled=[col for col in df_filtrado.columns if col != "Unificar"],
+                use_container_width=True
+            )
+
+            df_seleccionados = edited_df[edited_df["Unificar"] == True]
+
+            if len(df_seleccionados) > 0:
+                if str_lit.button("📦 Generar PDF Consolidado"):
+                    with str_lit.spinner("Generando PDF..."):
+                        pdf_path = generar_pdf_consolidado(df_seleccionados)
+                        with open(pdf_path, "rb") as f: pdf_bytes = f.read()
+                        os.unlink(pdf_path)
+                        str_lit.download_button(
+                            label="📥 Descargar Servicios_Consolidados.pdf", 
+                            data=pdf_bytes, 
+                            file_name="Servicios_Consolidados.pdf", 
+                            mime="application/pdf"
+                        )
+            
+            str_lit.markdown("---")
             opciones = [f"{r.get(COL_ID_SERV, '')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado.iterrows()]
             if opciones:
-                elegido = str_lit.selectbox("Seleccionar servicio para descargar PDF", options=opciones, key="sel_central")
+                elegido = str_lit.selectbox("Seleccionar servicio para descargar PDF individual", options=opciones, key="sel_obs")
                 if elegido:
                     id_sel = elegido.split(" - ")[0]
                     row_data = data[data[COL_ID_SERV].astype(str) == id_sel].iloc[0]
-                    str_lit.markdown("---")
                     
-                    if str_lit.button("🚀 Generar PDF con Constancias"):
+                    if str_lit.button("🚀 Generar PDF Individual"):
                         with str_lit.spinner("Generando PDF..."):
                             pdf_path = generar_pdf_servicio(row_data)
                             with open(pdf_path, "rb") as f: pdf_bytes = f.read()
@@ -987,6 +1011,13 @@ def vista_central():
                             nombre_archivo = f"Contratacion_Servicio_Adicional_{nombre_ev}_{fecha_formateada}.pdf".replace(" ", "_")
                             str_lit.download_button(label=f"📥 Descargar {nombre_archivo}", data=pdf_bytes, file_name=nombre_archivo, mime="application/pdf")
 
+    with tab_enlaces:
+        str_lit.subheader("Estado de Envío de Enlaces")
+        if not data.empty:
+            df_enlaces = data[[COL_ID_SERV, COL_TIPO_EV, COL_FECHA, COL_ENLACE_ASIST]].copy()
+            df_enlaces[COL_ENLACE_ASIST] = df_enlaces[COL_ENLACE_ASIST].apply(lambda x: "✅ Enviado" if str(x).strip() != "" else "⏳ Pendiente")
+            str_lit.dataframe(df_enlaces, use_container_width=True)
+
     with tab_asist:
         str_lit.subheader("Listado de Planillas de Asistencia")
         if not df_asist.empty and COL_ID_SERV in df_asist.columns:
@@ -997,7 +1028,7 @@ def vista_central():
                 df_resumen = df_agrupado
                 df_resumen[COL_TIPO_EV] = "Evento Desconocido"; df_resumen[COL_FECHA] = ""; df_resumen[COL_UBI] = ""
 
-            busqueda_asist = str_lit.text_input("🔍 Buscar evento por nombre:", key="busq_asist_central")
+            busqueda_asist = str_lit.text_input("🔍 Buscar evento por nombre:", key="busq_asist_obs")
             if busqueda_asist:
                 df_resumen = df_resumen[df_resumen[COL_TIPO_EV].astype(str).str.contains(busqueda_asist, case=False, na=False)]
 
@@ -1006,7 +1037,7 @@ def vista_central():
             str_lit.markdown("---")
             
             opciones_eventos = [f"{r.get(COL_ID_SERV, '')} | {r.get(COL_TIPO_EV, 'Evento')} - {r.get(COL_FECHA, '')} ({r.get(COL_UBI, '')})" for _, r in df_resumen.iterrows()]
-            evento_elegido = str_lit.selectbox("Seleccioná el evento para descargar la planilla:", options=opciones_eventos, key="sel_asist_central")
+            evento_elegido = str_lit.selectbox("Seleccioná el evento para descargar la planilla:", options=opciones_eventos, key="sel_asist_obs")
             
             if evento_elegido:
                 id_sel_asist = evento_elegido.split(" | ")[0]
@@ -1032,7 +1063,7 @@ def vista_central():
         else:
             str_lit.info("Aún no hay registros de asistencia.")
 
-# --- PANEL DE ADMINISTRACIÓN CON DASHBOARD ---
+# --- PANEL DE ADMINISTRACIÓN ---
 def vista_admin():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Administrador General")
     saludo = obtener_saludo(nombre_efectivo)
@@ -1055,8 +1086,6 @@ def vista_admin():
     if str_lit.sidebar.button("🚪 Cerrar Sesión"): str_lit.session_state.autenticado = False; str_lit.rerun()
 
     str_lit.markdown(f"### {saludo}")
-    
-    # ELIMINADO EL TÍTULO GIGANTE, REEMPLAZADO POR SUBTÍTULO
     str_lit.markdown("#### 📊 Resumen General")
     
     data = cargar_servicios_df()
@@ -1118,8 +1147,41 @@ def vista_admin():
                 )
                 df_filtrado = df_filtrado[mask]
 
-            str_lit.dataframe(df_filtrado, use_container_width=True)
+            # Tabla interactiva con checks para consolidado
+            df_filtrado_editor = df_filtrado.reset_index(drop=True)
+            df_filtrado_editor.insert(0, "Unificar", False)
             
+            edited_df = str_lit.data_editor(
+                df_filtrado_editor, 
+                key="editor_admin", 
+                hide_index=True,
+                column_config={
+                    "Unificar": str_lit.column_config.CheckboxColumn(
+                        "Unificar",
+                        help="Seleccione para incluir en el PDF consolidado",
+                        default=False,
+                    )
+                },
+                disabled=[col for col in df_filtrado_editor.columns if col != "Unificar"],
+                use_container_width=True
+            )
+
+            df_seleccionados = edited_df[edited_df["Unificar"] == True]
+
+            if len(df_seleccionados) > 0:
+                if str_lit.button("📦 Generar PDF Consolidado"):
+                    with str_lit.spinner("Generando PDF..."):
+                        pdf_path = generar_pdf_consolidado(df_seleccionados)
+                        with open(pdf_path, "rb") as f: pdf_bytes = f.read()
+                        os.unlink(pdf_path)
+                        str_lit.download_button(
+                            label="📥 Descargar Servicios_Consolidados.pdf", 
+                            data=pdf_bytes, 
+                            file_name="Servicios_Consolidados.pdf", 
+                            mime="application/pdf"
+                        )
+
+            str_lit.markdown("---")
             opciones = [f"{r.get(COL_ID_SERV, '')} - {r.get(COL_DEP, '')} ({r.get(COL_FECHA, '')})" for _, r in df_filtrado.iterrows()]
             if opciones:
                 elegido = str_lit.selectbox("Seleccionar servicio para despachar", options=opciones, key="sel_exp")
@@ -1331,8 +1393,8 @@ elif not str_lit.session_state.autenticado:
     login()
 elif str_lit.session_state.rol == "Administrador":
     vista_admin()
-elif str_lit.session_state.rol == "Central":
-    vista_central()
+elif str_lit.session_state.rol == "Observador":
+    vista_observador()
 elif modo_mantenimiento_activo:
     str_lit.markdown("""<div style="text-align: center; padding: 4rem 2rem;"><h1>🛠️ SITIO EN MANTENIMIENTO</h1><p style="font-size: 1.2rem; color: #555;">Por favor intente nuevamente en unos momentos.</p></div>""", unsafe_allow_html=True)
     if str_lit.button("🚪 Cerrar Sesión"): str_lit.session_state.autenticado = False; str_lit.rerun()
