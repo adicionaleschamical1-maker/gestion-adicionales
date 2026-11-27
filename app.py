@@ -19,7 +19,7 @@ import streamlit.components.v1 as components
 import time
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-str_lit.set_page_config(page_title="UR V - Adicionales", layout="centered", page_icon="👮")
+str_lit.set_page_config(page_title="UR V - Adicionales", layout="wide", page_icon="👮")
 
 # --- CONSTANTES DE COLUMNAS ---
 COL_ID_SERV = "ID Servicio"
@@ -33,63 +33,92 @@ COL_ESTADO_ASIST = "Estado Asistencia"
 COL_ENLACE_ASIST = "Enlace Asistencia"
 COL_ORGANIZADOR = "Organizador"
 
-# --- ESTILOS VISUALES ---
+# --- ESTILOS VISUALES (ESTILO WEB APP MODERNA Y COMPACTA) ---
 str_lit.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    * { font-family: 'Inter', sans-serif; }
+    
+    /* Forzamos el fondo y la fuente global */
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+    }
     .stApp { background-color: #F4F6F9; }
     
+    /* Header más compacto */
     .header-container {
         background: linear-gradient(135deg, #002060, #002a80); color: white;
-        padding: 1.5rem 1rem; border-radius: 16px; text-align: center;
-        margin-bottom: 2rem; box-shadow: 0 8px 20px rgba(0,32,96,0.2);
-        border-bottom: 5px solid #8B1E1E;
+        padding: 1.2rem 1rem; border-radius: 12px; text-align: center;
+        margin-bottom: 1.5rem; box-shadow: 0 4px 15px rgba(0,32,96,0.2);
+        border-bottom: 4px solid #8B1E1E;
     }
     .badge-chamical {
-        background: #8B1E1E; display: inline-block; padding: 6px 25px;
-        border-radius: 50px; font-size: 0.85rem; font-weight: 800; color: white;
-        box-shadow: 0 4px 10px rgba(139,30,30,0.4); margin-top: 8px; letter-spacing: 1px;
+        background: #8B1E1E; display: inline-block; padding: 4px 15px;
+        border-radius: 20px; font-size: 0.75rem; font-weight: 800; color: white;
+        letter-spacing: 1px;
     }
+    
+    /* Títulos de sección */
+    h1, h2, h3 { color: #002060 !important; font-weight: 700 !important; }
 
+    /* Tarjetas KPI Compactas y Elegantes */
     .kpi-card {
-        background: #FFFFFF; border-radius: 10px; padding: 12px 8px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-left: 4px solid #002060;
-        text-align: center; height: 100%;
+        background: #FFFFFF; border-radius: 8px; padding: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-left: 3px solid #002060;
+        text-align: center; display: flex; flex-direction: column; justify-content: center;
+        height: 100px; /* Altura fija para que sean uniformes */
     }
-    .kpi-title { font-size: 0.7rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.1; }
-    .kpi-value { font-size: 1.3rem; font-weight: 800; color: #002060; margin-top: 5px; word-wrap: break-word; }
+    .kpi-title { font-size: 0.65rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-value { font-size: 1.4rem; font-weight: 800; color: #002060; margin-top: 2px; }
+    
+    /* Tarjetas de alerta */
     .kpi-alert { border-left-color: #C62828; }
     .kpi-alert .kpi-value { color: #C62828; }
 
-    div.stExpander, div.stForm, div[data-testid="stDataFrame"] {
-        background: #FFFFFF; border-radius: 12px; padding: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid #EAEAEA;
+    /* Contenedores de Tabs y Tablas más limpios */
+    div.stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+    }
+    div.stTabs [data-baseweb="tab"] {
+        background-color: #FFFFFF;
+        border-radius: 8px 8px 0 0;
+        padding: 10px 20px;
+        box-shadow: 0 -2px 5px rgba(0,0,0,0.02);
+    }
+    div.stTabs [aria-selected="true"] {
+        background-color: #002060 !important;
+        color: white !important;
+        font-weight: bold !important;
     }
     
-    input, textarea, select { border-radius: 8px !important; border: 1px solid #D1D5DB !important; }
-    
+    /* Inputs y Botones */
+    input, textarea, select { border-radius: 6px !important; border: 1px solid #D1D5DB !important; }
     .stButton > button, div.stFormSubmitButton > button {
-        border-radius: 8px !important; font-weight: 600 !important;
+        border-radius: 6px !important; font-weight: 600 !important;
         background-color: #002060 !important; color: white !important;
-        border: none !important; padding: 8px 20px !important;
-        box-shadow: 0 4px 6px rgba(0,32,96,0.2) !important;
+        border: none !important; padding: 6px 15px !important;
+        box-shadow: 0 2px 4px rgba(0,32,96,0.1) !important;
         transition: all 0.2s !important;
     }
     .stButton > button:hover { background-color: #002a80 !important; }
 
+    /* Montos */
     .monto-box {
-        background: #E8F5E9; border-left: 5px solid #2E7D32; padding: 15px;
-        border-radius: 8px; margin-top: 15px; text-align: center;
-        box-shadow: 0 4px 10px rgba(46,125,50,0.1);
+        background: #E8F5E9; border-left: 4px solid #2E7D32; padding: 10px;
+        border-radius: 6px; margin-top: 10px; text-align: center;
     }
-    .monto-total { font-size: 1.5rem; font-weight: 800; color: #1B5E20; }
+    .monto-total { font-size: 1.3rem; font-weight: 800; color: #1B5E20; }
+    
+    /* Mensajes de alerta (st.info, st.success) */
+    div[data-testid="stNotification"] {
+        padding: 10px; border-radius: 6px; font-size: 0.85rem;
+    }
     </style>
+    
     <div class="header-container">
-        <div style="font-size: 2.5rem; margin-bottom: 5px;">👮‍♂️</div>
-        <div style="font-size: 1.1rem; font-weight: 800; letter-spacing: 1px;">POLICÍA DE LA PROVINCIA DE LA RIOJA</div>
-        <div style="font-size: 0.95rem; font-weight: 700; color: #ffd700; margin: 5px 0;">UNIDAD REGIONAL QUINTA - CHAMICAL</div>
-        <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; opacity: 0.9;">OFICINA DE ADICIONALES</div>
+        <div style="font-size: 2rem; margin-bottom: 2px;">👮‍♂️</div>
+        <div style="font-size: 1rem; font-weight: 800; letter-spacing: 1px;">POLICÍA DE LA PROVINCIA DE LA RIOJA</div>
+        <div style="font-size: 0.85rem; font-weight: 700; color: #ffd700;">UNIDAD REGIONAL QUINTA - CHAMICAL</div>
         <div class="badge-chamical">SISTEMA DE GESTIÓN</div>
     </div>
 """, unsafe_allow_html=True)
@@ -436,7 +465,17 @@ def generar_pdf_servicio(row: pd.Series) -> str:
 
     seccion_titulo("2. RECURSOS Y MÓDULOS ASIGNADOS")
     monto_val = row.get('Monto Total', 0)
-    monto_str = f"${float(monto_val):,.2f}" if monto_val else "$0.00"
+    
+    # Limpiamos el string del monto antes de convertirlo a número
+    try:
+        if isinstance(monto_val, str):
+            monto_limpio = monto_val.replace("$", "").replace(".", "").replace(",", ".").strip()
+            monto_val = float(monto_limpio)
+        else:
+            monto_val = float(monto_val)
+        monto_str = f"${monto_val:,.2f}"
+    except Exception:
+        monto_str = str(monto_val) if monto_val else "$0.00"
     
     js_simple = int(float(row.get('Jefes Simples', 0) or 0))
     subs_simple = int(float(row.get('Subalternos Simples', 0) or 0))
@@ -485,46 +524,28 @@ def generar_pdf_servicio(row: pd.Series) -> str:
     link_pdf("Comprobante de Pago", url_comp)
     link_pdf("Contrato", url_cont)
 
-    # --- AQUÍ VOLVEMOS A PONER LA FUNCIÓN PARA INCRUSTAR IMÁGENES ---
     def incrustar_imagen(titulo, url):
         if not url or not str(url).startswith("http"): return
         img_data = descargar_imagen_drive(url)
         if not img_data: return
-        
         try:
             img = Image.open(img_data)
             if img.mode in ("RGBA", "P"): img = img.convert("RGB")
-            
-            pdf.add_page()
-            pdf.set_font("helvetica", "B", 12)
-            pdf.set_text_color(0, 32, 96)
-            pdf.cell(0, 10, f"ANEXO: {titulo.upper()}", ln=True, align="center")
-            pdf.ln(5)
-            
-            ancho_max = 190
-            ancho_img, alto_img = img.size
-            proporcion = alto_img / ancho_img
+            pdf.add_page(); pdf.set_font("helvetica", "B", 12); pdf.set_text_color(0, 32, 96)
+            pdf.cell(0, 10, f"ANEXO: {titulo.upper()}", ln=True, align="center"); pdf.ln(5)
+            ancho_max = 190; ancho_img, alto_img = img.size; proporcion = alto_img / ancho_img
             alto_render = ancho_max * proporcion
-            
-            if alto_render > 250:
-                alto_render = 250
-                ancho_max = alto_render / proporcion
-
+            if alto_render > 250: alto_render = 250; ancho_max = alto_render / proporcion
             x = (210 - ancho_max) / 2
-            tmp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-            img.save(tmp_img.name, format="JPEG")
-            
-            pdf.image(tmp_img.name, x=x, y=pdf.get_y(), w=ancho_max, h=alto_render)
-            os.unlink(tmp_img.name)
+            tmp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg"); img.save(tmp_img.name, format="JPEG")
+            pdf.image(tmp_img.name, x=x, y=pdf.get_y(), w=ancho_max, h=alto_render); os.unlink(tmp_img.name)
         except Exception as e:
             logger.error(f"Error incrustando imagen: {e}")
-            pdf.set_font("helvetica", "I", 10)
-            pdf.cell(0, 10, " [ No se pudo incrustar la imagen ] ", ln=True, align="center")
+            pdf.set_font("helvetica", "I", 10); pdf.cell(0, 10, " [ No se pudo incrustar la imagen ] ", ln=True, align="center")
 
     if url_comp.startswith("http"): incrustar_imagen("Comprobante de Pago", url_comp)
     if url_hab.startswith("http"): incrustar_imagen("Habilitación Municipal", url_hab)
     if url_cont.startswith("http"): incrustar_imagen("Contrato", url_cont)
-    # ------------------------------------------------------------------
 
     tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(tmp_pdf.name)
@@ -639,7 +660,7 @@ def vista_dependencia():
     counter = str_lit.session_state.form_counter
 
     with tab1:
-        str_lit.header("Solicitud de Servicio Adicional")
+        str_lit.subheader("Solicitud de Servicio Adicional")
         if f"fecha_elegida_{counter}" not in str_lit.session_state: str_lit.session_state[f"fecha_elegida_{counter}"] = False
         with str_lit.form(f"form_fecha_{counter}"):
             tipo_cant_dias = str_lit.radio("Modalidad de días:", ["1 Día único", "2 Días específicos"], horizontal=True, key=f"tipo_dias_{counter}")
@@ -745,13 +766,13 @@ def vista_dependencia():
                             
                             html_monto = f"""
                                 <div class="monto-box">
-                                    <div style="font-size: 0.9rem; color: #555; font-weight: bold; margin-bottom: 10px;">TOTALES ESTIMADOS</div>
-                                    <div style="display: flex; justify-content: space-around; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
-                                        <div><div style="font-size: 0.8rem; color: #666;">Día 1</div><div style="font-size: 1.2rem; font-weight: bold; color: #2E7D32;">${monto_d1:,.2f}</div></div>
-                                        <div><div style="font-size: 0.8rem; color: #666;">Día 2</div><div style="font-size: 1.2rem; font-weight: bold; color: #2E7D32;">${monto_d2:,.2f}</div></div>
+                                    <div style="font-size: 0.8rem; color: #555; font-weight: bold; margin-bottom: 5px;">TOTALES ESTIMADOS</div>
+                                    <div style="display: flex; justify-content: space-around; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">
+                                        <div><div style="font-size: 0.7rem; color: #666;">Día 1</div><div style="font-size: 1rem; font-weight: bold; color: #2E7D32;">${monto_d1:,.2f}</div></div>
+                                        <div><div style="font-size: 0.7rem; color: #666;">Día 2</div><div style="font-size: 1rem; font-weight: bold; color: #2E7D32;">${monto_d2:,.2f}</div></div>
                                     </div>
-                                    <div style="font-size: 1.4rem; font-weight: 800; color: #1B5E20;">TOTAL: ${monto_total:,.2f}</div>
-                                    <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos}</div>
+                                    <div style="font-size: 1.2rem; font-weight: 800; color: #1B5E20;">TOTAL: ${monto_total:,.2f}</div>
+                                    <div style="font-size: 0.7rem; color: #666; margin-top: 2px;">Jefes: {total_jefes} | Subalternos: {total_subalternos}</div>
                                 </div>
                             """
                         else:
@@ -764,9 +785,9 @@ def vista_dependencia():
                             
                             html_monto = f"""
                                 <div class="monto-box">
-                                    <div style="font-size: 0.9rem; color: #555; font-weight: bold;">TOTAL ESTIMADO</div>
+                                    <div style="font-size: 0.8rem; color: #555; font-weight: bold;">TOTAL ESTIMADO</div>
                                     <div class="monto-total">${monto_total:,.2f}</div>
-                                    <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">Jefes: {total_jefes} | Subalternos: {total_subalternos}</div>
+                                    <div style="font-size: 0.7rem; color: #666; margin-top: 2px;">Jefes: {total_jefes} | Subalternos: {total_subalternos}</div>
                                 </div>
                             """
                         
@@ -882,7 +903,7 @@ def vista_dependencia():
         if not data.empty and COL_DEP in data.columns:
             str_lit.dataframe(data[data[COL_DEP].astype(str) == str(str_lit.session_state.dependencia)], use_container_width=True)
 
-# --- NUEVA VISTA DE LA CENTRAL (SOLO LECTURA) ---
+# --- VISTA DE LA CENTRAL (SOLO LECTURA) ---
 def vista_central():
     nombre_efectivo = str_lit.session_state.get("nombre_apellido", "Central")
     saludo = obtener_saludo(nombre_efectivo)
@@ -892,12 +913,13 @@ def vista_central():
     if str_lit.sidebar.button("🚪 Cerrar Sesión"): str_lit.session_state.autenticado = False; str_lit.rerun()
 
     str_lit.markdown(f"### {saludo}")
-    str_lit.title("🏢 Panel de la Central - Solo Lectura")
+    
+    # ELIMINAMOS EL TÍTULO GIGANTE Y PONEMOS UN SUBTÍTULO
+    str_lit.markdown("#### 📊 Resumen General")
     
     data = cargar_servicios_df()
     df_asist = cargar_asistencia_digital_df()
 
-    # --- DASHBOARD DE KPIs (Vista Central) ---
     total_servicios = len(data) if not data.empty else 0
     total_monto = 0
     pendientes_asist = 0
@@ -1033,7 +1055,9 @@ def vista_admin():
     if str_lit.sidebar.button("🚪 Cerrar Sesión"): str_lit.session_state.autenticado = False; str_lit.rerun()
 
     str_lit.markdown(f"### {saludo}")
-    str_lit.title("📋 Control General y Despacho a Central")
+    
+    # ELIMINADO EL TÍTULO GIGANTE, REEMPLAZADO POR SUBTÍTULO
+    str_lit.markdown("#### 📊 Resumen General")
     
     data = cargar_servicios_df()
     df_asist = cargar_asistencia_digital_df()
@@ -1071,7 +1095,7 @@ def vista_admin():
     ])
 
     with tab_exp:
-        str_lit.subheader("Gestión de Expedientes (Central)")
+        str_lit.subheader("Gestión de Expedientes")
         if not data.empty:
             busqueda = str_lit.text_input("🔍 Buscar por ID, Evento, Organizador o Dependencia:", key="busq_exp")
             
@@ -1308,7 +1332,6 @@ elif not str_lit.session_state.autenticado:
 elif str_lit.session_state.rol == "Administrador":
     vista_admin()
 elif str_lit.session_state.rol == "Central":
-    # AQUI ESTA LA MAGIA: Si el rol es Central, va a la vista de solo lectura.
     vista_central()
 elif modo_mantenimiento_activo:
     str_lit.markdown("""<div style="text-align: center; padding: 4rem 2rem;"><h1>🛠️ SITIO EN MANTENIMIENTO</h1><p style="font-size: 1.2rem; color: #555;">Por favor intente nuevamente en unos momentos.</p></div>""", unsafe_allow_html=True)
